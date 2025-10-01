@@ -75,44 +75,14 @@ This keeps our development cycles clear, minimal, and scalable.
 
 ## Agent Workflow
 
-1. **Architect Agent** sets direction.  
-2. **Builder Agent** implements features.  
-3. **Test Agent** validates correctness.  
-4. **Infra Agent** ensures portability.  
-5. **DX Agent** polishes ergonomics.  
-6. **Docs Agent** communicates updates.  
-7. **Community Agent** gathers input → loops back to Architect.  
+The development loop is designed to be **minimal and cyclical**, just like Coda CLI itself:
 
-This forms a **minimal orchestration loop**, just like the tool itself.
-
----
-
-## GitHub Labels Mapping
-
-Use labels to match issues/PRs to agents:
-
-- `arch` → Architect Agent  
-- `build` → Builder Agent  
-- `test` → Test & Quality Agent  
-- `infra` → Infra Agent  
-- `dx` → Developer Experience Agent  
-- `docs` → Docs Agent  
-- `community` → Community Agent  
-
----
-
-## How to Contribute
-
-1. Look for issues tagged with an **Agent label**.  
-2. Comment to take ownership.  
-3. Submit a PR linked to the issue.  
-4. The relevant Agent domain will review and merge.  
-
----
-
-## Long-Term Vision
-
-This team structure is intentionally **minimal and scalable**.  
-New roles (e.g., Security Agent, Workflow Agent) can be added as needed, while preserving the same simple orchestration cycle.
-
----
+```mermaid
+flowchart LR
+    A[🧭 Architect Agent] --> B[🛠 Builder Agent]
+    B --> C[✅ Test & Quality Agent]
+    C --> D[⚙️ Infra Agent]
+    D --> E[💡 DX Agent]
+    E --> F[📖 Docs Agent]
+    F --> G[🌐 Community Agent]
+    G --> A
