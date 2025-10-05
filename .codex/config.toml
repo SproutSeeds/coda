@@ -1,0 +1,35 @@
+model = "gpt-5-codex"
+model_reasoning_effort = "high"
+[projects."/Users/codymitchell/Documents/code/coda"]
+trust_level = "trusted"
+
+
+[mcp_servers.brightdata]
+command = "npx"
+args = [
+  "-y",
+  "@brightdata/mcp",
+  "--stdio"
+]
+env = { API_TOKEN = "c5edb3b43bd6ebde1d818710d1224b552ffdada9b5fb8531210048b83901b0b9" }
+
+[mcp_servers.context7]
+command = "npx"
+args = ["-y", "@upstash/context7-mcp", "--api-key", "ctx7sk-6c080b45-a981-4fa3-a002-172c7924e38f"]
+
+[mcp_servers.playwright]
+command = "npx"
+args = ["-y", "@playwright/mcp@latest"]
+
+[mcp_servers.screenshot-full-page-mcp]
+command = "node"
+args = ["/Users/codymitchell/documents/code/mcp-servers/ScreenshotMCP/index.js"]
+
+[mcp_servers.firecrawl]
+command = "npx"
+args = [
+  "-y",
+  "firecrawl-mcp",
+  "--stdio"
+]
+env = { FIRECRAWL_API_KEY = "fc-bd4bd44c5dd943fd8ba14ac8eba6aa26" }
