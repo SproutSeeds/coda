@@ -1,0 +1,34 @@
+model = "gpt-5-codex"
+model_reasoning_effort = "high"
+[projects."/Users/you/path/to/coda"]
+trust_level = "trusted"
+
+[mcp_servers.brightdata]
+command = "npx"
+args = [
+  "-y",
+  "@brightdata/mcp",
+  "--stdio"
+]
+env = { API_TOKEN = "brightdata-api-token" }
+
+[mcp_servers.context7]
+command = "npx"
+args = ["-y", "@upstash/context7-mcp", "--api-key", "context7-api-key"]
+
+[mcp_servers.playwright]
+command = "npx"
+args = ["-y", "@playwright/mcp@latest"]
+
+[mcp_servers.screenshot-full-page-mcp]
+command = "node"
+args = ["/absolute/path/to/mcp-servers/ScreenshotMCP/index.js"]
+
+[mcp_servers.firecrawl]
+command = "npx"
+args = [
+  "-y",
+  "firecrawl-mcp",
+  "--stdio"
+]
+env = { FIRECRAWL_API_KEY = "firecrawl-api-key" }
