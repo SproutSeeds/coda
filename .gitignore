@@ -1,0 +1,52 @@
+# Environment variables
+.env
+.env.local
+.env.development
+.env.production
+.env.*
+!.env.example
+
+# Secrets & credentials
+*.key
+*.pem
+*.p12
+*.cert
+
+# Vercel / Next.js build artifacts
+.next/
+out/
+.vercel/
+
+# Node tooling
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.DS_Store
+
+# Coverage & build outputs
+coverage/
+dist/
+build/
+.tmp/
+.cache/
+
+# Tooling state
+.turbo/
+
+# Logs
+**/*.log
+logs/
+
+# Misc
+Thumbs.db
+
+# Codex CLI runtime artifacts
+.codex/auth.json
+.codex/history.jsonl
+.codex/log/
+.codex/sessions/
+
+# Codex configuration (contains API keys)
+.codex/config.toml
