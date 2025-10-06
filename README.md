@@ -53,6 +53,21 @@ SPECIFY PROCESS:
 10. **Vercel configuration**: ensure project connected with auto previews, postbuild migration guard, and Vercel Cron for idea purge.
 11. **Git hygiene**: `.gitignore` already excludes `.codex/config.toml` and `.env*`; do not commit secrets.
 
+### Dev Notes – Resend SMTP
+
+For local testing with Resend (real emails):
+
+```
+EMAIL_SERVER=smtp.resend.com
+EMAIL_PORT=587
+EMAIL_USER=resend
+EMAIL_PASSWORD=<RESEND_API_KEY>
+EMAIL_FROM="Coda <login@codacli.com>"
+ENABLE_DEV_LOGIN=true
+```
+
+Set `ENABLE_DEV_LOGIN=false` in production to hide the owner-token shortcut.
+
 ## App Overview
 - **Dashboard**: `/dashboard/ideas` lists ideas with search, optimistic editing, delete + 10s undo.
 - **Authentication**: Auth.js with GitHub OAuth + passwordless email (magic-link); optional owner-token credentials login is available locally when `ENABLE_DEV_LOGIN=true`.
