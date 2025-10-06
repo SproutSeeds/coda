@@ -1,5 +1,6 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+
+import { auth } from "@/lib/auth/auth";
 
 export type SessionUser = {
   id: string;
@@ -7,15 +8,17 @@ export type SessionUser = {
   name?: string | null;
 };
 
-const COOKIE_NAME = "coda-user";
-
 export async function getCurrentUser(): Promise<SessionUser | null> {
-  const store = await cookies();
-  const cookieUser = store.get(COOKIE_NAME)?.value;
-  if (cookieUser) {
-    return { id: cookieUser };
+  const session = await auth();
+  const user = session?.user;
+  if (!user?.id) {
+    return null;
   }
-  return null;
+  return {
+    id: user.id,
+    email: user.email ?? null,
+    name: user.name ?? null,
+  };
 }
 
 export async function requireUser(): Promise<SessionUser> {
@@ -24,14 +27,4 @@ export async function requireUser(): Promise<SessionUser> {
     redirect("/login");
   }
   return user;
-}
-
-export async function signIn(userId: string) {
-  const store = await cookies();
-  store.set(COOKIE_NAME, userId, { path: "/", httpOnly: false });
-}
-
-export async function signOut() {
-  const store = await cookies();
-  store.delete(COOKIE_NAME);
 }

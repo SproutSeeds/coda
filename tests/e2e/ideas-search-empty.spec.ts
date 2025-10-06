@@ -1,11 +1,10 @@
 import { expect, test } from "@playwright/test";
 
+import { loginWithOwnerToken } from "./utils/auth";
+
 test.describe("Coda search", () => {
   test("shows empty state and latency guideline", async ({ page }) => {
-    await page.context().addCookies([
-      { name: "coda-user", value: "owner-token", domain: "localhost", path: "/" },
-    ]);
-    await page.goto("/dashboard/ideas");
+    await loginWithOwnerToken(page);
     await page.getByTestId("ideas-search-input").waitFor();
 
     await page.getByTestId("ideas-search-input").fill("nonexistent keyword");

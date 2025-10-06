@@ -17,17 +17,17 @@
 ```
 
 ## Summary
-Coda MVP delivers a single-user workspace for capturing, searching, and pruning project ideas. The plan enforces the constitution’s Next.js App Router stack, ensures performant search via Postgres trigram indexes, codifies undo flows backed by soft deletes, and prepares CI/CD plus observability hooks so `/tasks` can generate an execution-ready backlog.
+Coda MVP delivers a single-user workspace for capturing, searching, and pruning project ideas. The plan enforces the constitution’s Next.js App Router stack, ensures performant search via Postgres trigram indexes, codifies undo flows backed by soft deletes, and prepares CI/CD plus observability hooks so `/tasks` can generate an execution-ready backlog. Upcoming auth work adds passwordless email magic-link sign-in (Auth.js Email provider + Drizzle adapter) alongside GitHub OAuth without regressing rate limiting or analytics.
 
 ## Technical Context
 **Language/Version**: TypeScript 5.x targeting Next.js 14 App Router  
-**Primary Dependencies**: Next.js (App Router RSC + Server Actions), Tailwind CSS + shadcn/ui, Framer Motion, Auth.js (Credentials + GitHub OAuth), Drizzle ORM + drizzle-zod, Upstash Redis rate limiter, Vercel Analytics  
+**Primary Dependencies**: Next.js (App Router RSC + Server Actions), Tailwind CSS + shadcn/ui, Framer Motion, Auth.js (GitHub OAuth + Email magic link + dev Credentials), Drizzle ORM + drizzle-zod, Upstash Redis rate limiter, Vercel Analytics  
 **Storage**: PostgreSQL (Vercel Postgres in prod, Neon for local dev) with Drizzle migrations  
 **Testing**: Vitest (unit), Playwright (e2e smoke + undo), Lighthouse CI budget checks  
 **Target Platform**: Vercel-hosted web application with preview + production environments  
 **Project Type**: Single-tenant Next.js App Router web app  
 **Performance Goals**: LCP < 2.5 s, CLS ~0, TTI ≤ 2 s on mid-tier 4G; server responses <300 ms create, <400 ms search  
-**Constraints**: Authenticated access only; motion capped at 200 ms with prefers-reduced-motion fallbacks; undo window 10 s; Lighthouse ≥90 across categories; bcrypt cost ≥12; rate limiting per user/session  
+**Constraints**: Authenticated access only; motion capped at 200 ms with prefers-reduced-motion fallbacks; undo window 10 s; Lighthouse ≥90 across categories; bcrypt cost ≥12; rate limiting per user/session (including email link requests)  
 **Scale/Scope**: Single user per deployment, ≤1,000 active ideas, soft-deleted rows purged after 30 days
 
 ## Constitution Check
@@ -96,6 +96,7 @@ tests/
   - Server Actions/tests for create, edit, list, search, delete, undo
   - UI components (composer, list, search, empty/error states) with motion tokens
   - Auth gates and rate limiting middleware
+  - NEW: Auth.js email provider tables/migrations, magic-link send/verify Server Actions, and associated UI flows/tests
   - Vitest + Playwright coverage per acceptance criteria
   - CI updates and deployment scripts
 - Tasks follow TDD ordering: migrations → validators → tests → Server Actions → UI → analytics/observability.

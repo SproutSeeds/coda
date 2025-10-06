@@ -1,5 +1,20 @@
 {
   "version": "5",
   "dialect": "pg",
-  "entries": []
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1759721500000,
+      "tag": "0001_cold_zombie",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1759728730405,
+      "tag": "0000_even_iron_monger",
+      "breakpoints": true
+    }
+  ]
 }

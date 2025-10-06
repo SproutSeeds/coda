@@ -1,8 +1,6 @@
 import type { ReactNode } from "react";
 
-import { Button } from "@/components/ui/button";
-
-import { logoutAction } from "../(public)/login/actions";
+import { SignOutButton } from "./components/SignOutButton";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
@@ -13,11 +11,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <h1 className="text-lg font-semibold">Coda</h1>
             <p className="text-sm text-muted-foreground">Capture, search, and prune your personal idea backlog with Coda.</p>
           </div>
-          <form action={logoutAction}>
-            <Button type="submit" variant="ghost" size="sm">
-              Sign out
-            </Button>
-          </form>
+          <SignOutButton />
         </div>
       </header>
       <main className="mx-auto flex max-w-5xl flex-col gap-6 px-6 py-8">{children}</main>

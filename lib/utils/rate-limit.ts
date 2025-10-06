@@ -4,7 +4,15 @@ import { Redis } from "@upstash/redis";
 const WINDOW_MS = 5_000;
 const LIMIT = 1;
 
-const store = new Map<string, { remaining: number; reset: number }>();
+const globalStore = (globalThis as unknown as {
+  __codaRateLimitStore?: Map<string, { remaining: number; reset: number }>;
+}).__codaRateLimitStore;
+
+const store = globalStore ?? new Map<string, { remaining: number; reset: number }>();
+
+(globalThis as unknown as {
+  __codaRateLimitStore?: Map<string, { remaining: number; reset: number }>;
+}).__codaRateLimitStore = store;
 
 let upstashLimiter: Ratelimit | null = null;
 

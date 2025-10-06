@@ -8,20 +8,21 @@
   - `NEXTAUTH_SECRET`
   - `NEXTAUTH_URL` (e.g., http://localhost:3000 in dev)
   - `GITHUB_ID`, `GITHUB_SECRET`
-  - `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` (if using Upstash rate limiting)
+  - `EMAIL_SERVER`, `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASSWORD`, `EMAIL_FROM`
+  - `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`
 - Vercel Analytics enabled on the project
 
 ## Setup
 1. `cp .env.example .env.local` and populate required variables (placeholders already noted in both files).
 2. `pnpm install`
-3. `pnpm db:generate` to create SQL migrations for `ideas` (and optional `idea_search_audit`).
+3. `pnpm db:generate` to create SQL migrations for `ideas`, Auth.js tables, and optional `idea_search_audit`.
 4. `pnpm db:migrate` to apply migrations locally.
 5. (Optional) Seed data for demos using a forthcoming `scripts/seed-ideas.ts` helper.
 
 ## Running Locally
 - `pnpm dev` launches Next.js App Router on http://localhost:3000.
-- Visit http://localhost:3000/login and sign in with a seeded id (e.g. `owner-token`).
-- Create ideas via the Ideas dashboard; ensure Auth.js credentials configured (Credentials + GitHub OAuth) when wiring to production.
+- Visit http://localhost:3000/login and either request a magic link (requires `EMAIL_*` env vars) or continue with GitHub OAuth.
+- Create ideas via the Ideas dashboard; ensure Auth.js providers (GitHub + Email) and rate limiting envs are configured before deploying.
 - Use Vercel CLI or `pnpm exec vercel-env pull` to sync shared environment variables when needed.
 
 ## Testing & Quality Gates

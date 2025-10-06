@@ -82,6 +82,22 @@
 - [ ] T044 [P] Deploy to Vercel Preview, validate undo cron, analytics dashboards, and document release/rollback steps in quickstart.
 - [ ] T045 [P] Update root README and AGENTS instructions with Coda entry points and post-implementation notes.
 
+## Phase 3.6: Email Magic-Link Authentication (GitHub + Email parity)
+- [X] T046 Introduce Auth.js Drizzle adapter schema: add `users`, `accounts`, `sessions`, `verification_tokens` tables in `lib/db/schema.ts` and generate migration via `pnpm db:generate`; update data-model & plan with new entities.
+- [X] T047 Apply the generated migration locally with `pnpm db:migrate` and document rollback instructions in `quickstart.md`; ensure database helpers are aware of the new tables.
+- [ ] T048 [P] Author Vitest contract tests in `tests/contract/auth-email.test.ts` covering magic-link request (success, rate limit 429, unknown email), verification (valid token, expired token 410, reused token 409).
+- [X] T049 [P] Add unit tests for email transport helper in `tests/unit/email-transport.test.ts` mocking provider SDK and ensuring templated subject/body.
+- [X] T050 Implement Auth.js adapter wiring in `lib/auth/adapter.ts` using Drizzle; update `lib/auth/auth.ts` to register Email provider gated by env vars and keep `ENABLE_DEV_LOGIN` fallback.
+- [X] T051 Wire magic-link submission to NextAuth email provider (client `signIn('email')` + rate limit/analytics via provider hook); verification continues through NextAuth’s email callback.
+- [X] T052 Extend `/login` UI to surface email form, success/error states, and guard owner-token form behind `ENABLE_DEV_LOGIN`; ensure copy reflects GitHub + email options.
+- [X] T053 [P] Update Playwright suite with `tests/e2e/auth-email.spec.ts` simulating email flow via mock inbox (stream transport) and covering happy path, expired token, and rate limit messaging.
+- [X] T054 [P] Refresh existing Playwright specs to use shared auth helpers (`tests/e2e/utils/auth.ts`) so owner-token shortcut remains isolated to dev; ensure GitHub tests still pass.
+- [X] T055 Add SMTP/email provider configuration: document `EMAIL_SERVER`, `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASSWORD`, `EMAIL_FROM`, optional provider tokens; update `.env.example`, README, deployment guide, and quickstart runbooks.
+- [ ] T056 [P] Update CI and local scripts to load mail transport env vars (e.g., add `EMAIL_*` placeholders to GitHub Actions secrets guidance) and confirm `pnpm test` passes with mocked transport.
+- [X] T057 Ensure rate limiting + analytics cover email flow: update `lib/utils/rate-limit.ts` (if needed) and analytics helper to log `auth_magic_link_requested` / `auth_magic_link_verified`; add contract assertions.
+- [X] T058 [P] Re-run `.specify/scripts/bash/update-agent-context.sh codex` to capture email-auth stack changes and append results to `AGENTS.md`.
+- [ ] T059 Execute validation suite post-integration: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm playwright test`, `pnpm lighthouse`; attach evidence for new tests and ensure PROD env vars set in Vercel.
+
 ## Dependencies
 - T000 blocks entire workflow (must create `.specify/memory/scaffold.ok`).
 - T001–T004 depend on scaffold but precede all tests.

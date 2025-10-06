@@ -1,11 +1,10 @@
 import { expect, test } from "@playwright/test";
 
+import { loginWithOwnerToken } from "./utils/auth";
+
 test.describe("Coda CRUD flow", () => {
   test("allows authenticated user to create, edit, search, delete, and undo", async ({ page }) => {
-    await page.context().addCookies([
-      { name: "coda-user", value: "owner-token", domain: "localhost", path: "/" },
-    ]);
-    await page.goto("/dashboard/ideas");
+    await loginWithOwnerToken(page);
     await page.getByTestId("idea-title-input").waitFor();
 
     await page.getByTestId("idea-title-input").fill("Build realtime undo");
@@ -25,6 +24,10 @@ test.describe("Coda CRUD flow", () => {
     await page.getByRole("button", { name: /delete/i }).first().click();
     await page.waitForSelector("text=Idea deleted", { timeout: 5_000 });
     await page.getByRole("button", { name: /undo/i }).click();
-    await expect(page.getByText("Refined realtime undo")).toBeVisible();
+    const restoredCard = page
+      .getByTestId("idea-card")
+      .filter({ hasText: "Refined realtime undo" })
+      .first();
+    await expect(restoredCard).toBeVisible();
   });
 });

@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
 
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { getCurrentUser } from "@/lib/auth/session";
 
-import { loginAction } from "./actions";
+import { DevLoginForm } from "./components/DevLoginForm";
+import { EmailSignInForm } from "./components/EmailSignInForm";
+import { GitHubSignInButton } from "./components/GitHubSignInButton";
 
 export default async function LoginPage() {
   const user = await getCurrentUser();
@@ -13,25 +13,31 @@ export default async function LoginPage() {
     redirect("/dashboard/ideas");
   }
 
+  const enableDevLogin = process.env.ENABLE_DEV_LOGIN === "true";
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted">
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle>Sign in to Coda</CardTitle>
         </CardHeader>
-        <form action={loginAction}>
-          <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
+          <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Coda uses pre-provisioned identities for the MVP. Enter a known user id to continue.
+              Sign in with a one-time magic link or continue with GitHub.
             </p>
-            <Input name="userId" placeholder="owner-token" required />
-          </CardContent>
-          <CardFooter>
-            <Button type="submit" className="w-full">
-              Continue
-            </Button>
+            <EmailSignInForm />
+          </div>
+          <div className="space-y-2">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Or continue with</p>
+            <GitHubSignInButton />
+          </div>
+        </CardContent>
+        {enableDevLogin ? (
+          <CardFooter className="border-t bg-muted/40">
+            <DevLoginForm />
           </CardFooter>
-        </form>
+        ) : null}
       </Card>
     </div>
   );
