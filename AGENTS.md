@@ -8,6 +8,8 @@ Auto-generated from active feature plans. Last updated: 2025-10-05
 - Framer Motion for premium micro-interactions with prefers-reduced-motion support
 - Drizzle ORM + Drizzle Kit with drizzle-zod validation for PostgreSQL
 - Auth.js (Credentials + GitHub OAuth) authentication flows
+- TypeScript 5.x targeting Next.js 14 App Router + Next.js (App Router RSC + Server Actions), Tailwind CSS + shadcn/ui, Framer Motion, Auth.js (Credentials + GitHub OAuth), Drizzle ORM + drizzle-zod, Upstash Redis rate limiter, Vercel Analytics (001-build-a-lightweight)
+- PostgreSQL (Vercel Postgres in prod, Neon for local dev) with Drizzle migrations (001-build-a-lightweight)
 
 ## Project Structure
 ```
@@ -41,7 +43,9 @@ tests/
 - Favor Server Actions + RSC; keep client bundles lean.
 
 ## Recent Changes
-- (2025-10-05) IdeaVault MVP planning added idea CRUD/search scope, undo workflow, analytics instrumentation, and search/index research tasks.
+- 001-build-a-lightweight: Added TypeScript 5.x targeting Next.js 14 App Router + Next.js (App Router RSC + Server Actions), Tailwind CSS + shadcn/ui, Framer Motion, Auth.js (Credentials + GitHub OAuth), Drizzle ORM + drizzle-zod, Upstash Redis rate limiter, Vercel Analytics
+- 001-build-a-lightweight: Added TypeScript 5.x targeting Next.js 14 App Router + Next.js (App Router RSC + Server Actions), Tailwind CSS + shadcn/ui, Framer Motion, Auth.js (Credentials + GitHub OAuth), Drizzle ORM + drizzle-zod, Upstash Redis rate limiter, Vercel Analytics
+- 001-build-a-lightweight: Added TypeScript 5.x targeting Next.js 14 App Router + Next.js (App Router RSC + Server Actions), Tailwind CSS + shadcn/ui, Framer Motion, Auth.js (Credentials + GitHub OAuth), Drizzle ORM + drizzle-zod, Upstash Redis rate limiter, Vercel Analytics
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->

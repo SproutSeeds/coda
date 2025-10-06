@@ -1,7 +1,7 @@
-# IdeaVault Research Plan
+# Coda Research Plan
 
 ## Overview
-Target open questions that influence architecture, data safety, and UX polish for the IdeaVault MVP. Each item below tracks current status, planned investigation, and expected deliverables. Decisions marked Pending must be resolved before implementation tasks begin.
+Target open questions that influence architecture, data safety, and UX polish for the Coda MVP. Each item below tracks current status, planned investigation, and expected deliverables. Decisions marked Pending must be resolved before implementation tasks begin.
 
 ## Research Items
 

@@ -1,5 +1,5 @@
 # Title
-IdeaVault MVP Specification
+Coda MVP Specification
 
 **Feature Branch**: `001-build-a-lightweight`  
 **Created**: 2025-10-04  
@@ -9,10 +9,10 @@ IdeaVault MVP Specification
 ## Clarifications
 
 ### Session 2025-10-05
-- Q: Should IdeaVault allow users to edit an existing idea after it’s been created? → A: Yes — users can edit both title and notes anytime
+- Q: Should Coda allow users to edit an existing idea after it’s been created? → A: Yes — users can edit both title and notes anytime
 
 ## Summary
-IdeaVault enables authenticated individuals to capture and retrieve personal project ideas in a focused workspace. The MVP delivers quick idea capture, chronological review, lightweight search, and confident cleanup so users can remember and revisit inspiration without friction.
+Coda enables authenticated individuals to capture and retrieve personal project ideas in a focused workspace. The MVP delivers quick idea capture, chronological review, lightweight search, and confident cleanup so users can remember and revisit inspiration without friction.
 
 ## Goals
 - Provide a trustworthy personal idea vault where entries are private to the author.
@@ -111,7 +111,7 @@ IdeaVault enables authenticated individuals to capture and retrieve personal pro
 
 ## Rollout & Migration
 - **Dev**: Implement feature branch, seed test data, run automated suites locally.
-- **Preview (Vercel)**: Deploy behind feature flag `ideavault.enabled`; enable QA reviewers; monitor analytics.
+- **Preview (Vercel)**: Deploy behind feature flag `coda.enabled`; enable QA reviewers; monitor analytics.
 - **Production**: Gradually enable flag (10% increments) after verifying metrics and Lighthouse.
 - **Migrations**: Generate Drizzle migration for `ideas` table (and optional audit table), apply via postbuild migrate in production; include rollback script to drop new tables if needed.
 - **Cleanup**: Remove feature flag and audit-only logging once adoption metrics stable.
@@ -165,7 +165,7 @@ IdeaVault enables authenticated individuals to capture and retrieve personal pro
 - What retention policy should apply to soft-deleted ideas after the 30-day window (permanent deletion vs. archive)?
 
 ## Glossary
-- **IdeaVault**: The product experience for capturing and managing personal ideas.
+- **Coda**: The product experience for capturing and managing personal ideas.
 - **Idea Card**: Visual representation of an idea in the list, showing title and excerpted notes.
 - **Undo Snackbar**: Temporary message allowing the user to reverse a deletion within the defined window.
 - **Empty State**: UI shown when no ideas or search results exist for the current user.

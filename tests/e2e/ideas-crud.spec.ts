@@ -1,0 +1,30 @@
+import { expect, test } from "@playwright/test";
+
+test.describe("Coda CRUD flow", () => {
+  test("allows authenticated user to create, edit, search, delete, and undo", async ({ page }) => {
+    await page.context().addCookies([
+      { name: "coda-user", value: "owner-token", domain: "localhost", path: "/" },
+    ]);
+    await page.goto("/dashboard/ideas");
+    await page.getByTestId("idea-title-input").waitFor();
+
+    await page.getByTestId("idea-title-input").fill("Build realtime undo");
+    await page.getByTestId("idea-notes-input").fill("Undo window should be 10 seconds");
+    await page.getByRole("button", { name: /^save idea$/i }).click();
+
+    await page.waitForSelector("text=Build realtime undo", { timeout: 10_000 });
+
+    await page.getByRole("button", { name: /edit/i }).first().click();
+    await page.getByTestId("idea-edit-title-input").fill("Refined realtime undo");
+    await page.getByRole("button", { name: /save changes/i }).click();
+    await page.waitForSelector("text=Refined realtime undo", { timeout: 10_000 });
+
+    await page.getByTestId("ideas-search-input").fill("undo");
+    await page.waitForSelector("text=Refined realtime undo", { timeout: 10_000 });
+
+    await page.getByRole("button", { name: /delete/i }).first().click();
+    await page.waitForSelector("text=Idea deleted", { timeout: 5_000 });
+    await page.getByRole("button", { name: /undo/i }).click();
+    await expect(page.getByText("Refined realtime undo")).toBeVisible();
+  });
+});

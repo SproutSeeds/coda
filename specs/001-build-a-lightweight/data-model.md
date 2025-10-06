@@ -1,4 +1,4 @@
-# Data Model – IdeaVault MVP
+# Data Model – Coda MVP
 
 ## Entities
 

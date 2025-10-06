@@ -19,10 +19,14 @@ out/
 
 # Node tooling
 node_modules/
+/.pnp
+.pnp.*
+.yarn/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+.pnpm-debug.log*
 .DS_Store
 
 # Coverage & build outputs
@@ -38,9 +42,17 @@ build/
 # Logs
 **/*.log
 logs/
+test-results/
+playwright-report/
+blob-report/
+
+# Lighthouse / evidence artifacts
+evidence/
 
 # Misc
 Thumbs.db
+*.tsbuildinfo
+next-env.d.ts
 
 # Codex CLI runtime artifacts
 .codex/auth.json
