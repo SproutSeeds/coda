@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     "specify",
   ],
   openGraph: {
-    title: "C . — Where ideas go live",
+    title: "Add an idea, watch it grow.",
     description: "Where ideas go live with Coda’s fast, polished workspace.",
     url: "https://codacli.com",
     siteName: "Coda",
@@ -49,7 +49,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "C . — Where ideas go live",
+    title: "Add an idea, watch it grow.",
     description: "Where ideas go live.",
     images: ["/twitter-image"],
   },
