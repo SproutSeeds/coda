@@ -37,6 +37,7 @@ export function SignInSwitcher() {
           type="button"
           variant="outline"
           size="sm"
+          className="cursor-pointer border-border text-foreground hover:bg-transparent hover:text-foreground focus-visible:bg-transparent focus-visible:ring-0"
           onClick={() => setMode(mode === "magic" ? "password" : "magic")}
         >
           {current.toggleLabel}
