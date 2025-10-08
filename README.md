@@ -76,4 +76,17 @@ SPECIFY PROCESS:
 
 When Adding new features:
 - Specify command with feature specifics
-- plan command with 
+- plan command with
+
+## Deploying Changes Quickly
+When you’re ready to ship the current change set:
+
+```bash
+git add --pathspec-from-file=.codex/files-to-add.txt
+git add .codex/files-to-add.txt
+git commit -m "Refine Coda theme and idea save experience"
+git push origin main
+```
+
+Adjust the commit message as needed, but keep using the pathspec file to stage only the curated files.
+

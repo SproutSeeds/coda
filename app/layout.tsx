@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import { Toaster } from "@/components/ui/sonner";
@@ -16,8 +16,43 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://codacli.com"),
   title: "Coda",
-  description: "Capture, search, and refine personal product ideas with the Coda MVP.",
+  description: "Coda keeps your product ideas organized with fast search, undo safety nets, and polished flows built on our MVP platform.",
+  keywords: [
+    "Coda",
+    "product ideas",
+    "idea manager",
+    "startup toolkit",
+    "Next.js app",
+    "specify",
+  ],
+  openGraph: {
+    title: "Coda",
+    description: "Manage your product backlog with instant search, undo history, and elegant flows on the Coda MVP platform.",
+    url: "https://codacli.com",
+    siteName: "Coda",
+    locale: "en_US",
+    type: "website",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "Coda platform hero image",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Coda",
+    description: "Bring order to your idea backlog with magic-link auth, undo safety nets, and fast search.",
+    images: ["/twitter-image"],
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0f172a",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

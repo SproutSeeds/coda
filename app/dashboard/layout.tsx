@@ -1,9 +1,15 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
 
+import { getCurrentUser } from "@/lib/auth/session";
+
+import { hasPassword } from "./account/actions";
+import { PasswordReminder } from "./components/PasswordReminder";
 import { SignOutButton } from "./components/SignOutButton";
 
-export default function DashboardLayout({ children }: { children: ReactNode }) {
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const user = await getCurrentUser();
+  const needsPassword = user ? !(await hasPassword(user.id)) : false;
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b bg-card">
@@ -12,7 +18,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <Link href="/dashboard/ideas" className="text-lg font-semibold text-foreground hover:underline">
               Coda
             </Link>
-            <p className="text-sm text-muted-foreground">Capture, search, and prune your personal idea backlog with Coda.</p>
+            <p className="text-sm text-muted-foreground">Ideas go live.</p>
           </div>
           <div className="flex items-center gap-4">
             <Link href="/dashboard/account" className="text-sm font-medium text-primary hover:underline">
@@ -21,6 +27,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <SignOutButton />
           </div>
         </div>
+        <PasswordReminder needsPassword={needsPassword} />
       </header>
       <main className="mx-auto flex max-w-5xl flex-col gap-6 px-6 py-8">{children}</main>
     </div>

@@ -1,13 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { createIdeaAction } from "../actions";
+import { IdeaCelebration } from "./IdeaCelebration";
 
 export function IdeaComposer() {
   const router = useRouter();
@@ -15,6 +16,8 @@ export function IdeaComposer() {
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [celebrate, setCelebrate] = useState(false);
+  const celebrationTimeout = useRef<number | null>(null);
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -26,6 +29,16 @@ export function IdeaComposer() {
         setTitle("");
         setNotes("");
         router.refresh();
+        setCelebrate(true);
+        if (typeof window !== "undefined") {
+          if (celebrationTimeout.current) {
+            window.clearTimeout(celebrationTimeout.current);
+          }
+          celebrationTimeout.current = window.setTimeout(() => {
+            setCelebrate(false);
+            celebrationTimeout.current = null;
+          }, 900);
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to create idea";
         setError(message);
@@ -33,8 +46,17 @@ export function IdeaComposer() {
     });
   };
 
+  useEffect(() => {
+    return () => {
+      if (celebrationTimeout.current && typeof window !== "undefined") {
+        window.clearTimeout(celebrationTimeout.current);
+      }
+    };
+  }, []);
+
   return (
-    <Card className="mb-6">
+    <Card className="relative mb-6 overflow-hidden">
+      <IdeaCelebration active={celebrate} />
       <CardHeader>
         <CardTitle>Add idea</CardTitle>
       </CardHeader>
@@ -57,12 +79,12 @@ export function IdeaComposer() {
             required
           />
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          <div className="flex justify-end pt-2">
+            <Button type="submit" disabled={isPending}>
+              {isPending ? "Saving…" : "Save idea"}
+            </Button>
+          </div>
         </CardContent>
-        <CardFooter className="flex justify-end">
-          <Button type="submit" disabled={isPending}>
-            {isPending ? "Saving…" : "Save idea"}
-          </Button>
-        </CardFooter>
       </form>
     </Card>
   );

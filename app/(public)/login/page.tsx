@@ -19,9 +19,6 @@ export default async function LoginPage() {
       <Card className="w-full max-w-md border-border/80 shadow-lg">
         <CardHeader className="space-y-3 text-center">
           <CardTitle className="text-2xl font-semibold">Sign in to Coda</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Pick the option you prefer—magic link or password. Switch at any time.
-          </p>
         </CardHeader>
         <CardContent className="space-y-8 border-t border-border/60 px-6 py-8">
           <SignInSwitcher />

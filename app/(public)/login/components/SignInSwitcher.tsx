@@ -10,13 +10,13 @@ import { PasswordSignInForm } from "./PasswordSignInForm";
 const modes = {
   magic: {
     title: "Magic link",
-    description: "We’ll send a one-time link—no password required.",
+    description: "No password required.",
     toggleLabel: "Use password instead",
     form: <EmailSignInForm />,
   },
   password: {
     title: "Email & password",
-    description: "Sign in with the password you’ve set for Coda.",
+    description: "After your first magic link, set a password in Account to sign in instantly.",
     toggleLabel: "Use magic link instead",
     form: <PasswordSignInForm />,
   },
