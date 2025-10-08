@@ -17,7 +17,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <div>
             <Link
               href="/dashboard/ideas"
-              className="interactive-btn cursor-pointer text-lg font-semibold text-foreground transition-transform duration-150 hover:-translate-y-0.5 hover:rotate-1 hover:text-primary"
+              className="cursor-pointer text-lg font-semibold text-foreground hover:text-primary"
             >
               Coda
             </Link>

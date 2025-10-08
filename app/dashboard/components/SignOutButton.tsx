@@ -22,7 +22,7 @@ export function SignOutButton() {
       type="button"
       variant="ghost"
       size="sm"
-      className="interactive-btn hover:!bg-transparent hover:!text-primary focus-visible:ring-0"
+      className="hover:bg-transparent hover:text-foreground focus-visible:bg-transparent focus-visible:ring-0"
       onClick={handleClick}
       disabled={isLoading}
     >

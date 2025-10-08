@@ -1,6 +1,6 @@
-import { loadIdeas } from "./actions";
+import { loadDeletedIdeas, loadIdeas } from "./actions";
 import { IdeaComposer } from "./components/IdeaComposer";
-import { IdeaList } from "./components/IdeaList";
+import { IdeaBoard } from "./components/IdeaBoard";
 import { SearchBar } from "./components/SearchBar";
 import { LoadMore } from "./components/LoadMore";
 
@@ -10,7 +10,10 @@ export default async function IdeasPage({
   searchParams: Promise<{ q?: string; cursor?: string }>;
 }) {
   const params = await searchParams;
-  const data = await loadIdeas({ q: params.q, cursor: params.cursor });
+  const [data, deleted] = await Promise.all([
+    loadIdeas({ q: params.q, cursor: params.cursor }),
+    loadDeletedIdeas(),
+  ]);
 
   return (
     <section className="space-y-6">
@@ -19,7 +22,7 @@ export default async function IdeasPage({
         <h2 className="text-lg font-semibold">Ideas</h2>
         <SearchBar />
       </div>
-      <IdeaList ideas={data.items} query={params.q} />
+      <IdeaBoard ideas={data.items} deleted={deleted} query={params.q} />
       {data.nextCursor ? <LoadMore cursor={data.nextCursor} /> : null}
     </section>
   );
