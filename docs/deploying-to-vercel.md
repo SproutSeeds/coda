@@ -48,6 +48,8 @@ From your local machine (with `DATABASE_URL` or one of the supported aliases poi
 DATABASE_URL="<production connection string>" pnpm drizzle-kit migrate
 ```
 
+> New in the drag-and-drop release: `0003_add_position_to_ideas.sql` adds the `position` column used for persistent ordering.
+
 Run the same command for the Preview database if you provision one.
 
 ## 6. Trigger the First Deploy

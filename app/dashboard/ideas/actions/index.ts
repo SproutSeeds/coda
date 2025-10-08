@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 
-import { createIdea, listIdeas, restoreIdea, searchIdeas, softDeleteIdea, updateIdea } from "@/lib/db/ideas";
+import { createIdea, listDeletedIdeas, listIdeas, purgeIdea, reorderIdeas, restoreIdea, searchIdeas, softDeleteIdea, updateIdea } from "@/lib/db/ideas";
 import { trackEvent } from "@/lib/utils/analytics";
 import { consumeRateLimit } from "@/lib/utils/rate-limit";
 import { consumeUndoToken, createUndoToken } from "@/lib/utils/undo";
@@ -77,10 +77,35 @@ export async function loadIdeas(searchParams: { q?: string; cursor?: string }) {
       nextCursor: null,
     };
   }
-  return listIdeas(user.id, 20, searchParams.cursor);
+  return listIdeas(user.id, 100, searchParams.cursor);
 }
 
 export async function requireAuth() {
   await requireUser();
   redirect("/dashboard/ideas");
+}
+
+export async function reorderIdeasAction(ids: string[]) {
+  const user = await requireUser();
+  await reorderIdeas(user.id, ids);
+  await trackEvent({ name: "idea_reordered", properties: { count: ids.length } });
+}
+
+export async function restoreDeletedIdeaAction(id: string) {
+  const user = await requireUser();
+  const idea = await restoreIdea(user.id, id);
+  await trackEvent({ name: "idea_restored", properties: { ideaId: idea.id, source: "recently_deleted" } });
+  return idea;
+}
+
+export async function purgeDeletedIdeaAction(id: string) {
+  const user = await requireUser();
+  await purgeIdea(user.id, id);
+  await trackEvent({ name: "idea_purged", properties: { ideaId: id } });
+}
+
+
+export async function loadDeletedIdeas() {
+  const user = await requireUser();
+  return listDeletedIdeas(user.id);
 }

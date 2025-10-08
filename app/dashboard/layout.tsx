@@ -15,13 +15,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <header className="border-b bg-card">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
           <div>
-            <Link href="/dashboard/ideas" className="text-lg font-semibold text-foreground hover:underline">
+            <Link
+              href="/dashboard/ideas"
+              className="interactive-btn cursor-pointer text-lg font-semibold text-foreground transition-transform duration-150 hover:-translate-y-0.5 hover:rotate-1 hover:text-primary"
+            >
               Coda
             </Link>
             <p className="text-sm text-muted-foreground">Ideas go live.</p>
           </div>
           <div className="flex items-center gap-4">
-            <Link href="/dashboard/account" className="text-sm font-medium text-primary hover:underline">
+            <Link href="/dashboard/account" className="text-sm font-medium text-foreground hover:text-primary transition">
               Account
             </Link>
             <SignOutButton />

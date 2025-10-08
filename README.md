@@ -59,6 +59,7 @@ SPECIFY PROCESS:
 ## App Overview
 - **Dashboard**: `/dashboard/ideas` lists ideas with search, optimistic editing, delete + 10s undo.
 - **Authentication**: Auth.js email magic links + optional password sign-in, with owner-token credentials login available locally when `ENABLE_DEV_LOGIN=true`.
+- **Reordering**: Drag-and-drop (mouse or keyboard) lets you prioritize ideas; order persists across sessions automatically. Recently deleted ideas live in their own tab for 7 days and can be restored with one click.
 - **Server Actions**: CRUD flows live in `app/dashboard/ideas/actions/index.ts`, backed by Drizzle ORM and rate limiting.
 - **UI**: shadcn components with Framer Motion transitions, Sonner toasts, and debounced search.
 - **Cron + Cleanup**: daily purge of soft-deleted ideas via `scripts/purge-soft-deleted-ideas.ts` (exposed at `/api/cron/purge-soft-deletes`).
@@ -90,3 +91,15 @@ git push origin main
 
 Adjust the commit message as needed, but keep using the pathspec file to stage only the curated files.
 
+
+
+
+
+
+
+
+FEATURE PLANS/FIXES:
+ 
+ also... for whatever reason the favicon is still showing up incorrectly i dont think we pushed up the favicon change. yet to github which is maybe why the favicon file is overwriting our rendered code favicon? I need to make sure
+  that is factored in and the favicon should be rendering that "C  ." favicon style. And secondly,
+  Please make sure to have a recently deleted tab that holds the recently deleted ideas for up to 7 days before they are purged from our databases.

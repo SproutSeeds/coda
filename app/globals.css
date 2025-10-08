@@ -134,3 +134,28 @@
       linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(17, 24, 39, 0.96));
   }
 }
+
+
+@layer utilities {
+  .interactive-btn {
+    cursor: pointer;
+    transition: transform 0.15s ease;
+  }
+
+  .interactive-btn:hover {
+    transform: translateY(-0.2rem) rotate(0.6deg) scale(1.03);
+  }
+
+  .interactive-btn:active {
+    transform: translateY(0) scale(0.99);
+  }
+
+  .interactive-btn:disabled,
+  .interactive-btn[aria-disabled='true'] {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
+
+
+

@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, primaryKey, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, primaryKey, integer, doublePrecision, index } from "drizzle-orm/pg-core";
 import type { AdapterAccount } from "next-auth/adapters";
 
 export const ideas = pgTable("ideas", {
@@ -6,6 +6,7 @@ export const ideas = pgTable("ideas", {
   userId: text("user_id").notNull(),
   title: text("title").notNull(),
   notes: text("notes").notNull(),
+  position: doublePrecision("position").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -15,7 +16,9 @@ export const ideas = pgTable("ideas", {
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   undoToken: text("undo_token"),
   undoExpiresAt: timestamp("undo_expires_at", { withTimezone: true }),
-});
+}, (table) => ({
+  userPositionIdx: index("idx_ideas_user_position").on(table.userId, table.position),
+}));
 
 export const users = pgTable("auth_user", {
   id: text("id").primaryKey(),

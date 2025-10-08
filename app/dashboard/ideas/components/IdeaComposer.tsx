@@ -80,7 +80,11 @@ export function IdeaComposer() {
           />
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
           <div className="flex justify-end pt-2">
-            <Button type="submit" disabled={isPending}>
+            <Button
+              type="submit"
+              disabled={isPending}
+              className="interactive-btn hover:bg-primary focus-visible:ring-0"
+            >
               {isPending ? "Saving…" : "Save idea"}
             </Button>
           </div>

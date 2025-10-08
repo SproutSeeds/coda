@@ -22,6 +22,7 @@
 - `pnpm dev` launches Next.js App Router on http://localhost:3000.
 - Visit http://localhost:3000/login and either request a magic link (requires `EMAIL_*` env vars) or sign in with your password.
 - Create ideas via the Ideas dashboard; ensure Auth.js email + password flows and rate limiting envs are configured before deploying.
+- Use the handle (or Space + Arrow keys) to reorder ideas; recently deleted items are available in their own tab for 7 days before purge.
 - Use Vercel CLI or `pnpm exec vercel-env pull` to sync shared environment variables when needed.
 
 ## Testing & Quality Gates
@@ -46,7 +47,7 @@
 - For production release: enable feature flag `coda.enabled`, monitor analytics, then ramp to 100%.
 
 ## Observability
-- Emit events: `idea_created`, `idea_edited`, `idea_deleted`, `idea_restored`, `idea_searched`.
+- Emit events: `idea_created`, `idea_edited`, `idea_deleted`, `idea_restored`, `idea_searched`, `idea_reordered`.
 - Forward errors to Sentry/PostHog when enabled; fall back to Vercel Analytics dashboards.
 
 ## Support & Escalation

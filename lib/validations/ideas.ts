@@ -6,6 +6,7 @@ export type IdeaInput = {
 };
 
 export type IdeaUpdateInput = Partial<IdeaInput> & { id: string };
+export type IdeaReorderInput = string[];
 
 const MAX_TITLE = 200;
 const MAX_NOTES = 5000;
@@ -31,6 +32,13 @@ const ideaUpdateSchema = ideaInputSchema
     message: "At least one field must be provided",
   });
 
+const ideaReorderSchema = z
+  .array(z.string().min(1, "Idea id is required"))
+  .min(1, "Provide at least one idea id")
+  .refine((value) => new Set(value).size === value.length, {
+    message: "Idea ids must be unique",
+  });
+
 const SCRIPT_TAG_REGEX = /<script[\s\S]*?>[\s\S]*?<\/script>/gi;
 
 export function sanitizeIdeaNotes(notes: string): string {
@@ -54,4 +62,8 @@ export function validateIdeaUpdate(input: IdeaUpdateInput): IdeaUpdateInput {
   };
 
   return ideaUpdateSchema.parse(sanitized);
+}
+
+export function validateIdeaReorder(ids: IdeaReorderInput): string[] {
+  return ideaReorderSchema.parse(ids);
 }
