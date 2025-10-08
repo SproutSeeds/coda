@@ -17,10 +17,14 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://codacli.com"),
-  title: "Coda",
-  description: "Coda keeps your product ideas organized with fast search, undo safety nets, and polished flows built on our MVP platform.",
+  title: {
+    default: "Coda",
+    template: "%s · Coda",
+  },
+  description: "Ideas go live.",
   keywords: [
     "Coda",
+    "C .",
     "product ideas",
     "idea manager",
     "startup toolkit",
@@ -28,8 +32,8 @@ export const metadata: Metadata = {
     "specify",
   ],
   openGraph: {
-    title: "Coda",
-    description: "Manage your product backlog with instant search, undo history, and elegant flows on the Coda MVP platform.",
+    title: "C . — Ideas go live",
+    description: "Ideas go live with Coda’s fast, polished idea workspace.",
     url: "https://codacli.com",
     siteName: "Coda",
     locale: "en_US",
@@ -39,14 +43,14 @@ export const metadata: Metadata = {
         url: "/opengraph-image",
         width: 1200,
         height: 630,
-        alt: "Coda platform hero image",
+        alt: "C . logomark with the Coda tagline, Ideas go live.",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Coda",
-    description: "Bring order to your idea backlog with magic-link auth, undo safety nets, and fast search.",
+    title: "C .",
+    description: "Ideas go live.",
     images: ["/twitter-image"],
   },
 };
