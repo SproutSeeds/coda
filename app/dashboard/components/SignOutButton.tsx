@@ -18,7 +18,14 @@ export function SignOutButton() {
   };
 
   return (
-    <Button type="button" variant="ghost" size="sm" onClick={handleClick} disabled={isLoading}>
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className="interactive-btn hover:!bg-transparent hover:!text-primary focus-visible:ring-0"
+      onClick={handleClick}
+      disabled={isLoading}
+    >
       {isLoading ? "Signing out…" : "Sign out"}
     </Button>
   );
