@@ -26,6 +26,12 @@ export function IdeaBoard({
     }
   }, [query]);
 
+  useEffect(() => {
+    if (deleted.length === 0 && view === "deleted") {
+      setView("active");
+    }
+  }, [deleted.length, view]);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
@@ -38,15 +44,20 @@ export function IdeaBoard({
         >
           Active ideas ({ideas.length})
         </Button>
-        <Button
-          type="button"
-          variant={view === "deleted" ? "default" : "outline"}
-          size="sm"
-          className={cn("interactive-btn transition-transform duration-150", view === "deleted" ? "bg-primary hover:bg-primary" : "hover:bg-transparent focus-visible:ring-0")}
-          onClick={() => setView("deleted")}
-        >
-          Recently deleted ({deleted.length})
-        </Button>
+        {deleted.length > 0 ? (
+          <Button
+            type="button"
+            variant={view === "deleted" ? "default" : "outline"}
+            size="sm"
+            className={cn(
+              "interactive-btn transition-transform duration-150",
+              view === "deleted" ? "bg-primary hover:bg-primary" : "hover:bg-transparent focus-visible:ring-0",
+            )}
+            onClick={() => setView("deleted")}
+          >
+            Recently deleted ({deleted.length})
+          </Button>
+        ) : null}
       </div>
 
       {view === "active" ? (
