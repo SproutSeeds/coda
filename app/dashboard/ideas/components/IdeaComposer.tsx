@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { IDEA_NOTES_CHARACTER_LIMIT } from "@/lib/constants/ideas";
 import { createIdeaAction } from "../actions";
 import { IdeaCelebration } from "./IdeaCelebration";
 
@@ -19,9 +20,17 @@ export function IdeaComposer() {
   const [celebrate, setCelebrate] = useState(false);
   const celebrationTimeout = useRef<number | null>(null);
 
+  const characterCount = notes.length;
+  const notesLimitExceeded = characterCount > IDEA_NOTES_CHARACTER_LIMIT;
+
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
+
+    if (notesLimitExceeded) {
+      setError(`Keep the elevator pitch under ${IDEA_NOTES_CHARACTER_LIMIT} characters.`);
+      return;
+    }
 
     startTransition(async () => {
       try {
@@ -70,14 +79,26 @@ export function IdeaComposer() {
             maxLength={200}
             required
           />
-          <Textarea
-            data-testid="idea-notes-input"
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-            placeholder="Capture context, constraints, next steps…"
-            rows={4}
-            required
-          />
+          <div className="space-y-2">
+            <label htmlFor="idea-composer-notes" className="text-sm font-medium text-muted-foreground">
+              Core plan
+            </label>
+            <Textarea
+              id="idea-composer-notes"
+              data-testid="idea-notes-input"
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              placeholder="Summarize the core plan in 1000 characters or fewer"
+              rows={4}
+              required
+            />
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>{characterCount}/{IDEA_NOTES_CHARACTER_LIMIT} characters</span>
+              {notesLimitExceeded ? (
+                <span className="text-destructive">Too long for an elevator pitch.</span>
+              ) : null}
+            </div>
+          </div>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
           <div className="flex justify-end pt-2">
             <Button

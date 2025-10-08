@@ -20,6 +20,24 @@ export const ideas = pgTable("ideas", {
   userPositionIdx: index("idx_ideas_user_position").on(table.userId, table.position),
 }));
 
+export const ideaFeatures = pgTable("idea_features", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  ideaId: uuid("idea_id")
+    .notNull()
+    .references(() => ideas.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  notes: text("notes").notNull(),
+  position: doublePrecision("position").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+}, (table) => ({
+  ideaPositionIdx: index("idx_feature_idea_position").on(table.ideaId, table.position),
+}));
+
 export const users = pgTable("auth_user", {
   id: text("id").primaryKey(),
   name: text("name"),

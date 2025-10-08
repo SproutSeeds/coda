@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { clearSession, gotoLogin, loginWithOwnerToken } from "./utils/auth";
+import { clearSession, gotoLogin, loginWithMagicLink } from "./utils/auth";
 
 test.describe("Authentication gates", () => {
   test("redirects anonymous visitors to sign-in", async ({ page }) => {
@@ -12,7 +12,7 @@ test.describe("Authentication gates", () => {
   });
 
   test("expires sessions and forces re-authentication", async ({ page }) => {
-    await loginWithOwnerToken(page);
+    await loginWithMagicLink(page);
     await page.context().clearCookies();
     await page.goto("/dashboard/ideas");
     await expect(page).toHaveURL(/login/);

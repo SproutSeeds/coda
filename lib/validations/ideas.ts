@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { IDEA_NOTES_CHARACTER_LIMIT } from "@/lib/constants/ideas";
+
 export type IdeaInput = {
   title: string;
   notes: string;
@@ -9,7 +11,7 @@ export type IdeaUpdateInput = Partial<IdeaInput> & { id: string };
 export type IdeaReorderInput = string[];
 
 const MAX_TITLE = 200;
-const MAX_NOTES = 5000;
+const ideaNotesCharacterLimit = IDEA_NOTES_CHARACTER_LIMIT;
 
 const ideaInputSchema = z.object({
   title: z
@@ -19,8 +21,7 @@ const ideaInputSchema = z.object({
     .max(MAX_TITLE, `Title must be ≤ ${MAX_TITLE} characters`),
   notes: z
     .string()
-    .min(1, "Notes are required")
-    .max(MAX_NOTES, `Notes must be ≤ ${MAX_NOTES} characters`),
+    .min(1, "Notes are required"),
 });
 
 const ideaUpdateSchema = ideaInputSchema
@@ -50,6 +51,9 @@ export function validateIdeaInput(input: IdeaInput): IdeaInput {
     title: input.title.trim(),
     notes: sanitizeIdeaNotes(input.notes),
   };
+  if (sanitized.notes.length > ideaNotesCharacterLimit) {
+    throw new Error(`Notes must be ≤ ${ideaNotesCharacterLimit} characters`);
+  }
 
   return ideaInputSchema.parse(sanitized);
 }
@@ -60,6 +64,10 @@ export function validateIdeaUpdate(input: IdeaUpdateInput): IdeaUpdateInput {
     title: input.title?.trim(),
     notes: input.notes !== undefined ? sanitizeIdeaNotes(input.notes) : undefined,
   };
+
+  if (sanitized.notes !== undefined && sanitized.notes.length > ideaNotesCharacterLimit) {
+    throw new Error(`Notes must be ≤ ${ideaNotesCharacterLimit} characters`);
+  }
 
   return ideaUpdateSchema.parse(sanitized);
 }

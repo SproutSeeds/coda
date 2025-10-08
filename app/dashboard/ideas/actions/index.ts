@@ -2,7 +2,8 @@
 
 import { redirect } from "next/navigation";
 
-import { createIdea, listDeletedIdeas, listIdeas, purgeIdea, reorderIdeas, restoreIdea, searchIdeas, softDeleteIdea, updateIdea } from "@/lib/db/ideas";
+import { createFeature, deleteFeature, listFeatures, reorderFeatures, updateFeature } from "@/lib/db/features";
+import { createIdea, getIdea, listDeletedIdeas, listIdeas, purgeIdea, reorderIdeas, restoreIdea, searchIdeas, softDeleteIdea, updateIdea } from "@/lib/db/ideas";
 import { trackEvent } from "@/lib/utils/analytics";
 import { consumeRateLimit } from "@/lib/utils/rate-limit";
 import { consumeUndoToken, createUndoToken } from "@/lib/utils/undo";
@@ -80,6 +81,18 @@ export async function loadIdeas(searchParams: { q?: string; cursor?: string }) {
   return listIdeas(user.id, 100, searchParams.cursor);
 }
 
+export async function loadIdea(id: string) {
+  const user = await requireUser();
+  return getIdea(user.id, id);
+}
+
+export async function loadIdeaWithFeatures(id: string) {
+  const user = await requireUser();
+  const idea = await getIdea(user.id, id);
+  const features = await listFeatures(user.id, id);
+  return { idea, features };
+}
+
 export async function requireAuth() {
   await requireUser();
   redirect("/dashboard/ideas");
@@ -108,4 +121,38 @@ export async function purgeDeletedIdeaAction(id: string) {
 export async function loadDeletedIdeas() {
   const user = await requireUser();
   return listDeletedIdeas(user.id);
+}
+
+export async function createFeatureAction(formData: FormData | { ideaId: string; title: string; notes: string }) {
+  const user = await requireUser();
+  const payload = formData instanceof FormData
+    ? {
+        ideaId: String(formData.get("ideaId") ?? ""),
+        title: String(formData.get("title") ?? ""),
+        notes: String(formData.get("notes") ?? ""),
+      }
+    : formData;
+
+  const feature = await createFeature(user.id, payload);
+  await trackEvent({ name: "feature_created", properties: { ideaId: payload.ideaId, featureId: feature.id } });
+  return feature;
+}
+
+export async function updateFeatureAction(payload: { id: string; ideaId: string; title?: string; notes?: string }) {
+  const user = await requireUser();
+  const feature = await updateFeature(user.id, payload);
+  await trackEvent({ name: "feature_updated", properties: { ideaId: payload.ideaId, featureId: feature.id } });
+  return feature;
+}
+
+export async function deleteFeatureAction(payload: { id: string }) {
+  const user = await requireUser();
+  await deleteFeature(user.id, payload.id);
+  await trackEvent({ name: "feature_deleted", properties: { featureId: payload.id } });
+}
+
+export async function reorderFeaturesAction(ideaId: string, ids: string[]) {
+  const user = await requireUser();
+  await reorderFeatures(user.id, ideaId, ids);
+  await trackEvent({ name: "feature_reordered", properties: { ideaId, count: ids.length } });
 }

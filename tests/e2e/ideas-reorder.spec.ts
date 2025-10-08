@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { loginWithOwnerToken } from "./utils/auth";
+import { loginWithMagicLink } from "./utils/auth";
 
 async function createIdea(page: import("@playwright/test").Page, title: string, notes: string) {
   await page.getByTestId("idea-title-input").fill(title);
@@ -11,7 +11,7 @@ async function createIdea(page: import("@playwright/test").Page, title: string, 
 
 test.describe("Idea reordering", () => {
   test("allows keyboard reordering with persistence", async ({ page }) => {
-    await loginWithOwnerToken(page);
+    await loginWithMagicLink(page);
     await page.getByTestId("idea-title-input").waitFor();
 
     const timestamp = Date.now();

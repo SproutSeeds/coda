@@ -1,20 +1,31 @@
 "use client";
 
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties, KeyboardEventHandler, MouseEventHandler, ReactNode, SyntheticEvent } from "react";
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 
 import { motion } from "framer-motion";
+import { Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
-import { toast } from "sonner";
-import { deleteIdeaAction, restoreIdeaAction, updateIdeaAction } from "../actions";
+import { Card } from "@/components/ui/card";
+
+import { deleteIdeaAction, restoreIdeaAction } from "../actions";
 import { showUndoToast } from "./UndoSnackbar";
 import type { Idea } from "./types";
 import { cn } from "@/lib/utils";
+
+function formatUpdated(value: string) {
+  try {
+    const date = new Date(value);
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: "medium",
+    }).format(date);
+  } catch {
+    return value;
+  }
+}
 
 export function IdeaCard({
   idea,
@@ -27,31 +38,28 @@ export function IdeaCard({
   isDragging?: boolean;
   style?: CSSProperties;
 }) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [title, setTitle] = useState(idea.title);
-  const [notes, setNotes] = useState(idea.notes);
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [showDetails, setShowDetails] = useState(false);
 
-  const handleUpdate = () => {
-    startTransition(async () => {
-      try {
-        const updated = await updateIdeaAction({
-          id: idea.id,
-          title,
-          notes,
-          updatedAt: idea.updatedAt,
-        });
-        setTitle(updated.title);
-        setNotes(updated.notes);
-        setIsEditing(false);
-        toast.success("Idea updated");
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Unable to update idea");
-      }
-    });
+  const updatedLabel = formatUpdated(idea.updatedAt ?? idea.createdAt);
+  const trimmedNotes = idea.notes?.trim?.() ?? "";
+  const preview =
+    trimmedNotes.length > 160 ? `${trimmedNotes.slice(0, 157).trimEnd()}…` : trimmedNotes;
+
+  const handleNavigate = () => {
+    router.push(`/dashboard/ideas/${idea.id}`);
   };
 
-  const handleDelete = () => {
+  const handleKeyDown: KeyboardEventHandler<HTMLDivElement> = (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      handleNavigate();
+    }
+  };
+
+  const handleDelete: MouseEventHandler<HTMLButtonElement> = (event) => {
+    event.stopPropagation();
     startTransition(async () => {
       try {
         const result = await deleteIdeaAction({ id: idea.id });
@@ -68,7 +76,9 @@ export function IdeaCard({
     });
   };
 
-  const createdDate = new Date(idea.createdAt).toLocaleString();
+  const stopPropagation = (event: SyntheticEvent) => {
+    event.stopPropagation();
+  };
 
   return (
     <motion.div
@@ -80,57 +90,60 @@ export function IdeaCard({
       style={style}
       className={cn(isDragging && "opacity-80")}
     >
-      <Card data-testid="idea-card">
-        <CardHeader className="flex flex-row items-start justify-between gap-4">
-          <div>
-            <CardTitle>{idea.title}</CardTitle>
-            <CardDescription>Captured {createdDate}</CardDescription>
-          </div>
-          <div className="flex items-center gap-2">
-            {dragHandle}
-            <Button
-              variant="secondary"
-              size="sm"
-              className="interactive-btn"
-              onClick={() => setIsEditing((value) => !value)}
-            >
-              {isEditing ? "Cancel" : "Edit"}
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              className="interactive-btn"
-              onClick={handleDelete}
-              disabled={isPending}
-            >
-              Delete
-            </Button>
-          </div>
-        </CardHeader>
-        <Separator />
-        <CardContent className="space-y-4 pt-4">
-          {isEditing ? (
-            <div className="space-y-3">
-              <Input
-                data-testid="idea-edit-title-input"
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                placeholder="Idea title"
-              />
-              <Textarea
-                data-testid="idea-edit-notes-input"
-                rows={4}
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-              />
-              <Button onClick={handleUpdate} disabled={isPending}>
-                {isPending ? "Saving…" : "Save changes"}
-              </Button>
+      <Card
+        data-testid="idea-card"
+        role="button"
+        tabIndex={0}
+        onClick={handleNavigate}
+        onKeyDown={handleKeyDown}
+        className={cn(
+          "group flex flex-col gap-3 rounded-xl border border-border/60 bg-card/80 p-4 text-left transition cursor-pointer",
+          "hover:border-primary hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        )}
+      >
+        <div className="flex items-start gap-3">
+          {dragHandle ? (
+            <div onClick={stopPropagation} onKeyDown={stopPropagation} className="shrink-0">
+              {dragHandle}
             </div>
-          ) : (
-            <p className="whitespace-pre-line text-sm text-muted-foreground">{idea.notes}</p>
-          )}
-        </CardContent>
+          ) : null}
+          <div className="flex-1 space-y-2">
+            <div className="space-y-1">
+              <h3 className="text-base font-semibold text-foreground">{idea.title}</h3>
+              {showDetails ? (
+                preview ? (
+                  <p className="text-sm text-muted-foreground">{preview}</p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No notes yet—open to add details.</p>
+                )
+              ) : null}
+            </div>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground/80">
+              Updated {updatedLabel}
+            </p>
+            <button
+              type="button"
+              className="inline-flex items-center text-sm font-medium text-primary underline-offset-4 transition hover:underline"
+              onClick={(event) => {
+                event.stopPropagation();
+                setShowDetails((previous) => !previous);
+              }}
+            >
+              {showDetails ? "Hide details" : "More details"}
+            </button>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="shrink-0 text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
+            onClick={handleDelete}
+            disabled={isPending}
+            aria-label="Delete idea"
+          >
+            <Trash2 className="size-4" />
+          </Button>
+        </div>
       </Card>
     </motion.div>
   );

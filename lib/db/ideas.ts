@@ -43,6 +43,21 @@ export async function listIdeas(userId: string, limit = 100, cursor?: string) {
   };
 }
 
+export async function getIdea(userId: string, id: string) {
+  const db = getDb();
+  const [row] = await db
+    .select()
+    .from(ideas)
+    .where(and(eq(ideas.id, id), eq(ideas.userId, userId), isNull(ideas.deletedAt)))
+    .limit(1);
+
+  if (!row) {
+    throw new Error("Idea not found");
+  }
+
+  return normalizeIdea(row);
+}
+
 export async function searchIdeas(userId: string, query: string) {
   const db = getDb();
   const q = `%${query}%`;

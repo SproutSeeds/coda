@@ -9,20 +9,12 @@ export async function gotoLogin(page: Page) {
   await expect(page).toHaveURL(/\/login/);
 }
 
-export async function loginWithOwnerToken(page: Page) {
-  await clearSession(page);
-  await gotoLogin(page);
-  await page.getByPlaceholder(/owner-token/i).fill("owner-token");
-  await page.getByRole("button", { name: /use owner token/i }).click();
-  await expect(page).toHaveURL(/dashboard\/ideas/);
-}
-
 export async function requestMagicLink(page: Page, email: string) {
   await clearSession(page);
   await gotoLogin(page);
   await page.getByLabel(/email address/i).fill(email);
   await page.getByRole("button", { name: /email me a sign-in link/i }).click();
-  await expect(page.getByText(/check your inbox/i)).toBeVisible();
+  await expect(page.getByTestId("magic-link-status")).toBeVisible();
 }
 
 export async function fetchMagicLinkUrl(page: Page, email: string, options?: { consume?: boolean }) {
@@ -40,4 +32,12 @@ export async function fetchMagicLinkUrl(page: Page, email: string, options?: { c
   const finalResponse = await page.request.get(`/api/testing/magic-link?email=${encoded}${consumeParam}`);
   const text = await finalResponse.text();
   throw new Error(`Magic link not found for ${email}: ${finalResponse.status()} ${text}`);
+}
+
+export async function loginWithMagicLink(page: Page, email = `playwright-user+${Date.now()}@example.com`) {
+  await requestMagicLink(page, email);
+  const url = await fetchMagicLinkUrl(page, email, { consume: true });
+  await page.goto(url);
+  await expect(page).toHaveURL(/dashboard\/ideas/);
+  return email;
 }

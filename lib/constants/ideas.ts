@@ -1,0 +1,1 @@
+export const IDEA_NOTES_CHARACTER_LIMIT = 1000;

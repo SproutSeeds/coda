@@ -29,6 +29,13 @@
       "when": 1760000000000,
       "tag": "0003_add_position_to_ideas",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "10",
+      "when": 1760100000000,
+      "tag": "0004_add_idea_features",
+      "breakpoints": true
     }
   ]
 }

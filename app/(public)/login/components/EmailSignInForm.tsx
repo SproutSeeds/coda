@@ -63,7 +63,9 @@ export function EmailSignInForm() {
         </p>
       ) : null}
       {status === "sent" ? (
-        <p className="text-xs text-green-600">Check your inbox for the sign-in link.</p>
+        <p data-testid="magic-link-status" className="text-xs text-green-600">
+          Check your inbox for the sign-in link.
+        </p>
       ) : null}
       <Button type="submit" className="w-full" disabled={isPending}>
         {isPending ? "Sending…" : "Email me a sign-in link"}
