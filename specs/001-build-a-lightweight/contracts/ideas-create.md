@@ -8,7 +8,7 @@
 Creates a new idea owned by the authenticated user with required title and notes fields. Returns the persisted record for optimistic UI updates.
 
 ## Authentication & Authorization
-- Requires Auth.js session (Credentials or GitHub OAuth).
+- Requires Auth.js session (email magic link or password credentials).
 - Reject unauthenticated requests with `401 Unauthorized`.
 
 ## Request Schema

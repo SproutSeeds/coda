@@ -6,7 +6,6 @@ This guide walks through promoting the Coda MVP to Vercel using managed Postgres
 - GitHub repository with the latest code pushed to the branch you plan to deploy (usually `main`).
 - Vercel account with access to create projects.
 - Upstash Redis database (already provisioned as `coda`).
-- Optional: GitHub OAuth app credentials if you want production social login.
 
 ## 2. Provision Production Datastores
 ### Upstash Redis
@@ -30,12 +29,11 @@ For both **Production** and **Preview** environments, add:
 
 | Variable | Value |
 | --- | --- |
-| `DATABASE_URL` | Connection string copied from your Postgres provider. |
+| `DATABASE_URL` (or `DATABASE_POSTGRES_URL` / `POSTGRES_URL` / `NEON_DATABASE_URL`) | Connection string copied from your Postgres provider. |
 | `NEXTAUTH_SECRET` | Random 32+ char string (generate via `openssl rand -base64 32`). |
 | `NEXTAUTH_URL` | `https://<your-project>.vercel.app` (update once the domain is known). |
 | `UPSTASH_REDIS_REST_URL` | REST URL from Upstash (`https://...upstash.io`). |
 | `UPSTASH_REDIS_REST_TOKEN` | REST token from Upstash. |
-| `GITHUB_ID` / `GITHUB_SECRET` | GitHub OAuth app credentials. |
 | `EMAIL_SERVER` | SMTP connection string or host for magic-link delivery. |
 | `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASSWORD` | SMTP authentication details (omit user/pass for provider tokens). |
 | `EMAIL_FROM` | From address shown in the magic-link email (e.g., `Coda <login@your-domain>`). |
@@ -44,7 +42,7 @@ For both **Production** and **Preview** environments, add:
 You can use the Vercel dashboard (Settings → Environment Variables) or the CLI (`vercel env add` per variable).
 
 ## 5. Run Migrations Against Production Database
-From your local machine (with `DATABASE_URL` pointed at the production Postgres):
+From your local machine (with `DATABASE_URL` or one of the supported aliases pointed at the production Postgres):
 
 ```bash
 DATABASE_URL="<production connection string>" pnpm drizzle-kit migrate
@@ -74,6 +72,5 @@ In Vercel → Project Settings → Cron Jobs, add a daily job hitting `/api/cron
 ## 10. Optional Hardening
 - Attach a custom domain in Vercel, update `NEXTAUTH_URL`, and re-run `pnpm build` deploy.
 - Wire analytics (Vercel Analytics, Sentry, etc.) by adding the proper environment keys and enabling instrumentation.
-- If you enable GitHub OAuth, update the callback URL in GitHub to the Vercel domain and verify login flows end-to-end.
 
 With the configuration above, each push to your main branch will automatically deploy to Vercel using Upstash Redis for rate limiting and Postgres for persistence.

@@ -7,7 +7,6 @@
   - `DATABASE_URL`
   - `NEXTAUTH_SECRET`
   - `NEXTAUTH_URL` (e.g., http://localhost:3000 in dev)
-  - `GITHUB_ID`, `GITHUB_SECRET`
   - `EMAIL_SERVER`, `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASSWORD`, `EMAIL_FROM`
   - `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`
 - Vercel Analytics enabled on the project
@@ -21,8 +20,8 @@
 
 ## Running Locally
 - `pnpm dev` launches Next.js App Router on http://localhost:3000.
-- Visit http://localhost:3000/login and either request a magic link (requires `EMAIL_*` env vars) or continue with GitHub OAuth.
-- Create ideas via the Ideas dashboard; ensure Auth.js providers (GitHub + Email) and rate limiting envs are configured before deploying.
+- Visit http://localhost:3000/login and either request a magic link (requires `EMAIL_*` env vars) or sign in with your password.
+- Create ideas via the Ideas dashboard; ensure Auth.js email + password flows and rate limiting envs are configured before deploying.
 - Use Vercel CLI or `pnpm exec vercel-env pull` to sync shared environment variables when needed.
 
 ## Testing & Quality Gates

@@ -36,11 +36,11 @@ SPECIFY PROCESS:
    - Or start a Docker container: `docker run --name coda-db -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres:16`.
 4. **Create environment files**:
    - Copy `.env.example` → `.env.local`.
-   - Set `DATABASE_URL` to match your Postgres instance (the Docker command above uses `postgres://postgres:postgres@localhost:5432/postgres`; swap the database name if you created `coda`).
+   - Set whichever database variable fits your setup (`DATABASE_URL`, `DATABASE_POSTGRES_URL`, `POSTGRES_URL`, etc.). The app will pick the first one found, so you can reuse the name Vercel/Neon generated for you without duplicating it.
    - Generate a secret for `NEXTAUTH_SECRET`, e.g. `openssl rand -base64 32`.
    - Keep `NEXTAUTH_URL` as `http://localhost:3000` for local dev; switch to the deployed domain later.
    - Sign in to https://upstash.com, create a free Redis database, then copy its **REST URL** and **REST token** into `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`.
-   - Create a GitHub OAuth App at https://github.com/settings/developers → set the Homepage URL to your local or deployed domain and the callback URL to `<domain>/api/auth/callback/github`, then copy the **Client ID** and **Client Secret** into `GITHUB_ID` / `GITHUB_SECRET`.
+   - Configure email delivery credentials (`EMAIL_SERVER`, `EMAIL_USER`, `EMAIL_PASSWORD`, `EMAIL_FROM`). For local iteration you can set `EMAIL_SERVER="stream"` to log outgoing emails instead of sending them.
    - (Optional) Leave `ENABLE_DEV_LOGIN="true"` to expose the owner-token fallback in development and automated tests; omit or set to `false` in production.
 5. **Configure Codex CLI**:
    - Copy `.codex/config.example.toml` → `.codex/config.toml` and fill in MCP server credentials (BrightData, Context7, Firecrawl, etc.).
@@ -49,7 +49,7 @@ SPECIFY PROCESS:
 7. **Generate database migrations**: `pnpm drizzle-kit generate`, then `pnpm drizzle-kit migrate`.
 8. **Run the app locally**:
    - `pnpm dev` to start the Next.js server.
-   - Visit `http://localhost:3000/login` and click **Continue with GitHub** to exercise the full OAuth flow.
+   - Visit `http://localhost:3000/login` to request a magic link or try the password form. Magic links keep you signed in until you click **Sign out**.
    - (If `ENABLE_DEV_LOGIN=true`) you can still supply `owner-token` via the developer shortcut for Playwright/local smoke tests.
 9. **Verify toolchain**:
    - Run `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm playwright test` before pushing changes.
@@ -58,10 +58,16 @@ SPECIFY PROCESS:
 
 ## App Overview
 - **Dashboard**: `/dashboard/ideas` lists ideas with search, optimistic editing, delete + 10s undo.
-- **Authentication**: Auth.js with GitHub OAuth; optional owner-token credentials login is available locally when `ENABLE_DEV_LOGIN=true`.
+- **Authentication**: Auth.js email magic links + optional password sign-in, with owner-token credentials login available locally when `ENABLE_DEV_LOGIN=true`.
 - **Server Actions**: CRUD flows live in `app/dashboard/ideas/actions/index.ts`, backed by Drizzle ORM and rate limiting.
 - **UI**: shadcn components with Framer Motion transitions, Sonner toasts, and debounced search.
 - **Cron + Cleanup**: daily purge of soft-deleted ideas via `scripts/purge-soft-deleted-ideas.ts` (exposed at `/api/cron/purge-soft-deletes`).
+
+### Email-first authentication flow
+1. Request a magic link from `/login` (or sign in with an existing password).
+2. Auth.js creates or locates the user, sends the email, and rate limits repeated requests.
+3. Verifying the link signs you in for up to a year; from there you can set a reusable password under **Account** if desired.
+
 
 
 

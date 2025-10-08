@@ -23,6 +23,7 @@ export const users = pgTable("auth_user", {
   email: text("email").notNull(),
   emailVerified: timestamp("email_verified", { withTimezone: true }),
   image: text("image"),
+  passwordHash: text("password_hash"),
 });
 
 export const accounts = pgTable(

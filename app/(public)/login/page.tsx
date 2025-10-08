@@ -4,8 +4,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { getCurrentUser } from "@/lib/auth/session";
 
 import { DevLoginForm } from "./components/DevLoginForm";
-import { EmailSignInForm } from "./components/EmailSignInForm";
-import { GitHubSignInButton } from "./components/GitHubSignInButton";
+import { SignInSwitcher } from "./components/SignInSwitcher";
 
 export default async function LoginPage() {
   const user = await getCurrentUser();
@@ -16,25 +15,19 @@ export default async function LoginPage() {
   const enableDevLogin = process.env.ENABLE_DEV_LOGIN === "true";
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>Sign in to Coda</CardTitle>
+    <div className="flex min-h-screen items-center justify-center bg-muted px-4 py-12">
+      <Card className="w-full max-w-md border-border/80 shadow-lg">
+        <CardHeader className="space-y-3 text-center">
+          <CardTitle className="text-2xl font-semibold">Sign in to Coda</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Pick the option you prefer—magic link or password. Switch at any time.
+          </p>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Sign in with a one-time magic link or continue with GitHub.
-            </p>
-            <EmailSignInForm />
-          </div>
-          <div className="space-y-2">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Or continue with</p>
-            <GitHubSignInButton />
-          </div>
+        <CardContent className="space-y-8 border-t border-border/60 px-6 py-8">
+          <SignInSwitcher />
         </CardContent>
         {enableDevLogin ? (
-          <CardFooter className="border-t bg-muted/40">
+          <CardFooter className="border-t border-border/60 bg-muted/60 px-6 py-5">
             <DevLoginForm />
           </CardFooter>
         ) : null}

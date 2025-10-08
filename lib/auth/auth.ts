@@ -4,8 +4,8 @@ import { getServerSession } from "next-auth/next";
 import type { NextAuthOptions } from "next-auth";
 import Email from "next-auth/providers/email";
 import Credentials from "next-auth/providers/credentials";
-import GitHub from "next-auth/providers/github";
 import { eq } from "drizzle-orm";
+import { compare } from "bcryptjs";
 
 import { createAuthAdapter } from "@/lib/auth/adapter";
 import { sendMagicLinkEmail } from "@/lib/auth/email";
@@ -18,19 +18,40 @@ const enableDevLogin = process.env.ENABLE_DEV_LOGIN === "true";
 
 const providers: NextAuthOptions["providers"] = [];
 
-const githubClientId = process.env.GITHUB_ID;
-const githubClientSecret = process.env.GITHUB_SECRET;
+providers.push(
+  Credentials({
+    id: "password",
+    name: "Email and password",
+    credentials: {
+      email: { label: "Email", type: "email" },
+      password: { label: "Password", type: "password" },
+    },
+    async authorize(credentials) {
+      const email = credentials?.email?.toLowerCase();
+      const password = credentials?.password;
+      if (!email || !password) {
+        throw new Error("CredentialsSignin");
+      }
 
-if (githubClientId && githubClientSecret) {
-  providers.push(
-    GitHub({
-      clientId: githubClientId,
-      clientSecret: githubClientSecret,
-    }),
-  );
-} else if (process.env.NODE_ENV === "production") {
-  throw new Error("Missing GitHub OAuth credentials. Set GITHUB_ID and GITHUB_SECRET.");
-}
+      const db = getDb();
+      const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+      if (!user?.passwordHash) {
+        throw new Error("CredentialsSignin");
+      }
+
+      const isValid = await compare(password, user.passwordHash);
+      if (!isValid) {
+        throw new Error("CredentialsSignin");
+      }
+
+      return {
+        id: user.id,
+        name: user.name ?? undefined,
+        email: user.email,
+      };
+    },
+  }),
+);
 
 const emailFrom = process.env.EMAIL_FROM;
 const emailServer = process.env.EMAIL_SERVER;
@@ -44,7 +65,7 @@ if (emailFrom && emailServer) {
         const email = identifier.toLowerCase();
         const rate = await consumeRateLimit(`auth:magic-link:${email}`);
         if (!rate.success) {
-          throw new Error("Too many requests. Please try again later.");
+          throw new Error("EmailSignin");
         }
 
         await ensureMagicLinkUser(email);
@@ -84,7 +105,10 @@ export const authOptions: NextAuthOptions = {
   adapter: createAuthAdapter(),
   providers,
   secret: process.env.NEXTAUTH_SECRET,
-  session: { strategy: "jwt" },
+  session: {
+    strategy: "jwt",
+    maxAge: 365 * 24 * 60 * 60, // keep users signed in for up to a year
+  },
   pages: {
     signIn: "/login",
   },

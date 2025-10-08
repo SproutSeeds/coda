@@ -60,24 +60,31 @@ export async function sendMagicLinkEmail({
   }
 
   const transporter = resolveTransporter();
-  const result = await transporter.sendMail({
-    to: email,
-    from,
-    subject: "Your Coda sign-in link",
-    text: `Sign in to Coda using this link: ${url}\n\nThe link expires in 10 minutes. If you did not request it, you can ignore this message.`,
-    html: `
-      <p>Sign in to <strong>Coda</strong> using the button below. The link expires in 10 minutes.</p>
-      <p><a href="${url}" style="display:inline-block;padding:12px 16px;background:#111827;color:#ffffff;border-radius:8px;text-decoration:none;">Sign in to Coda</a></p>
-      <p>If you did not request this email, you can safely ignore it.</p>
-      <p><a href="${url}">${url}</a></p>
-    `,
-  });
+  let result;
+  try {
+    result = await transporter.sendMail({
+      to: email,
+      from,
+      subject: "Your Coda sign-in link",
+      text: `Sign in to Coda using this link: ${url}\n\nThe link expires in 10 minutes. If you did not request it, you can ignore this message.`,
+      html: `
+        <p>Sign in to <strong>Coda</strong> using the button below. The link expires in 10 minutes.</p>
+        <p><a href="${url}" style="display:inline-block;padding:12px 16px;background:#111827;color:#ffffff;border-radius:8px;text-decoration:none;">Sign in to Coda</a></p>
+        <p>If you did not request this email, you can safely ignore it.</p>
+        <p><a href="${url}">${url}</a></p>
+      `,
+    });
+  } catch (error) {
+    console.error("Magic link email send failed", error);
+    throw new Error("EmailSignin");
+  }
 
   const rejected = Array.isArray(result.rejected) ? result.rejected : [];
   const pending = Array.isArray(result.pending) ? result.pending : [];
 
   if (rejected.length > 0 || pending.length > 0) {
-    throw new Error(`Failed to send magic link to ${email}`);
+    console.error("Magic link email rejected", { email, rejected, pending });
+    throw new Error("EmailSignin");
   }
 
   const maybeMessage = (result as unknown as { message?: Buffer }).message;

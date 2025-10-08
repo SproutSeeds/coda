@@ -17,11 +17,11 @@
 ```
 
 ## Summary
-Coda MVP delivers a single-user workspace for capturing, searching, and pruning project ideas. The plan enforces the constitution’s Next.js App Router stack, ensures performant search via Postgres trigram indexes, codifies undo flows backed by soft deletes, and prepares CI/CD plus observability hooks so `/tasks` can generate an execution-ready backlog. Upcoming auth work adds passwordless email magic-link sign-in (Auth.js Email provider + Drizzle adapter) alongside GitHub OAuth without regressing rate limiting or analytics.
+Coda MVP delivers a single-user workspace for capturing, searching, and pruning project ideas. The plan enforces the constitution’s Next.js App Router stack, ensures performant search via Postgres trigram indexes, codifies undo flows backed by soft deletes, and prepares CI/CD plus observability hooks so `/tasks` can generate an execution-ready backlog. Upcoming auth work adds passwordless email magic-link sign-in (Auth.js Email provider + Drizzle adapter) plus optional password credentials without regressing rate limiting or analytics.
 
 ## Technical Context
 **Language/Version**: TypeScript 5.x targeting Next.js 14 App Router  
-**Primary Dependencies**: Next.js (App Router RSC + Server Actions), Tailwind CSS + shadcn/ui, Framer Motion, Auth.js (GitHub OAuth + Email magic link + dev Credentials), Drizzle ORM + drizzle-zod, Upstash Redis rate limiter, Vercel Analytics  
+**Primary Dependencies**: Next.js (App Router RSC + Server Actions), Tailwind CSS + shadcn/ui, Framer Motion, Auth.js (email magic links + password credentials + dev Credentials), Drizzle ORM + drizzle-zod, Upstash Redis rate limiter, Vercel Analytics  
 **Storage**: PostgreSQL (Vercel Postgres in prod, Neon for local dev) with Drizzle migrations  
 **Testing**: Vitest (unit), Playwright (e2e smoke + undo), Lighthouse CI budget checks  
 **Target Platform**: Vercel-hosted web application with preview + production environments  

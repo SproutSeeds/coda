@@ -74,7 +74,7 @@ Coda enables authenticated individuals to capture and retrieve personal project 
   Errors: 401 unauthenticated, 403 if idea not owned, 404 if not found.
 - **POST /api/ideas/{id}/restore** (Auth required)  
   Restores idea within undo window.
-- Integrations: Authentication via existing Auth.js credentials + GitHub OAuth; analytics via Vercel Analytics event hooks; optional telemetry via Sentry/PostHog per constitution.
+- Integrations: Authentication via Auth.js email magic links + password credentials; analytics via Vercel Analytics event hooks; optional telemetry via Sentry/PostHog per constitution.
 
 ## UX Flows & Wireframes (Low-Fi OK)
 - **Create Idea Flow**: Dashboard → “New Idea” button → Modal or inline form (title, notes) → Save → Success toast → New card animates into list top with 150–200 ms motion. Validation errors inline per field.
