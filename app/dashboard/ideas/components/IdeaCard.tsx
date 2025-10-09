@@ -158,79 +158,100 @@ export function IdeaCard({
             </div>
           ) : null}
           <div className="flex-1 space-y-2">
-            <div className="space-y-1">
-              <h3 className="text-base font-semibold text-foreground">{idea.title}</h3>
-              <AnimatePresence initial={false} mode="wait">
-                {showDetails ? (
-                  trimmedNotes ? (
-                    <motion.p
-                      key="idea-expanded"
-                      layout
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2, ease: "easeInOut" }}
-                      className="text-sm text-muted-foreground"
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex min-w-0 flex-col gap-1">
+                <h3 className="truncate text-base font-semibold text-foreground">{idea.title}</h3>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <AnimatePresence initial={false} mode="wait">
+                  {showDetails ? (
+                    <motion.button
+                      key="hide-details"
+                      type="button"
+                      className="inline-flex cursor-pointer items-center text-xs font-medium text-primary underline-offset-4 transition hover:underline"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setShowDetails(false);
+                      }}
                     >
-                      {trimmedNotes}
-                    </motion.p>
-                  ) : (
-                    <motion.p
-                      key="idea-empty"
-                      layout
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2, ease: "easeInOut" }}
-                      className="text-sm text-muted-foreground"
-                    >
-                      No notes yet—open to add details.
-                    </motion.p>
-                  )
-                ) : null}
-              </AnimatePresence>
+                      Hide details
+                    </motion.button>
+                  ) : null}
+                </AnimatePresence>
+                <span className="whitespace-nowrap text-xs font-medium uppercase tracking-wide text-muted-foreground/80">
+                  Updated {updatedLabel}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    "interactive-btn h-8 w-8 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-muted-foreground focus-visible:ring-0",
+                    idea.starred && "text-yellow-400",
+                  )}
+                  onClick={handleStar}
+                  aria-label={idea.starred ? "Unstar idea" : "Star idea"}
+                  data-testid="idea-star-button"
+                >
+                  {idea.starred ? <Star className="size-4 fill-current" /> : <StarOff className="size-4" />}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="interactive-btn shrink-0 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-destructive focus-visible:ring-0"
+                  onClick={handleDeleteClick}
+                  disabled={isPending}
+                  aria-label="Delete idea"
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
             </div>
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground/80">
-              Updated {updatedLabel}
-            </p>
-            <button
-              type="button"
-              className="inline-flex cursor-pointer items-center text-sm font-medium text-primary underline-offset-4 transition hover:underline"
-              onClick={(event) => {
-                event.stopPropagation();
-                setShowDetails((previous) => !previous);
-              }}
-            >
-              {showDetails ? "Hide details" : "Show details"}
-            </button>
+            <AnimatePresence initial={false} mode="wait">
+              {showDetails ? (
+                trimmedNotes ? (
+                  <motion.p
+                    key="idea-expanded"
+                    layout
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2, ease: "easeInOut" }}
+                    className="text-sm text-muted-foreground"
+                  >
+                    {trimmedNotes}
+                  </motion.p>
+                ) : (
+                  <motion.p
+                    key="idea-empty"
+                    layout
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2, ease: "easeInOut" }}
+                    className="text-sm text-muted-foreground"
+                  >
+                    No notes yet—open to add details.
+                  </motion.p>
+                )
+              ) : null}
+            </AnimatePresence>
+            {!showDetails ? (
+              <motion.button
+                key="show-details"
+                type="button"
+                className="inline-flex cursor-pointer items-center text-sm font-medium text-primary underline-offset-4 transition hover:underline"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setShowDetails(true);
+                }}
+              >
+                Show details
+              </motion.button>
+            ) : null}
           </div>
-          <div className="flex items-center gap-1">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className={cn(
-                "interactive-btn h-8 w-8 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-muted-foreground focus-visible:bg-transparent focus-visible:ring-0",
-                idea.starred && "text-yellow-400",
-              )}
-              onClick={handleStar}
-              aria-label={idea.starred ? "Unstar idea" : "Star idea"}
-              data-testid="idea-star-button"
-            >
-              {idea.starred ? <Star className="size-4 fill-current" /> : <StarOff className="size-4" />}
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="interactive-btn shrink-0 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-destructive focus-visible:ring-0"
-              onClick={handleDeleteClick}
-              disabled={isPending}
-              aria-label="Delete idea"
-            >
-              <Trash2 className="size-4" />
-            </Button>
-          </div>
+          <div className="flex items-center gap-1" />
         </div>
         {isConfirmingDelete ? (
           <div

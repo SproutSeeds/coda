@@ -84,6 +84,20 @@ export function IdeaComposerLauncher() {
 
   const hasDraft = Boolean(draft.title || draft.notes);
 
+  useEffect(() => {
+    if (!isExpanded) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+
+      event.preventDefault();
+      setIsExpanded(false);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isExpanded]);
+
   if (!isExpanded) {
     return (
       <button

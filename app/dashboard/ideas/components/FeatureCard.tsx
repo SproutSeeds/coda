@@ -14,6 +14,17 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
+function formatFeatureUpdated(value: string) {
+  try {
+    const date = new Date(value);
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: "medium",
+    }).format(date);
+  } catch {
+    return value;
+  }
+}
+
 import {
   convertFeatureToIdeaAction,
   deleteFeatureAction,
@@ -58,6 +69,7 @@ export function FeatureCard({
   const [isMutating, startMutate] = useTransition();
   const [isStarPending, startStarTransition] = useTransition();
   const [isConvertingToIdea, startConvertTransition] = useTransition();
+  const [isConfirmingConvert, setIsConfirmingConvert] = useState(false);
 
   useEffect(() => {
     setCurrentTitle(feature.title);
@@ -90,7 +102,8 @@ export function FeatureCard({
     setDraftNotes(syncedFeature.notes);
     setIsEditing(false);
     setFeatureAutoState("idle");
-  }, [syncedFeature.notes, syncedFeature.title]);
+    setIsConfirmingConvert(false);
+  }, [syncedFeature.notes, syncedFeature.title, setIsConfirmingConvert]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -105,6 +118,11 @@ export function FeatureCard({
         return;
       }
 
+      if (isConfirmingConvert) {
+        setIsConfirmingConvert(false);
+        return;
+      }
+
       if (isEditing) {
         cancelEditing();
         return;
@@ -112,12 +130,13 @@ export function FeatureCard({
 
       if (isExpanded) {
         setIsExpanded(false);
+        return;
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [cancelEditing, isConfirmingDelete, isEditing, isExpanded, resetDeleteConfirmation]);
+  }, [cancelEditing, isConfirmingConvert, isConfirmingDelete, isEditing, isExpanded, resetDeleteConfirmation, setIsConfirmingConvert]);
 
   const saveFeature = useCallback(
     async (titleValue: string, notesValue: string) => {
@@ -244,12 +263,23 @@ export function FeatureCard({
     });
   };
 
+  const handleConvertPrompt = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    setIsConfirmingConvert(true);
+  };
+
+  const handleConvertCancel = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    setIsConfirmingConvert(false);
+  };
+
   const handleConvertToIdea = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     startConvertTransition(async () => {
       try {
         const result = await convertFeatureToIdeaAction({ featureId: feature.id });
         toast.success("Feature converted to idea");
+        setIsConfirmingConvert(false);
         router.push(`/dashboard/ideas/${result.newIdeaId}`);
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Unable to convert feature");
@@ -264,6 +294,7 @@ export function FeatureCard({
     }
     setFeatureAutoState("idle");
     setIsEditing(true);
+    setIsConfirmingConvert(false);
   };
 
   const handleCardKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
@@ -347,69 +378,47 @@ export function FeatureCard({
             </div>
           </div>
           <div
-            className="flex items-center gap-2"
+            className="flex items-start justify-between gap-3"
             onClick={(event) => event.stopPropagation()}
             onKeyDown={(event) => event.stopPropagation()}
           >
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className={cn(
-                "interactive-btn h-8 w-8 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-muted-foreground focus-visible:ring-0",
-                isStarred && "text-yellow-400",
-              )}
-              onClick={handleToggleStar}
-              disabled={isStarPending}
-              aria-label={isStarred ? "Unstar feature" : "Star feature"}
-              data-testid="feature-star-button"
-            >
-              {isStarred ? <Star className="size-4 fill-current" /> : <StarOff className="size-4" />}
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="interactive-btn cursor-pointer text-muted-foreground hover:bg-transparent"
-              onClick={handleConvertToIdea}
-              disabled={isConvertingToIdea}
-              aria-label="Convert feature to idea"
-              data-testid="feature-convert-to-idea"
-            >
-              {isConvertingToIdea ? (
-                <span className="text-[10px] uppercase tracking-wide">…</span>
-              ) : (
-                <svg
-                  viewBox="0 0 24 24"
-                  className="size-4"
-                  aria-hidden="true"
-                  focusable="false"
-                >
-                  <path
-                    d="M12 5v10m0 0-4-4m4 4 4-4M5 19h14"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              )}
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="interactive-btn cursor-pointer text-muted-foreground hover:bg-transparent hover:text-destructive focus-visible:ring-0"
-              onClick={(event) => {
-                event.stopPropagation();
-                handleDelete();
-              }}
-              disabled={isMutating}
-              aria-label="Delete feature"
-              data-testid="feature-delete-button"
-            >
-              <Trash2 className="size-4" />
-            </Button>
+            <div className="flex-1">
+              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground/80">
+                Updated {formatFeatureUpdated(syncedFeature.updatedAt)}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "interactive-btn h-8 w-8 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-muted-foreground focus-visible:ring-0",
+                  isStarred && "text-yellow-400",
+                )}
+                onClick={handleToggleStar}
+                disabled={isStarPending}
+                aria-label={isStarred ? "Unstar feature" : "Star feature"}
+                data-testid="feature-star-button"
+              >
+                {isStarred ? <Star className="size-4 fill-current" /> : <StarOff className="size-4" />}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="interactive-btn cursor-pointer text-muted-foreground hover:bg-transparent hover:text-destructive focus-visible:ring-0"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleDelete();
+                }}
+                disabled={isMutating}
+                aria-label="Delete feature"
+                data-testid="feature-delete-button"
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </div>
           </div>
         </CardHeader>
         {isEditing ? (
@@ -474,6 +483,50 @@ export function FeatureCard({
                   </span>
                 ) : null}
               </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-1">
+              {isConfirmingConvert ? (
+                <div className="flex items-center gap-2" data-testid="feature-convert-confirmation">
+                  <span className="text-xs text-muted-foreground">Ya sure?</span>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="interactive-btn"
+                    onClick={handleConvertToIdea}
+                    disabled={isConvertingToIdea}
+                    data-testid="feature-convert-confirm"
+                  >
+                    {isConvertingToIdea ? "Converting…" : "Yes"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="interactive-btn hover:bg-transparent"
+                    onClick={handleConvertCancel}
+                    disabled={isConvertingToIdea}
+                    data-testid="feature-convert-cancel"
+                  >
+                    No
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="interactive-btn cursor-pointer hover:bg-transparent"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleConvertPrompt(event);
+                  }}
+                  disabled={isConvertingToIdea}
+                  data-testid="feature-convert-trigger"
+                >
+                  Convert to idea
+                </Button>
+              )}
             </div>
           </CardContent>
         ) : null}

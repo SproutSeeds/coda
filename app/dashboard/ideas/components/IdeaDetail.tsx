@@ -515,12 +515,25 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
         return;
       }
 
+      if (isCoreExpanded) {
+        setIsCoreExpanded(false);
+        return;
+      }
+
+      const convertEditing = Array.from(document.querySelectorAll('[data-testid="feature-card"]')).some((card) =>
+        card.contains(document.activeElement)
+      );
+
+      if (convertEditing) {
+        return;
+      }
+
       router.push("/dashboard/ideas");
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [exitEditingState, isConfirmingDelete, isEditing, isEditingGithub, resetDeleteConfirmation, router, syncedIdea.githubUrl]);
+  }, [exitEditingState, isConfirmingDelete, isEditing, isEditingGithub, isCoreExpanded, resetDeleteConfirmation, router, syncedIdea.githubUrl]);
 
   return (
     <motion.div
