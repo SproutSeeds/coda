@@ -32,7 +32,7 @@ export async function listIdeas(userId: string, limit = 100, cursor?: string, so
     const [anchor] = await db
       .select({ position: ideas.position })
       .from(ideas)
-      .where(eq(ideas.id, cursor))
+      .where(and(eq(ideas.id, cursor), eq(ideas.userId, userId), isNull(ideas.deletedAt)))
       .limit(1);
 
     if (anchor && anchor.position !== null) {
