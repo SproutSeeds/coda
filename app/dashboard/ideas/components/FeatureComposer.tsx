@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -14,44 +16,96 @@ import { IdeaCelebration } from "./IdeaCelebration";
 
 const MAX_NOTES = 3000;
 
+type FeatureDraft = {
+  title?: string;
+  notes?: string;
+  expanded?: boolean;
+};
+
 export function FeatureComposer({ ideaId }: { ideaId: string }) {
   const router = useRouter();
+  const storageKey = useMemo(() => `coda:feature-draft:${ideaId}`, [ideaId]);
+
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
-  const [isNaming, setIsNaming] = useState(false);
-  const [featureTitle, setFeatureTitle] = useState("");
   const [isPending, startTransition] = useTransition();
   const [celebrate, setCelebrate] = useState(false);
   const celebrationTimeout = useRef<number | null>(null);
+  const [hydrated, setHydrated] = useState(false);
 
+  const trimmedTitle = title.trim();
   const trimmedNotes = notes.trim();
-  const trimmedTitle = featureTitle.trim();
 
-  const handleAddClick = () => {
-    if (!trimmedNotes) {
-      toast.error("Describe the feature before adding it");
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const stored = window.localStorage.getItem(storageKey);
+      if (!stored) {
+        setHydrated(true);
+        return;
+      }
+      const parsed = JSON.parse(stored) as FeatureDraft;
+      setTitle(parsed.title ?? "");
+      setNotes(parsed.notes ?? "");
+      if (parsed.expanded !== undefined) {
+        setIsExpanded(Boolean(parsed.expanded));
+      } else if (parsed.title || parsed.notes) {
+        setIsExpanded(true);
+      }
+    } catch (error) {
+      console.warn("Unable to read feature draft from storage", error);
+    } finally {
+      setHydrated(true);
+    }
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (!hydrated || typeof window === "undefined") return;
+    const hasDraft = Boolean(title || notes);
+    if (!hasDraft && !isExpanded) {
+      window.localStorage.removeItem(storageKey);
       return;
     }
-    setIsNaming(true);
-  };
+    const payload: FeatureDraft = {
+      title: title || undefined,
+      notes: notes || undefined,
+      expanded: isExpanded,
+    };
+    window.localStorage.setItem(storageKey, JSON.stringify(payload));
+  }, [hydrated, isExpanded, notes, storageKey, title]);
 
-  const handleCancel = () => {
-    setIsNaming(false);
-    setFeatureTitle("");
-  };
+  const resetCelebration = useCallback(() => {
+    if (celebrationTimeout.current && typeof window !== "undefined") {
+      window.clearTimeout(celebrationTimeout.current);
+    }
+    celebrationTimeout.current = null;
+  }, []);
+
+  useEffect(() => () => resetCelebration(), [resetCelebration]);
 
   const handleSave = () => {
     if (!trimmedTitle) {
       toast.error("Name your feature before saving");
       return;
     }
+    if (!trimmedNotes) {
+      toast.error("Describe the feature before saving");
+      return;
+    }
+
     startTransition(async () => {
       try {
         await createFeatureAction({ ideaId, title: trimmedTitle, notes: trimmedNotes });
         toast.success("Feature added");
+        setTitle("");
         setNotes("");
-        setFeatureTitle("");
-        setIsNaming(false);
+        setIsExpanded(false);
         setCelebrate(true);
+        if (typeof window !== "undefined") {
+          window.localStorage.removeItem(storageKey);
+        }
         if (typeof window !== "undefined") {
           if (celebrationTimeout.current) {
             window.clearTimeout(celebrationTimeout.current);
@@ -68,22 +122,65 @@ export function FeatureComposer({ ideaId }: { ideaId: string }) {
     });
   };
 
-  useEffect(() => {
-    return () => {
-      if (celebrationTimeout.current && typeof window !== "undefined") {
-        window.clearTimeout(celebrationTimeout.current);
-      }
-    };
-  }, []);
+  const handleCancel = () => {
+    setIsExpanded(false);
+  };
+
+  const hasDraft = Boolean(title || notes);
+
+  if (!isExpanded) {
+    return (
+      <button
+        type="button"
+        onClick={() => setIsExpanded(true)}
+        className="group flex w-full cursor-pointer items-center justify-between rounded-xl border-2 border-dashed border-border/60 bg-card/40 px-4 py-3 text-left transition hover:border-primary hover:bg-card"
+        data-testid="feature-launcher-open"
+      >
+        <span className="flex flex-col">
+          <span className="text-sm font-semibold text-foreground">Capture a new feature</span>
+          <span className="text-xs text-muted-foreground">
+            {hasDraft ? "Draft saved locally" : "Click to expand the feature composer"}
+          </span>
+        </span>
+        <span className="rounded-full border border-border bg-card p-2 transition group-hover:bg-primary group-hover:text-primary-foreground">
+          <Plus className="size-4" />
+        </span>
+      </button>
+    );
+  }
 
   return (
-    <div className="relative space-y-3" data-testid="feature-composer">
+    <Card className="relative overflow-hidden" data-testid="feature-composer-expanded">
       <IdeaCelebration active={celebrate} />
-      <div className="space-y-2">
-        <label className="text-sm font-medium" htmlFor="feature-notes">
-          What&apos;s Next?
-        </label>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+      <CardHeader className="flex flex-row items-start justify-between gap-4">
+        <div>
+          <CardTitle>Add feature</CardTitle>
+          <p className="text-xs text-muted-foreground">Frame the next step with a clear name and supporting context.</p>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="interactive-btn h-8 w-8 text-muted-foreground hover:bg-transparent hover:text-foreground focus-visible:ring-0"
+          onClick={handleCancel}
+          data-testid="feature-composer-minimize"
+        >
+          <X className="size-4" />
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Input
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+          placeholder="Feature name"
+          maxLength={200}
+          disabled={isPending}
+          data-testid="feature-title-input"
+        />
+        <div className="space-y-2">
+          <label htmlFor="feature-notes" className="text-sm font-medium text-muted-foreground">
+            {"What's next?"}
+          </label>
           <Textarea
             id="feature-notes"
             value={notes}
@@ -92,58 +189,27 @@ export function FeatureComposer({ ideaId }: { ideaId: string }) {
                 setNotes(event.target.value);
               }
             }}
-            maxLength={MAX_NOTES}
-            placeholder="Capture the next step or enhancement for this idea"
+            placeholder="Capture the short plan for this feature (max 3000 characters)"
             rows={4}
             disabled={isPending}
-            aria-label="Feature notes"
             data-testid="feature-notes-input"
-            className="flex-1"
           />
-          <Button
-            type="button"
-            onClick={handleAddClick}
-            disabled={isPending}
-            data-testid="feature-add-button"
-            className="shrink-0"
-          >
-            Add feature
-          </Button>
-        </div>
-        <p className="text-xs text-muted-foreground text-right">{notes.length}/{MAX_NOTES}</p>
-      </div>
-      {isNaming ? (
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <Input
-            value={featureTitle}
-            onChange={(event) => setFeatureTitle(event.target.value)}
-            placeholder="Feature name"
-            disabled={isPending}
-            data-testid="feature-name-input"
-            aria-label="Feature name"
-            className="sm:flex-1"
-          />
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleCancel}
-              disabled={isPending}
-              data-testid="feature-cancel-button"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={handleSave}
-              disabled={isPending}
-              data-testid="feature-save-button"
-            >
-              {isPending ? "Saving…" : "Save feature"}
-            </Button>
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>{notes.length}/{MAX_NOTES} characters</span>
+            <span className={trimmedTitle ? "opacity-0" : ""}>Name required</span>
           </div>
         </div>
-      ) : null}
-    </div>
+        <div className="flex items-center justify-end">
+          <Button
+            type="button"
+            onClick={handleSave}
+            disabled={isPending}
+            data-testid="feature-save-button"
+          >
+            {isPending ? "Saving…" : "Save feature"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

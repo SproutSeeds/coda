@@ -5,6 +5,7 @@ import { loginWithMagicLink } from "./utils/auth";
 test.describe("Coda CRUD flow", () => {
   test("allows authenticated user to create, edit, search, delete, and undo", async ({ page }) => {
     await loginWithMagicLink(page);
+    await page.getByTestId("idea-launcher-open").click();
     await page.getByTestId("idea-title-input").waitFor();
 
     await page.getByTestId("idea-title-input").fill("Build realtime undo");
@@ -45,6 +46,8 @@ test.describe("Coda CRUD flow", () => {
     await page.waitForSelector("text=Refined realtime undo", { timeout: 10_000 });
 
     await page.getByRole("button", { name: /delete idea/i }).first().click();
+    await page.getByTestId("idea-delete-input").fill("Refined realtime undo");
+    await page.getByTestId("idea-delete-confirm").click();
     await page.waitForSelector("text=Idea deleted", { timeout: 5_000 });
     await page.getByRole("button", { name: /undo/i }).click();
     const restoredCard = page

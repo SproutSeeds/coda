@@ -1,17 +1,18 @@
 "use client";
 
 import type { CSSProperties, KeyboardEventHandler, MouseEventHandler, ReactNode, SyntheticEvent } from "react";
-import { useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { motion } from "framer-motion";
-import { Trash2 } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Star, StarOff, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 
-import { deleteIdeaAction, restoreIdeaAction } from "../actions";
+import { deleteIdeaAction, restoreIdeaAction, toggleIdeaStarAction } from "../actions";
 import { showUndoToast } from "./UndoSnackbar";
 import type { Idea } from "./types";
 import { cn } from "@/lib/utils";
@@ -41,11 +42,36 @@ export function IdeaCard({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [showDetails, setShowDetails] = useState(false);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const [deleteInput, setDeleteInput] = useState("");
+
+  const deletePrompt = useMemo(() => `Enter "${idea.title}" to delete`, [idea.title]);
+  const deleteTitleMatches = deleteInput.trim() === idea.title;
+
+  const resetDeleteConfirmation = useCallback(() => {
+    setIsConfirmingDelete(false);
+    setDeleteInput("");
+  }, []);
+
+  useEffect(() => {
+    if (!isConfirmingDelete) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+      event.preventDefault();
+      resetDeleteConfirmation();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isConfirmingDelete, resetDeleteConfirmation]);
 
   const updatedLabel = formatUpdated(idea.updatedAt ?? idea.createdAt);
   const trimmedNotes = idea.notes?.trim?.() ?? "";
-  const preview =
-    trimmedNotes.length > 160 ? `${trimmedNotes.slice(0, 157).trimEnd()}…` : trimmedNotes;
 
   const handleNavigate = () => {
     router.push(`/dashboard/ideas/${idea.id}`);
@@ -58,8 +84,18 @@ export function IdeaCard({
     }
   };
 
-  const handleDelete: MouseEventHandler<HTMLButtonElement> = (event) => {
+  const handleDeleteClick: MouseEventHandler<HTMLButtonElement> = (event) => {
     event.stopPropagation();
+    setIsConfirmingDelete(true);
+    setDeleteInput("");
+  };
+
+  const handleConfirmDelete: MouseEventHandler<HTMLButtonElement> = (event) => {
+    event.stopPropagation();
+    if (deleteInput.trim() !== idea.title) {
+      toast.error("Title didn't match. Idea not deleted.");
+      return;
+    }
     startTransition(async () => {
       try {
         const result = await deleteIdeaAction({ id: idea.id });
@@ -70,6 +106,7 @@ export function IdeaCard({
             toast.success("Idea restored");
           },
         });
+        resetDeleteConfirmation();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Unable to delete idea");
       }
@@ -78,6 +115,19 @@ export function IdeaCard({
 
   const stopPropagation = (event: SyntheticEvent) => {
     event.stopPropagation();
+  };
+
+  const handleStar: MouseEventHandler<HTMLButtonElement> = (event) => {
+    event.stopPropagation();
+    const nextValue = !idea.starred;
+    startTransition(async () => {
+      try {
+        await toggleIdeaStarAction(idea.id, nextValue);
+        router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Unable to update star status");
+      }
+    });
   };
 
   return (
@@ -110,40 +160,124 @@ export function IdeaCard({
           <div className="flex-1 space-y-2">
             <div className="space-y-1">
               <h3 className="text-base font-semibold text-foreground">{idea.title}</h3>
-              {showDetails ? (
-                preview ? (
-                  <p className="text-sm text-muted-foreground">{preview}</p>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No notes yet—open to add details.</p>
-                )
-              ) : null}
+              <AnimatePresence initial={false} mode="wait">
+                {showDetails ? (
+                  trimmedNotes ? (
+                    <motion.p
+                      key="idea-expanded"
+                      layout
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2, ease: "easeInOut" }}
+                      className="text-sm text-muted-foreground"
+                    >
+                      {trimmedNotes}
+                    </motion.p>
+                  ) : (
+                    <motion.p
+                      key="idea-empty"
+                      layout
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2, ease: "easeInOut" }}
+                      className="text-sm text-muted-foreground"
+                    >
+                      No notes yet—open to add details.
+                    </motion.p>
+                  )
+                ) : null}
+              </AnimatePresence>
             </div>
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground/80">
               Updated {updatedLabel}
             </p>
             <button
               type="button"
-              className="inline-flex items-center text-sm font-medium text-primary underline-offset-4 transition hover:underline"
+              className="inline-flex cursor-pointer items-center text-sm font-medium text-primary underline-offset-4 transition hover:underline"
               onClick={(event) => {
                 event.stopPropagation();
                 setShowDetails((previous) => !previous);
               }}
             >
-              {showDetails ? "Hide details" : "More details"}
+              {showDetails ? "Hide details" : "Show details"}
             </button>
           </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="shrink-0 text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
-            onClick={handleDelete}
-            disabled={isPending}
-            aria-label="Delete idea"
-          >
-            <Trash2 className="size-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "interactive-btn h-8 w-8 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-muted-foreground focus-visible:bg-transparent focus-visible:ring-0",
+                idea.starred && "text-yellow-400",
+              )}
+              onClick={handleStar}
+              aria-label={idea.starred ? "Unstar idea" : "Star idea"}
+              data-testid="idea-star-button"
+            >
+              {idea.starred ? <Star className="size-4 fill-current" /> : <StarOff className="size-4" />}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="interactive-btn shrink-0 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-destructive focus-visible:ring-0"
+              onClick={handleDeleteClick}
+              disabled={isPending}
+              aria-label="Delete idea"
+            >
+              <Trash2 className="size-4" />
+            </Button>
+          </div>
         </div>
+        {isConfirmingDelete ? (
+          <div
+            className="mt-4 rounded-lg border border-destructive/40 bg-destructive/5 p-4"
+            onClick={(event) => event.stopPropagation()}
+            data-testid="idea-delete-confirmation"
+          >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="relative w-full sm:max-w-xs">
+                <Input
+                  value={deleteInput}
+                  onChange={(event) => setDeleteInput(event.target.value)}
+                  placeholder={deletePrompt}
+                  aria-label={deletePrompt}
+                  data-testid="idea-delete-input"
+                  className="h-10 w-full pr-10 placeholder:text-muted-foreground/50"
+                  autoFocus
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="interactive-btn absolute right-1.5 top-1/2 h-7 w-7 -translate-y-1/2 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-foreground focus-visible:ring-0"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    resetDeleteConfirmation();
+                  }}
+                  aria-label="Cancel delete"
+                  data-testid="idea-delete-cancel"
+                >
+                  <X className="size-4" />
+                </Button>
+              </div>
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                className="interactive-btn"
+                onClick={handleConfirmDelete}
+                disabled={isPending || !deleteTitleMatches}
+                data-testid="idea-delete-confirm"
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </Card>
     </motion.div>
   );

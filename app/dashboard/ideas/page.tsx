@@ -1,5 +1,7 @@
+import type { IdeaSort } from "@/lib/db/ideas";
+
 import { loadDeletedIdeas, loadIdeas } from "./actions";
-import { IdeaComposer } from "./components/IdeaComposer";
+import { IdeaComposerLauncher } from "./components/IdeaComposer";
 import { IdeaBoard } from "./components/IdeaBoard";
 import { SearchBar } from "./components/SearchBar";
 import { LoadMore } from "./components/LoadMore";
@@ -7,22 +9,24 @@ import { LoadMore } from "./components/LoadMore";
 export default async function IdeasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; cursor?: string }>;
+  searchParams: Promise<{ q?: string; cursor?: string; sort?: string }>;
 }) {
   const params = await searchParams;
+  const allowedSorts: IdeaSort[] = ["priority", "created_desc", "updated_desc", "title_asc"];
+  const sortParam = params.sort && allowedSorts.includes(params.sort as IdeaSort) ? (params.sort as IdeaSort) : undefined;
   const [data, deleted] = await Promise.all([
-    loadIdeas({ q: params.q, cursor: params.cursor }),
+    loadIdeas({ q: params.q, cursor: params.cursor, sort: sortParam }),
     loadDeletedIdeas(),
   ]);
 
   return (
     <section className="space-y-6">
-      <IdeaComposer />
+      <IdeaComposerLauncher />
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <h2 className="text-lg font-semibold">Ideas</h2>
         <SearchBar />
       </div>
-      <IdeaBoard ideas={data.items} deleted={deleted} query={params.q} />
+      <IdeaBoard ideas={data.items} deleted={deleted} query={params.q} sort={sortParam ?? "priority"} />
       {data.nextCursor ? <LoadMore cursor={data.nextCursor} /> : null}
     </section>
   );

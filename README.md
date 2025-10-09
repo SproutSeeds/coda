@@ -60,7 +60,9 @@ SPECIFY PROCESS:
 - **Dashboard**: `/dashboard/ideas` now presents minimal preview cards with search and quick delete; click a card to open the full detail view with editing controls and undo support.
 - **Authentication**: Auth.js email magic links + optional password sign-in, with owner-token credentials login available locally when `ENABLE_DEV_LOGIN=true`.
 - **Reordering**: Drag-and-drop (mouse, touch, or keyboard) lets you prioritize ideas; order persists across sessions automatically while recently deleted ideas stay recoverable for seven days (the tab hides when empty).
+- **Drafting**: The collapsed “Capture a new idea” button preserves your in-progress core plan locally so drafts survive refreshes and sign-outs.
 - **Features**: Click into any idea to add feature cards—each with its own notes, edit/delete controls, and activity tracking—so large concepts stay organized.
+- **Starring & filters**: Mark standout ideas with a star to surface them first, and filter the board by manual priority, newest created, recent updates, or title A→Z.
 - **Server Actions**: CRUD flows live in `app/dashboard/ideas/actions/index.ts`, backed by Drizzle ORM and rate limiting.
 - **UI**: shadcn components with Framer Motion transitions, Sonner toasts, and debounced search.
 - **Cron + Cleanup**: daily purge of soft-deleted ideas via `scripts/purge-soft-deleted-ideas.ts` (exposed at `/api/cron/purge-soft-deletes`).

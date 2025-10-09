@@ -50,4 +50,5 @@ tests/
 - 001-build-a-lightweight: Added TypeScript 5.x targeting Next.js 14 App Router + Next.js (App Router RSC + Server Actions), Tailwind CSS + shadcn/ui, Framer Motion, Auth.js (email magic links + password credentials + dev Credentials), Drizzle ORM + drizzle-zod, Upstash Redis rate limiter, Vercel Analytics
 
 <!-- MANUAL ADDITIONS START -->
+- All new interactive buttons or links must use our standard “interactive-btn” grow & tilt hover treatment; do **not** reintroduce the legacy green highlight state.
 <!-- MANUAL ADDITIONS END -->

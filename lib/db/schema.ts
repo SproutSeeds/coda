@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, primaryKey, integer, doublePrecision, index } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, primaryKey, integer, doublePrecision, index, boolean } from "drizzle-orm/pg-core";
 import type { AdapterAccount } from "next-auth/adapters";
 
 export const ideas = pgTable("ideas", {
@@ -13,11 +13,15 @@ export const ideas = pgTable("ideas", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
+  starred: boolean("starred").notNull().default(false),
+  githubUrl: text("github_url"),
+  linkLabel: text("link_label").notNull().default("GitHub Repository"),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   undoToken: text("undo_token"),
   undoExpiresAt: timestamp("undo_expires_at", { withTimezone: true }),
 }, (table) => ({
   userPositionIdx: index("idx_ideas_user_position").on(table.userId, table.position),
+  userStarIdx: index("idx_ideas_user_star").on(table.userId, table.starred),
 }));
 
 export const ideaFeatures = pgTable("idea_features", {
@@ -34,8 +38,10 @@ export const ideaFeatures = pgTable("idea_features", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
+  starred: boolean("starred").notNull().default(false),
 }, (table) => ({
   ideaPositionIdx: index("idx_feature_idea_position").on(table.ideaId, table.position),
+  ideaStarIdx: index("idx_feature_idea_star").on(table.ideaId, table.starred),
 }));
 
 export const users = pgTable("auth_user", {

@@ -7,12 +7,28 @@ import { getDb } from "@/lib/db";
 import { ideas } from "@/lib/db/schema";
 import { sanitizeIdeaNotes, validateIdeaInput, validateIdeaReorder, validateIdeaUpdate } from "@/lib/validations/ideas";
 
-export async function listIdeas(userId: string, limit = 100, cursor?: string) {
+export type IdeaSort = "priority" | "created_desc" | "updated_desc" | "title_asc";
+
+function getOrderBy(sort: IdeaSort) {
+  switch (sort) {
+    case "created_desc":
+      return [desc(ideas.starred), desc(ideas.createdAt)];
+    case "updated_desc":
+      return [desc(ideas.starred), desc(ideas.updatedAt)];
+    case "title_asc":
+      return [desc(ideas.starred), asc(ideas.title)];
+    case "priority":
+    default:
+      return [desc(ideas.starred), asc(ideas.position), desc(ideas.createdAt)];
+  }
+}
+
+export async function listIdeas(userId: string, limit = 100, cursor?: string, sort: IdeaSort = "priority") {
   const db = getDb();
 
   const conditions = [eq(ideas.userId, userId), isNull(ideas.deletedAt)];
 
-  if (cursor) {
+  if (cursor && sort === "priority") {
     const [anchor] = await db
       .select({ position: ideas.position })
       .from(ideas)
@@ -30,12 +46,12 @@ export async function listIdeas(userId: string, limit = 100, cursor?: string) {
     .select()
     .from(ideas)
     .where(whereClause)
-    .orderBy(asc(ideas.position), desc(ideas.createdAt))
+    .orderBy(...getOrderBy(sort))
     .limit(limit + 1);
 
   const hasNextPage = rows.length > limit;
   const items = (hasNextPage ? rows.slice(0, -1) : rows).map(normalizeIdea);
-  const nextCursor = hasNextPage ? items[items.length - 1]?.id ?? null : null;
+  const nextCursor = sort === "priority" && hasNextPage ? items[items.length - 1]?.id ?? null : null;
 
   return {
     items,
@@ -71,12 +87,12 @@ export async function searchIdeas(userId: string, query: string) {
         or(ilike(ideas.title, q), ilike(ideas.notes, q)),
       ),
     )
-    .orderBy(asc(ideas.position), desc(ideas.createdAt));
+    .orderBy(desc(ideas.starred), desc(ideas.updatedAt));
 
   return rows.map(normalizeIdea);
 }
 
-export async function createIdea(userId: string, input: { title: string; notes: string }) {
+export async function createIdea(userId: string, input: { title: string; notes: string; githubUrl?: string | null; linkLabel?: string | null }) {
   const payload = validateIdeaInput(input);
   const db = getDb();
   const [top] = await db
@@ -94,6 +110,9 @@ export async function createIdea(userId: string, input: { title: string; notes: 
       title: payload.title,
       notes: sanitizeIdeaNotes(payload.notes),
       position,
+      starred: false,
+      githubUrl: payload.githubUrl ?? null,
+      linkLabel: payload.linkLabel ?? "GitHub Repository",
     })
     .returning();
 
@@ -101,7 +120,7 @@ export async function createIdea(userId: string, input: { title: string; notes: 
   return normalizeIdea(created);
 }
 
-export async function updateIdea(userId: string, id: string, input: { title?: string; notes?: string; updatedAt: Date }) {
+export async function updateIdea(userId: string, id: string, input: { title?: string; notes?: string; githubUrl?: string | null; linkLabel?: string | null; updatedAt: Date }) {
   const payload = validateIdeaUpdate({ id, ...input });
   const db = getDb();
 
@@ -118,6 +137,8 @@ export async function updateIdea(userId: string, id: string, input: { title?: st
   const updates: Partial<typeof ideas.$inferInsert> = { updatedAt: new Date() };
   if (payload.title) updates.title = payload.title;
   if (payload.notes) updates.notes = sanitizeIdeaNotes(payload.notes);
+  if (payload.githubUrl !== undefined) updates.githubUrl = payload.githubUrl;
+  if (payload.linkLabel !== undefined) updates.linkLabel = payload.linkLabel ?? "GitHub Repository";
 
   const [updated] = await db.update(ideas).set(updates).where(eq(ideas.id, id)).returning();
 
@@ -215,6 +236,9 @@ function normalizeIdea(row: typeof ideas.$inferSelect) {
     deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
     undoExpiresAt: row.undoExpiresAt ? row.undoExpiresAt.toISOString() : null,
     position: Number(row.position),
+    starred: Boolean(row.starred),
+    githubUrl: row.githubUrl ?? null,
+    linkLabel: row.linkLabel ?? "GitHub Repository",
   };
 }
 
@@ -229,4 +253,26 @@ export async function purgeIdea(userId: string, id: string) {
     throw new Error("Idea not found");
   }
   return result[0];
+}
+
+export async function updateIdeaStar(userId: string, id: string, starred: boolean) {
+  const db = getDb();
+  const [existing] = await db
+    .select({ id: ideas.id })
+    .from(ideas)
+    .where(and(eq(ideas.id, id), eq(ideas.userId, userId), isNull(ideas.deletedAt)))
+    .limit(1);
+
+  if (!existing) {
+    throw new Error("Idea not found");
+  }
+
+  const [updated] = await db
+    .update(ideas)
+    .set({ starred, updatedAt: new Date() })
+    .where(eq(ideas.id, id))
+    .returning();
+
+  revalidatePath("/dashboard/ideas");
+  return normalizeIdea(updated);
 }

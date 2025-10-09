@@ -5,12 +5,15 @@ import { IDEA_NOTES_CHARACTER_LIMIT } from "@/lib/constants/ideas";
 export type IdeaInput = {
   title: string;
   notes: string;
+  githubUrl?: string | null;
+  linkLabel?: string | null;
 };
 
 export type IdeaUpdateInput = Partial<IdeaInput> & { id: string };
 export type IdeaReorderInput = string[];
 
 const MAX_TITLE = 200;
+const MAX_LINK_LABEL = 120;
 const ideaNotesCharacterLimit = IDEA_NOTES_CHARACTER_LIMIT;
 
 const ideaInputSchema = z.object({
@@ -22,6 +25,19 @@ const ideaInputSchema = z.object({
   notes: z
     .string()
     .min(1, "Notes are required"),
+  githubUrl: z
+    .string()
+    .trim()
+    .url("Enter a valid URL")
+    .max(2048, "Link is too long")
+    .nullable()
+    .optional(),
+  linkLabel: z
+    .string()
+    .trim()
+    .min(1, "Link title is required")
+    .max(MAX_LINK_LABEL, `Link title must be ≤ ${MAX_LINK_LABEL} characters`)
+    .optional(),
 });
 
 const ideaUpdateSchema = ideaInputSchema
@@ -29,9 +45,16 @@ const ideaUpdateSchema = ideaInputSchema
   .extend({
     id: z.string().min(1, "Idea id is required"),
   })
-  .refine((value) => value.title !== undefined || value.notes !== undefined, {
-    message: "At least one field must be provided",
-  });
+  .refine(
+    (value) =>
+      value.title !== undefined ||
+      value.notes !== undefined ||
+      value.githubUrl !== undefined ||
+      value.linkLabel !== undefined,
+    {
+      message: "At least one field must be provided",
+    },
+  );
 
 const ideaReorderSchema = z
   .array(z.string().min(1, "Idea id is required"))
@@ -50,6 +73,13 @@ export function validateIdeaInput(input: IdeaInput): IdeaInput {
   const sanitized = {
     title: input.title.trim(),
     notes: sanitizeIdeaNotes(input.notes),
+    githubUrl: input.githubUrl === undefined || input.githubUrl === null || input.githubUrl.trim() === ""
+      ? null
+      : input.githubUrl.trim(),
+    linkLabel:
+      input.linkLabel === undefined || input.linkLabel === null || input.linkLabel.trim() === ""
+        ? undefined
+        : input.linkLabel.trim(),
   };
   if (sanitized.notes.length > ideaNotesCharacterLimit) {
     throw new Error(`Notes must be ≤ ${ideaNotesCharacterLimit} characters`);
@@ -63,6 +93,18 @@ export function validateIdeaUpdate(input: IdeaUpdateInput): IdeaUpdateInput {
     ...input,
     title: input.title?.trim(),
     notes: input.notes !== undefined ? sanitizeIdeaNotes(input.notes) : undefined,
+    githubUrl:
+      input.githubUrl === undefined
+        ? undefined
+        : input.githubUrl === null || input.githubUrl.trim() === ""
+          ? null
+          : input.githubUrl.trim(),
+    linkLabel:
+      input.linkLabel === undefined
+        ? undefined
+        : input.linkLabel === null || input.linkLabel.trim() === ""
+          ? undefined
+          : input.linkLabel.trim(),
   };
 
   if (sanitized.notes !== undefined && sanitized.notes.length > ideaNotesCharacterLimit) {

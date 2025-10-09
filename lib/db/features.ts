@@ -15,7 +15,7 @@ export async function listFeatures(userId: string, ideaId: string) {
     .from(ideaFeatures)
     .innerJoin(ideas, eq(ideas.id, ideaFeatures.ideaId))
     .where(and(eq(ideas.userId, userId), eq(ideaFeatures.ideaId, ideaId), isNull(ideas.deletedAt)))
-    .orderBy(asc(ideaFeatures.position), desc(ideaFeatures.createdAt));
+    .orderBy(desc(ideaFeatures.starred), asc(ideaFeatures.position), desc(ideaFeatures.createdAt));
 
   return rows.map((row) => normalizeFeature(row.feature));
 }
@@ -116,6 +116,37 @@ export async function deleteFeature(userId: string, id: string) {
 
   revalidatePath(`/dashboard/ideas/${existing.ideaId}`);
   revalidatePath("/dashboard/ideas");
+}
+
+export async function updateFeatureStar(userId: string, id: string, starred: boolean) {
+  const db = getDb();
+
+  const [existing] = await db
+    .select({
+      id: ideaFeatures.id,
+      ideaId: ideaFeatures.ideaId,
+    })
+    .from(ideaFeatures)
+    .innerJoin(ideas, eq(ideas.id, ideaFeatures.ideaId))
+    .where(and(eq(ideaFeatures.id, id), eq(ideas.userId, userId), isNull(ideas.deletedAt)))
+    .limit(1);
+
+  if (!existing) {
+    throw new Error("Feature not found");
+  }
+
+  const [updated] = await db
+    .update(ideaFeatures)
+    .set({ starred, updatedAt: new Date() })
+    .where(eq(ideaFeatures.id, id))
+    .returning();
+
+  const feature = normalizeFeature(updated);
+
+  revalidatePath(`/dashboard/ideas/${existing.ideaId}`);
+  revalidatePath("/dashboard/ideas");
+
+  return feature;
 }
 
 export async function reorderFeatures(userId: string, ideaId: string, orderedIds: string[]) {

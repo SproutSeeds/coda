@@ -30,7 +30,7 @@ import { reorderIdeasAction } from "../actions";
 import { Idea } from "./types";
 import { IdeaCard } from "./IdeaCard";
 
-export function IdeaList({ ideas, query }: { ideas: Idea[]; query?: string }) {
+export function IdeaList({ ideas, query, canReorder = true }: { ideas: Idea[]; query?: string; canReorder?: boolean }) {
   const [isMounted, setIsMounted] = useState(false);
   const [items, setItems] = useState<Idea[]>(ideas);
   const prefersReducedMotion = useReducedMotion() ?? false;
@@ -101,7 +101,9 @@ export function IdeaList({ ideas, query }: { ideas: Idea[]; query?: string }) {
     );
   }
 
-  if (!isMounted || (query && query.trim().length > 0)) {
+  const isFiltering = Boolean(query && query.trim().length > 0);
+
+  if (!isMounted || !canReorder || isFiltering) {
     return (
       <div className="space-y-4">
         {items.map((idea) => (

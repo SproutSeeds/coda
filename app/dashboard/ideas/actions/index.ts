@@ -2,8 +2,8 @@
 
 import { redirect } from "next/navigation";
 
-import { createFeature, deleteFeature, listFeatures, reorderFeatures, updateFeature } from "@/lib/db/features";
-import { createIdea, getIdea, listDeletedIdeas, listIdeas, purgeIdea, reorderIdeas, restoreIdea, searchIdeas, softDeleteIdea, updateIdea } from "@/lib/db/ideas";
+import { createFeature, deleteFeature, listFeatures, reorderFeatures, updateFeature, updateFeatureStar } from "@/lib/db/features";
+import { createIdea, getIdea, listDeletedIdeas, listIdeas, purgeIdea, reorderIdeas, restoreIdea, searchIdeas, softDeleteIdea, updateIdea, updateIdeaStar, type IdeaSort } from "@/lib/db/ideas";
 import { trackEvent } from "@/lib/utils/analytics";
 import { consumeRateLimit } from "@/lib/utils/rate-limit";
 import { consumeUndoToken, createUndoToken } from "@/lib/utils/undo";
@@ -29,11 +29,13 @@ export async function createIdeaAction(formData: FormData | { title: string; not
   return idea;
 }
 
-export async function updateIdeaAction(input: { id: string; title?: string; notes?: string; updatedAt: string }) {
+export async function updateIdeaAction(input: { id: string; title?: string; notes?: string; githubUrl?: string | null; linkLabel?: string | null; updatedAt: string }) {
   const user = await requireUser();
   const idea = await updateIdea(user.id, input.id, {
     title: input.title,
     notes: input.notes,
+    githubUrl: input.githubUrl,
+    linkLabel: input.linkLabel,
     updatedAt: new Date(input.updatedAt),
   });
   await trackEvent({ name: "idea_updated", properties: { ideaId: idea.id } });
@@ -70,7 +72,7 @@ export async function searchIdeasAction(query: string) {
   return results;
 }
 
-export async function loadIdeas(searchParams: { q?: string; cursor?: string }) {
+export async function loadIdeas(searchParams: { q?: string; cursor?: string; sort?: IdeaSort }) {
   const user = await requireUser();
   if (searchParams.q) {
     return {
@@ -78,7 +80,9 @@ export async function loadIdeas(searchParams: { q?: string; cursor?: string }) {
       nextCursor: null,
     };
   }
-  return listIdeas(user.id, 100, searchParams.cursor);
+  const allowedSorts: IdeaSort[] = ["priority", "created_desc", "updated_desc", "title_asc"];
+  const sort = searchParams.sort && allowedSorts.includes(searchParams.sort) ? searchParams.sort : "priority";
+  return listIdeas(user.id, 100, searchParams.cursor, sort);
 }
 
 export async function loadIdea(id: string) {
@@ -102,6 +106,13 @@ export async function reorderIdeasAction(ids: string[]) {
   const user = await requireUser();
   await reorderIdeas(user.id, ids);
   await trackEvent({ name: "idea_reordered", properties: { count: ids.length } });
+}
+
+export async function toggleIdeaStarAction(id: string, starred: boolean) {
+  const user = await requireUser();
+  const idea = await updateIdeaStar(user.id, id, starred);
+  await trackEvent({ name: starred ? "idea_starred" : "idea_unstarred", properties: { ideaId: id } });
+  return idea;
 }
 
 export async function restoreDeletedIdeaAction(id: string) {
@@ -155,4 +166,53 @@ export async function reorderFeaturesAction(ideaId: string, ids: string[]) {
   const user = await requireUser();
   await reorderFeatures(user.id, ideaId, ids);
   await trackEvent({ name: "feature_reordered", properties: { ideaId, count: ids.length } });
+}
+
+export async function toggleFeatureStarAction(id: string, starred: boolean) {
+  const user = await requireUser();
+  const feature = await updateFeatureStar(user.id, id, starred);
+  await trackEvent({
+    name: starred ? "feature_starred" : "feature_unstarred",
+    properties: { featureId: id, ideaId: feature.ideaId },
+  });
+  return feature;
+}
+
+export async function listIdeaOptionsAction(excludeId?: string) {
+  const user = await requireUser();
+  const { items } = await listIdeas(user.id, 500, undefined, "priority");
+  return items
+    .filter((item) => item.id !== excludeId)
+    .map((item) => ({ id: item.id, title: item.title }));
+}
+
+export async function convertIdeaToFeatureAction(input: { sourceIdeaId: string; targetIdeaId: string }) {
+  const user = await requireUser();
+
+  if (input.sourceIdeaId === input.targetIdeaId) {
+    throw new Error("Choose a different idea to receive the feature.");
+  }
+
+  const sourceIdea = await getIdea(user.id, input.sourceIdeaId);
+  await getIdea(user.id, input.targetIdeaId);
+
+  const feature = await createFeature(user.id, {
+    ideaId: input.targetIdeaId,
+    title: sourceIdea.title,
+    notes: sourceIdea.notes,
+  });
+
+  const undo = createUndoToken(input.sourceIdeaId);
+  await softDeleteIdea(user.id, input.sourceIdeaId, undo.token, undo.expiresAt);
+
+  await trackEvent({
+    name: "idea_converted_to_feature",
+    properties: {
+      sourceIdeaId: input.sourceIdeaId,
+      targetIdeaId: input.targetIdeaId,
+      featureId: feature.id,
+    },
+  });
+
+  return { featureId: feature.id, targetIdeaId: input.targetIdeaId };
 }
