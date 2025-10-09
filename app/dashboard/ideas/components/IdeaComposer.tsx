@@ -193,13 +193,10 @@ export function IdeaComposer({
   useEffect(() => () => resetCelebration(), [resetCelebration]);
 
   return (
-    <Card className="relative mb-6 overflow-hidden" data-testid="idea-composer-expanded">
+    <Card className="relative mb-2 overflow-hidden" data-testid="idea-composer-expanded">
       <IdeaCelebration active={celebrate} />
-      <CardHeader className="flex flex-row items-start justify-between gap-4">
-        <div>
-          <CardTitle>Add idea</CardTitle>
-          <p className="text-xs text-muted-foreground">Keep it short and memorable for future you.</p>
-        </div>
+      <CardHeader className="flex flex-row items-center justify-between gap-2 py-2">
+        <CardTitle className="text-[1.4rem]">Add idea</CardTitle>
         {showCloseButton ? (
       <Button
         type="button"
@@ -214,7 +211,7 @@ export function IdeaComposer({
         ) : null}
       </CardHeader>
       <form onSubmit={handleSubmit}>
-        <CardContent className="grid gap-4">
+        <CardContent className="grid gap-1.5 pt-0 pb-2">
           <Input
             data-testid="idea-title-input"
             value={title}
@@ -223,7 +220,7 @@ export function IdeaComposer({
             maxLength={200}
             required
           />
-          <div className="space-y-2">
+          <div className="space-y-1">
             <label htmlFor="idea-composer-notes" className="text-sm font-medium text-muted-foreground">
               Core plan
             </label>
@@ -233,7 +230,7 @@ export function IdeaComposer({
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
               placeholder="Summarize the core plan in 1000 characters or fewer"
-              rows={4}
+              rows={3}
               required
             />
             <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -244,7 +241,7 @@ export function IdeaComposer({
             </div>
           </div>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
-          <div className="flex justify-end pt-2">
+          <div className="flex justify-end pt-0">
             <Button
               type="submit"
               disabled={isPending}

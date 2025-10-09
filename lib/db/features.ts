@@ -149,6 +149,29 @@ export async function updateFeatureStar(userId: string, id: string, starred: boo
   return feature;
 }
 
+export async function getFeatureById(userId: string, id: string) {
+  const db = getDb();
+
+  const [existing] = await db
+    .select({
+      feature: ideaFeatures,
+      ideaId: ideaFeatures.ideaId,
+    })
+    .from(ideaFeatures)
+    .innerJoin(ideas, eq(ideas.id, ideaFeatures.ideaId))
+    .where(and(eq(ideaFeatures.id, id), eq(ideas.userId, userId), isNull(ideas.deletedAt)))
+    .limit(1);
+
+  if (!existing) {
+    throw new Error("Feature not found");
+  }
+
+  return {
+    feature: normalizeFeature(existing.feature),
+    ideaId: existing.ideaId,
+  };
+}
+
 export async function reorderFeatures(userId: string, ideaId: string, orderedIds: string[]) {
   if (orderedIds.length === 0) return;
 

@@ -1,105 +1,191 @@
-SPECIFY PROCESS:
-- run the constitution command with the user input argument
-    ```
-         run the prompt detailed here: .codex/prompts/constitution.md "copy/paste full user argument from .arguments"
-    ```
-- run the specify command
-    ```
-        run the prompt detailed here: .codex/prompts/specify.md "copy/paste full user argument from .arguments"
-    ```
-- run the clarify command
-    ```
-        .codex/prompts/clarify.md
-    ```
-- run the plan command
-    ```
-        run the prompt detailed here:  .codex/prompts/plan.md "copy/paste full user argument from .arguments"
-    ```
-    - create the perfect user arguments prompt for task creation
-        ```
-            Based on that plan, create the perfect prompt to go alongside as user input to the .codex/prompts/tasks.md
-        ```
-- run the tasks command
-    ```
-        run the prompt detailed here: .codex/prompts/tasks.md "copy/paste full user argument from .arguments"
-    ```
-- run the implement command
-    ```
-        run the prompt detailed here: .codex/prompts/implement.md "copy/paste full user argument from .arguments"
-    ```
+# Coda Platform
 
-## Developer Setup
-1. **Clone the repo**: `git clone https://github.com/SproutSeeds/coda.git` and checkout the desired branch.
-2. **Install pnpm** (v9+) and Node.js 20 if not already available.
-3. **Provision local PostgreSQL**:
-   - If you already run Postgres locally, create a database (for example `coda`) and update the connection string accordingly.
-   - Or start a Docker container: `docker run --name coda-db -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres:16`.
-4. **Create environment files**:
-   - Copy `.env.example` → `.env.local`.
-   - Set whichever database variable fits your setup (`DATABASE_URL`, `DATABASE_POSTGRES_URL`, `POSTGRES_URL`, etc.). The app will pick the first one found, so you can reuse the name Vercel/Neon generated for you without duplicating it.
-   - Generate a secret for `NEXTAUTH_SECRET`, e.g. `openssl rand -base64 32`.
-   - Keep `NEXTAUTH_URL` as `http://localhost:3000` for local dev; switch to the deployed domain later.
-   - Sign in to https://upstash.com, create a free Redis database, then copy its **REST URL** and **REST token** into `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`.
-   - Configure email delivery credentials (`EMAIL_SERVER`, `EMAIL_USER`, `EMAIL_PASSWORD`, `EMAIL_FROM`). For local iteration you can set `EMAIL_SERVER="stream"` to log outgoing emails instead of sending them.
-   - (Optional) Leave `ENABLE_DEV_LOGIN="true"` to expose the owner-token fallback in development and automated tests; omit or set to `false` in production.
-5. **Configure Codex CLI**:
-   - Copy `.codex/config.example.toml` → `.codex/config.toml` and fill in MCP server credentials (BrightData, Context7, Firecrawl, etc.).
-   - Run Codex CLI once to generate `.codex/auth.json` (sign-in).
-6. **Install dependencies**: `pnpm install`.
-7. **Generate database migrations**: `pnpm drizzle-kit generate`, then `pnpm drizzle-kit migrate`.
-8. **Run the app locally**:
-   - `pnpm dev` to start the Next.js server.
-   - Visit `http://localhost:3000/login` to request a magic link or try the password form. Magic links keep you signed in until you click **Sign out**.
-   - (If `ENABLE_DEV_LOGIN=true`) you can still supply `owner-token` via the developer shortcut for Playwright/local smoke tests.
-9. **Verify toolchain**:
-   - Run `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm playwright test` before pushing changes.
-10. **Vercel configuration**: ensure project connected with auto previews, postbuild migration guard, and Vercel Cron for idea purge.
-11. **Git hygiene**: `.gitignore` already excludes `.codex/config.toml` and `.env*`; do not commit secrets.
+A lightweight product-planning workspace for capturing ideas, shaping them into actionable feature plans, and preparing the ground for a fully agentic delivery pipeline. Coda pairs a distraction-free UI with modern automation primitives—server actions, export hooks, and conversion flows—so teams can move from concept to execution without leaving the app and keeping all technology in-house and proprietary.
 
-## App Overview
-- **Dashboard**: `/dashboard/ideas` now presents minimal preview cards with search and quick delete; click a card to open the full detail view with editing controls and undo support.
-- **Authentication**: Auth.js email magic links + optional password sign-in, with owner-token credentials login available locally when `ENABLE_DEV_LOGIN=true`.
-- **Reordering**: Drag-and-drop (mouse, touch, or keyboard) lets you prioritize ideas; order persists across sessions automatically while recently deleted ideas stay recoverable for seven days (the tab hides when empty).
-- **Drafting**: The collapsed “Capture a new idea” button preserves your in-progress core plan locally so drafts survive refreshes and sign-outs.
-- **Features**: Click into any idea to add feature cards—each with its own notes, edit/delete controls, and activity tracking—so large concepts stay organized.
-- **Starring & filters**: Mark standout ideas with a star to surface them first, and filter the board by manual priority, newest created, recent updates, or title A→Z.
-- **Server Actions**: CRUD flows live in `app/dashboard/ideas/actions/index.ts`, backed by Drizzle ORM and rate limiting.
-- **UI**: shadcn components with Framer Motion transitions, Sonner toasts, and debounced search.
-- **Cron + Cleanup**: daily purge of soft-deleted ideas via `scripts/purge-soft-deleted-ideas.ts` (exposed at `/api/cron/purge-soft-deletes`).
+---
 
-### Email-first authentication flow
-1. Request a magic link from `/login` (or sign in with an existing password).
-2. Auth.js creates or locates the user, sends the email, and rate limits repeated requests.
-3. Verifying the link signs you in for up to a year; from there you can set a reusable password under **Account** if desired.
+## Why Coda?
 
+| Problem | How Coda Helps |
+| --- | --- |
+| Ideas live in docs, tickets, and chat threads where they quickly lose context. | Each idea opens into a structured brief with autosaving sections, feature breakdowns, and source-of-truth IDs. |
+| Teams struggle to prioritise or reorganise fast enough to keep pace with changing priorities. | Drag-and-drop reordering (mouse, touch, keyboard) keeps the roadmap fluid while maintaining audit trails and undo support. |
+| Product specs rarely stay aligned with implementation once engineers start building. | Server actions enforce a single source of truth, exports snap the current idea/feature tree into JSON, and conversion tools keep the artefacts in sync. |
+| Agentic workflows are hard to adopt because systems are expensive and closed. | Coda is intentionally cheap to run (Next.js + Postgres + Redis free tiers), connector-friendly via JSON exports, and already wired for Specify/Codex agent flows. |
 
+We are designing toward a fully agentic product-development assistant: human-friendly on the surface, automation-ready underneath. Today, Coda acts as the staging ground where ideas become specs; tomorrow, agents will consume these specs, run tests, and ship updates end-to-end.
 
+---
 
+## Key Features
 
+- **Ideas dashboard** – minimal cards with search, star filters, and persistent drag-and-drop ordering. Recently deleted ideas stay recoverable for seven days.
+- **Idea detail view** – autosaved title, core plan, and link metadata with collapsible sections and smooth Framer Motion transitions. Includes JSON export, convert-to-feature, and undo flows.
+- **Feature breakdowns** – every feature card supports inline autosave, drag-and-drop reordering, show/hide details, and conversion back into a full idea.
+- **Authentication** – Auth.js email magic links plus optional password sign-in. Local owner-token shortcut remains available when `ENABLE_DEV_LOGIN=true`.
+- **Rate-limited workflows** – Upstash Redis keeps email and mutation flows safe; server actions wrap each critical mutation.
+- **Undo + lifecycle** – Soft deletes issue undo tokens, and a Vercel cron job purges expired items daily.
+- **Agent hooks** – Codex/Specify prompts live under `.codex/prompts/*`, making it trivial to feed ideas into automated planning/execution loops.
+- **One-click JSON export** – download a structured idea + features payload to seed downstream services, LLM runs, or connector APIs.
 
+---
 
-When Adding new features:
-- Specify command with feature specifics
-- plan command with
+## User Personas & Stories
 
-## Deploying Changes Quickly
-When you’re ready to ship the current change set:
+| Persona | Story |
+| --- | --- |
+| **Founder / PM** | “Capture an idea during a stand-up, star it for later, and export the JSON to brief an external agent.” |
+| **Tech lead** | “Split a high-level idea into features, reorder them by priority, and convert an exploratory feature into its own idea when scope expands.” |
+| **Automation engineer** | “Subscribe to JSON exports, feed them into Specify/Codex agents, and post results back as new features or updates.” |
+| **QA / Ops** | “Use the recently deleted drawer and undo tokens to keep history clean without losing auditability.” |
 
-```bash
-git add --pathspec-from-file=.codex/files-to-add.txt
-git add .codex/files-to-add.txt
-git commit -m "Refine Coda theme and idea save experience"
-git push origin main
+---
+
+## Architecture Overview
+
+```
+Next.js 15 (App Router, Server Actions)
+│
+├── Authentication: Auth.js + email magic links + optional password
+├── Persistence: PostgreSQL (Neon local / Vercel Postgres prod) via Drizzle ORM
+├── Queues / Rate limiting: Upstash Redis REST
+├── UI: Tailwind CSS + shadcn/ui + lucide-react icons + Framer Motion transitions
+├── Drag & drop: @dnd-kit for ideas + features ordering
+├── Notifications: Sonner toasts
+└── Agent tooling: Specify / Codex CLI prompts (.codex/)
 ```
 
-Adjust the commit message as needed, but keep using the pathspec file to stage only the curated files.
+- **Server actions** handle every mutation (`app/dashboard/ideas/actions/index.ts`).
+- **Validations** live in `lib/validations/*` using `drizzle-zod` and Zod for runtime safety.
+- **Autosave** uses debounced server actions with optimistic UI and status badges.
+- **Exports** serialise the live idea + features payload; no extra API is required.
+- **Conversion flows** reuse existing CRUD primitives (idea↔feature) to keep data in sync.
 
+---
 
+## Data Model
 
+| Table | Purpose | Key Columns |
+| --- | --- | --- |
+| `ideas` | Master record for an idea/spec. | `id`, `user_id`, `title`, `notes`, `link_label`, `github_url`, `position`, `starred`, `deleted_at`, undo fields. |
+| `idea_features` | Feature cards nested under an idea. | `id`, `idea_id`, `title`, `notes`, `position`, `starred`. |
+| `auth_*` | Auth.js tables (users, accounts, sessions, verification tokens). | Standard Auth.js schema. |
 
+New migrations:
+- `0007_add_starred_to_features.sql`
+- `0008_add_link_label_to_ideas.sql`
 
+Run `pnpm db:migrate` any time migrations change.
 
+---
 
+## Development Workflow
 
-FEATURE PLANS/FIXES:
- 
+1. **Clone & install**
+   ```bash
+   git clone https://github.com/SproutSeeds/coda.git
+   cd coda
+   pnpm install
+   ```
+2. **Configure environment** (see `.env.example`). Minimum variables:
+   ```env
+   DATABASE_URL="postgres://postgres:postgres@localhost:5432/coda"
+   NEXTAUTH_SECRET="..."
+   NEXTAUTH_URL="http://localhost:3000"
+   UPSTASH_REDIS_REST_URL="..."
+   UPSTASH_REDIS_REST_TOKEN="..."
+   EMAIL_SERVER="stream"   # or SMTP URI
+   EMAIL_FROM="Coda <hello@example.com>"
+   ENABLE_DEV_LOGIN="true" # optional
+   ```
+3. **Database** – run `pnpm drizzle-kit generate && pnpm drizzle-kit migrate` (Neon/Vercel Postgres URLs work too).
+4. **Run locally** – `pnpm dev` then open `http://localhost:3000/login`.
+5. **QA** – `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm playwright test`, `pnpm lighthouse`.
+6. **Agent tooling** – copy `.codex/config.example.toml` → `.codex/config.toml`, add MCP credentials, and follow the Specify/Codex flow documented in `.codex/prompts/*`.
+7. **Deploy** – Vercel project with Postgres + Upstash Redis. Add cron entry in `vercel.json` for `/api/cron/purge-soft-deletes`.
+
+---
+
+## Exporting Ideas
+
+- Open an idea (`/dashboard/ideas/[id]`).
+- Click **Export JSON** (grows/tilts per design, no green highlight).
+- Coda downloads `idea-<id>.json` with shape:
+  ```json
+  {
+    "idea": { "id": "...", "title": "...", "notes": "...", "linkLabel": "GitHub Repository", ... },
+    "features": [
+      { "id": "...", "title": "...", "notes": "...", "starred": false, ... }
+    ]
+  }
+  ```
+- Use this payload to bootstrap connectors, LLM agents, or downstream specs.
+
+---
+
+## Conversion Flows
+
+| Action | Entry Point | Result |
+| --- | --- | --- |
+| Idea → Feature | Idea detail → **Convert to feature** button | Soft-deletes the source idea, adds a feature to the target idea, issues undo token. |
+| Feature → Idea | Feature card menu → “convert to idea” icon | Creates a new idea with the feature’s content, removes the feature, navigates to the new idea. |
+
+Both conversions record analytics events and reuse server actions for consistency.
+
+---
+
+## Styling & UX Principles
+
+- **Interactive elements** use the `interactive-btn` helper for the subtle grow/tilt effect. Do not reinstate the old green hover state.
+- **Collapsible sections** default to hidden. Motion durations stay ≤ 200 ms to respect reduced-motion settings.
+- **Outline buttons** stay neutral on hover: we apply `hover:bg-primary/5` or `hover:bg-transparent` depending on context.
+
+---
+
+## Testing Strategy
+
+- **Unit tests** (Vitest) cover util and validation logic under `tests/unit`.
+- **E2E tests** (Playwright) simulate authentication, CRUD flows, drag/drop ordering, and conversion scenarios.
+- **Performance** – `pnpm lighthouse` runs against the dev server; capture results for production readiness.
+
+Before merging:
+```bash
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm playwright test
+pnpm lighthouse
+```
+
+---
+
+## Roadmap toward a Fully Agentic System
+
+| Stage | Focus | Status |
+| --- | --- | --- |
+| **Spec Workspace** | Unified idea + feature authoring, autosave, undo, exports. | ✅
+| **Agent Handoff** | Reliable JSON exports, conversion hooks, Codex/Specify prompt templates. | ✅
+| **Task Automation** | Generate tasks/tests directly from ideas via Specify/Codex agents. | 🚧
+| **Closed-loop Delivery** | Agents implement tasks, run tests, and update ideas/features with results. | 🔜
+| **Connector Marketplace** | Plug-and-play integrations (Jira, Linear, Notion, Figma) powered by exported JSON schema. | 🔜
+
+We are deliberately optimising for low-cost infrastructure (Neon/Upstash/Vercel free tiers) so experimentation stays affordable while we build out agent capabilities.
+
+---
+
+## Contributing
+
+1. Branch off `main`.
+2. Follow the command sequence in `.codex` if using Codex CLI.
+3. Update tests, migrations, and documentation where relevant.
+4. Run the QA commands listed above.
+5. Stage files with `.codex/files-to-add.txt` when applicable.
+6. Submit a PR describing the change, testing evidence, and any agent impacts.
+
+For questions, check `AGENTS.md` or open a discussion.
+
+---
+
+## License
+
+Copyright © SproutSeeds. All rights reserved.

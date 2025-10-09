@@ -18,7 +18,7 @@ import {
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import {
   convertIdeaToFeatureAction,
   deleteIdeaAction,
+  exportIdeaAsJsonAction,
   listIdeaOptionsAction,
   restoreIdeaAction,
   updateIdeaAction,
@@ -89,9 +90,11 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
   const [convertError, setConvertError] = useState<string | null>(null);
   const [isLoadingConvertOptions, startLoadConvertOptions] = useTransition();
   const [isConverting, startConvertTransition] = useTransition();
+  const [isExporting, startExportTransition] = useTransition();
   const [isConvertDropdownOpen, setIsConvertDropdownOpen] = useState(false);
   const convertDropdownRef = useRef<HTMLDivElement | null>(null);
   const [isCoreExpanded, setIsCoreExpanded] = useState(false);
+  const [isIdVisible, setIsIdVisible] = useState(false);
 
   useEffect(() => {
     const nextGithub = idea.githubUrl ?? "";
@@ -109,6 +112,7 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
     setIdeaAutoState("idle");
     setGithubAutoState("idle");
     setIsCoreExpanded(false);
+    setIsIdVisible(false);
   }, [idea.id, idea.title, idea.notes, idea.githubUrl, idea.linkLabel, idea.updatedAt]);
 
   const createdAt = useMemo(() => formatDateTime(idea.createdAt), [idea.createdAt]);
@@ -547,22 +551,44 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
       <Card data-testid="idea-card">
         <CardHeader className="flex flex-row items-start justify-between gap-4">
           <div className="space-y-2">
-            <CardTitle className="text-2xl font-semibold">{syncedIdea.title}</CardTitle>
-            <CardDescription className="flex items-center gap-2">
-              <span className="text-xs uppercase tracking-wide text-muted-foreground">ID:</span>
-              <span className="font-mono text-xs tracking-widest text-muted-foreground">{maskedId}</span>
-              <Button
+            <div className="flex flex-wrap items-center gap-3">
+              <CardTitle className="text-2xl font-semibold">{syncedIdea.title}</CardTitle>
+              <button
                 type="button"
-                variant="ghost"
-                size="icon"
-                className="interactive-btn h-7 w-7 cursor-pointer hover:bg-transparent hover:text-foreground focus-visible:ring-0"
-                onClick={handleCopyId}
-                aria-label="Copy idea ID"
-                data-testid="idea-id-copy"
+                className="inline-flex cursor-pointer items-center text-xs font-medium text-primary underline-offset-4 transition hover:underline"
+                onClick={() => setIsIdVisible((previous) => !previous)}
+                data-testid="idea-id-toggle"
               >
-                <Copy className="size-4" />
-              </Button>
-            </CardDescription>
+                {isIdVisible ? "Hide ID" : "Show ID"}
+              </button>
+            </div>
+            <AnimatePresence initial={false} mode="wait">
+              {isIdVisible ? (
+                <motion.div
+                  key="idea-id"
+                  layout
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.18, ease: "easeInOut" }}
+                  className="flex items-center gap-2"
+                >
+                  <span className="text-xs uppercase tracking-wide text-muted-foreground">ID:</span>
+                  <span className="font-mono text-xs tracking-widest text-muted-foreground">{maskedId}</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="interactive-btn h-7 w-7 cursor-pointer hover:bg-transparent hover:text-foreground focus-visible:ring-0"
+                    onClick={handleCopyId}
+                    aria-label="Copy idea ID"
+                    data-testid="idea-id-copy"
+                  >
+                    <Copy className="size-4" />
+                  </Button>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -581,6 +607,36 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
               }}
             >
               {isEditing ? "Cancel" : "Edit"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="interactive-btn cursor-pointer hover:bg-transparent"
+              onClick={() =>
+                startExportTransition(async () => {
+                  try {
+                    const data = await exportIdeaAsJsonAction(idea.id);
+                    const blob = new Blob([JSON.stringify(data, null, 2)], {
+                      type: "application/json",
+                    });
+                    const url = URL.createObjectURL(blob);
+                    const anchor = document.createElement("a");
+                    anchor.href = url;
+                    anchor.download = `idea-${idea.id}.json`;
+                    document.body.appendChild(anchor);
+                    anchor.click();
+                    document.body.removeChild(anchor);
+                    URL.revokeObjectURL(url);
+                    toast.success("Idea exported");
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : "Unable to export idea");
+                  }
+                })
+              }
+              disabled={isExporting}
+              data-testid="idea-export-button"
+            >
+              {isExporting ? "Exporting…" : "Export JSON"}
             </Button>
             <Button
               variant="outline"

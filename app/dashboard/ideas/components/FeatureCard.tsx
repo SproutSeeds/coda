@@ -14,7 +14,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
-import { deleteFeatureAction, toggleFeatureStarAction, updateFeatureAction } from "../actions";
+import {
+  convertFeatureToIdeaAction,
+  deleteFeatureAction,
+  toggleFeatureStarAction,
+  updateFeatureAction,
+} from "../actions";
 import type { Feature } from "./types";
 
 const AUTOSAVE_DELAY = 1200;
@@ -52,6 +57,7 @@ export function FeatureCard({
   const featureSaveInFlight = useRef(false);
   const [isMutating, startMutate] = useTransition();
   const [isStarPending, startStarTransition] = useTransition();
+  const [isConvertingToIdea, startConvertTransition] = useTransition();
 
   useEffect(() => {
     setCurrentTitle(feature.title);
@@ -238,6 +244,19 @@ export function FeatureCard({
     });
   };
 
+  const handleConvertToIdea = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    startConvertTransition(async () => {
+      try {
+        const result = await convertFeatureToIdeaAction({ featureId: feature.id });
+        toast.success("Feature converted to idea");
+        router.push(`/dashboard/ideas/${result.newIdeaId}`);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Unable to convert feature");
+      }
+    });
+  };
+
 
   const handleCardClick = () => {
     if (isEditing || isConfirmingDelete) {
@@ -346,6 +365,35 @@ export function FeatureCard({
               data-testid="feature-star-button"
             >
               {isStarred ? <Star className="size-4 fill-current" /> : <StarOff className="size-4" />}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="interactive-btn cursor-pointer text-muted-foreground hover:bg-transparent"
+              onClick={handleConvertToIdea}
+              disabled={isConvertingToIdea}
+              aria-label="Convert feature to idea"
+              data-testid="feature-convert-to-idea"
+            >
+              {isConvertingToIdea ? (
+                <span className="text-[10px] uppercase tracking-wide">…</span>
+              ) : (
+                <svg
+                  viewBox="0 0 24 24"
+                  className="size-4"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path
+                    d="M12 5v10m0 0-4-4m4 4 4-4M5 19h14"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              )}
             </Button>
             <Button
               type="button"

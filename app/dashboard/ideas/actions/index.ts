@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 
-import { createFeature, deleteFeature, listFeatures, reorderFeatures, updateFeature, updateFeatureStar } from "@/lib/db/features";
+import { createFeature, deleteFeature, getFeatureById, listFeatures, reorderFeatures, updateFeature, updateFeatureStar } from "@/lib/db/features";
 import { createIdea, getIdea, listDeletedIdeas, listIdeas, purgeIdea, reorderIdeas, restoreIdea, searchIdeas, softDeleteIdea, updateIdea, updateIdeaStar, type IdeaSort } from "@/lib/db/ideas";
 import { trackEvent } from "@/lib/utils/analytics";
 import { consumeRateLimit } from "@/lib/utils/rate-limit";
@@ -95,6 +95,16 @@ export async function loadIdeaWithFeatures(id: string) {
   const idea = await getIdea(user.id, id);
   const features = await listFeatures(user.id, id);
   return { idea, features };
+}
+
+export async function exportIdeaAsJsonAction(id: string) {
+  const user = await requireUser();
+  const idea = await getIdea(user.id, id);
+  const features = await listFeatures(user.id, id);
+  return {
+    idea,
+    features,
+  };
 }
 
 export async function requireAuth() {
@@ -215,4 +225,27 @@ export async function convertIdeaToFeatureAction(input: { sourceIdeaId: string; 
   });
 
   return { featureId: feature.id, targetIdeaId: input.targetIdeaId };
+}
+
+export async function convertFeatureToIdeaAction(input: { featureId: string }) {
+  const user = await requireUser();
+  const { feature, ideaId } = await getFeatureById(user.id, input.featureId);
+
+  const idea = await createIdea(user.id, {
+    title: feature.title,
+    notes: feature.notes,
+  });
+
+  await deleteFeature(user.id, input.featureId);
+
+  await trackEvent({
+    name: "feature_converted_to_idea",
+    properties: {
+      featureId: input.featureId,
+      sourceIdeaId: ideaId,
+      newIdeaId: idea.id,
+    },
+  });
+
+  return { newIdeaId: idea.id };
 }
