@@ -111,6 +111,8 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
   const [deletedFeaturesState, setDeletedFeaturesState] = useState(deletedFeatures);
   const [isRestoringFeature, startRestoreFeatureTransition] = useTransition();
   const [restoreTargetId, setRestoreTargetId] = useState<string | null>(null);
+  const filterPanelRef = useRef<HTMLDivElement | null>(null);
+  const filterTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     const nextGithub = idea.githubUrl ?? "";
@@ -134,6 +136,35 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
   useEffect(() => {
     setDeletedFeaturesState(deletedFeatures);
   }, [deletedFeatures]);
+
+  useEffect(() => {
+    if (!showFilters) return;
+
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (!filterPanelRef.current) return;
+      if (
+        filterPanelRef.current.contains(target) ||
+        (filterTriggerRef.current && filterTriggerRef.current.contains(target))
+      ) {
+        return;
+      }
+      setShowFilters(false);
+    };
+
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setShowFilters(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [showFilters]);
 
   const createdAt = useMemo(() => formatDateTime(idea.createdAt), [idea.createdAt]);
   const updatedAt = useMemo(() => formatDateTime(idea.updatedAt), [idea.updatedAt]);
@@ -1133,24 +1164,43 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
       </Card>
 
       <section className="space-y-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 className="text-lg font-semibold">Features</h2>
             <p className="text-sm text-muted-foreground">
               Break this idea into smaller pieces and capture the details for each feature.
             </p>
           </div>
-          <div className="flex flex-col gap-4 lg:w-auto lg:items-end">
-            <div className="flex items-center gap-2" role="tablist" aria-label="Feature view">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="interactive-btn border-border text-muted-foreground hover:bg-muted/30"
+            onClick={() => setShowFilters((previous) => !previous)}
+            ref={filterTriggerRef}
+            aria-expanded={showFilters}
+            aria-label="Filter features"
+          >
+            <Funnel className="size-4" />
+          </Button>
+        </div>
+
+        <FeatureComposer ideaId={idea.id} />
+
+        {showFilters ? (
+          <div
+            ref={filterPanelRef}
+            className="space-y-4 rounded-xl border border-border/60 bg-card/60 p-4 shadow-lg"
+            data-testid="feature-filter-panel"
+          >
+            <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Feature view">
               <Button
                 type="button"
                 variant={featureView === "active" ? "default" : "outline"}
                 size="sm"
                 className={cn(
-                  "interactive-btn transition-all duration-150",
-                  featureView === "active"
-                    ? "bg-primary text-primary-foreground"
-                    : "hover:bg-muted/40 focus-visible:ring-0",
+                  "interactive-btn rounded-full px-4 py-1.5 text-xs font-semibold uppercase",
+                  featureView === "active" ? "bg-primary text-primary-foreground" : "hover:bg-muted/30",
                 )}
                 onClick={() => setFeatureView("active")}
               >
@@ -1161,114 +1211,96 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
                 variant={featureView === "deleted" ? "default" : "outline"}
                 size="sm"
                 className={cn(
-                  "interactive-btn transition-all duration-150",
-                  featureView === "deleted"
-                    ? "bg-primary text-primary-foreground"
-                    : "hover:bg-muted/40 focus-visible:ring-0",
+                  "interactive-btn rounded-full px-4 py-1.5 text-xs font-semibold uppercase",
+                  featureView === "deleted" ? "bg-primary text-primary-foreground" : "hover:bg-muted/30",
                 )}
-                onClick={() => {
-                  setFeatureView("deleted");
-                  setShowFilters(false);
-                }}
+                onClick={() => setFeatureView("deleted")}
                 disabled={totalDeletedFeatures === 0}
               >
                 Recently deleted ({totalDeletedFeatures})
               </Button>
-              {featureView === "active" ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="interactive-btn flex items-center gap-2 px-3 py-1.5 text-xs font-semibold hover:bg-muted/30"
-                  onClick={() => setShowFilters((previous) => !previous)}
-                  aria-label="Toggle feature filters"
-                >
-                  <Funnel className="size-4" /> Filters
-                </Button>
-              ) : null}
             </div>
+            {featureView === "active" ? (
+              <>
+                <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Filter features">
+                  {featureFilterOptions.map((option) => {
+                    const isActive = featureFilter === option.value;
+                    const count = filterCounts[option.value];
+                    const label = count > 0 ? `${option.label} (${count})` : option.label;
+                    return (
+                      <Button
+                        key={option.value}
+                        type="button"
+                        variant={isActive ? "default" : "outline"}
+                        size="sm"
+                        role="tab"
+                        aria-selected={isActive}
+                        data-state={isActive ? "active" : "inactive"}
+                        className={cn(
+                          "interactive-btn rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-wide",
+                          isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted/30",
+                        )}
+                        onClick={() => setFeatureFilter(option.value)}
+                        disabled={option.value === "all" ? false : filterCounts[option.value] === 0}
+                      >
+                        {label}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-1 items-center gap-2">
+                    <Input
+                      placeholder="Search features"
+                      value={featureQuery}
+                      onChange={(event) => setFeatureQuery(event.target.value)}
+                      data-testid="feature-search-input"
+                      className="max-w-md"
+                    />
+                    {featureQuery ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="interactive-btn hover:bg-muted/30"
+                        onClick={() => setFeatureQuery("")}
+                      >
+                        Clear
+                      </Button>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="feature-sort" className="text-xs font-medium text-muted-foreground">
+                      Sort by
+                    </label>
+                    <select
+                      id="feature-sort"
+                      value={featureSort}
+                      onChange={(event) =>
+                        setFeatureSort(event.target.value as (typeof featureSortOptions)[number]["value"])
+                      }
+                      className="rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      data-testid="feature-sort-select"
+                    >
+                      {featureSortOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Showing {visibleFeatures.length} of {totalFeatures} {totalFeatures === 1 ? "feature" : "features"}
+                </p>
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Select a feature to restore it back into the active list.
+              </p>
+            )}
           </div>
-        </div>
-
-        <FeatureComposer ideaId={idea.id} />
-
-        {featureView === "active" && showFilters ? (
-          <div className="space-y-4 rounded-xl border border-border/60 bg-card/60 p-4" data-testid="feature-filter-panel">
-            <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Filter features">
-              {featureFilterOptions.map((option) => {
-                const isActive = featureFilter === option.value;
-                const count = filterCounts[option.value];
-                const label = count > 0 ? `${option.label} (${count})` : option.label;
-                return (
-                  <Button
-                    key={option.value}
-                    type="button"
-                    variant={isActive ? "default" : "outline"}
-                    size="sm"
-                    role="tab"
-                    aria-selected={isActive}
-                    data-state={isActive ? "active" : "inactive"}
-                    className={cn(
-                      "interactive-btn rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-wide",
-                      isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted/30",
-                    )}
-                    onClick={() => setFeatureFilter(option.value)}
-                    disabled={option.value === "all" ? false : filterCounts[option.value] === 0}
-                  >
-                    {label}
-                  </Button>
-                );
-              })}
-            </div>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex flex-1 items-center gap-2">
-                <Input
-                  placeholder="Search features"
-                  value={featureQuery}
-                  onChange={(event) => setFeatureQuery(event.target.value)}
-                  data-testid="feature-search-input"
-                  className="max-w-md"
-                />
-                {featureQuery ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="interactive-btn hover:bg-muted/30"
-                    onClick={() => setFeatureQuery("")}
-                  >
-                    Clear
-                  </Button>
-                ) : null}
-              </div>
-              <div className="flex items-center gap-2">
-                <label htmlFor="feature-sort" className="text-xs font-medium text-muted-foreground">
-                  Sort by
-                </label>
-                <select
-                  id="feature-sort"
-                  value={featureSort}
-                  onChange={(event) =>
-                    setFeatureSort(event.target.value as (typeof featureSortOptions)[number]["value"])
-                  }
-                  className="rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  data-testid="feature-sort-select"
-                >
-                  {featureSortOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Showing {visibleFeatures.length} of {totalFeatures} {totalFeatures === 1 ? "feature" : "features"}
-            </p>
-          </div>
-        ) : null}
-
-        {featureView === "active" && !showFilters ? (
+        ) : featureView === "active" ? (
           <p className="text-xs text-muted-foreground">
             Showing {visibleFeatures.length} of {totalFeatures} {totalFeatures === 1 ? "feature" : "features"}
           </p>

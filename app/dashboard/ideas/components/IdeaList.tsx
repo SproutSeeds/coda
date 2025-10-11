@@ -29,13 +29,15 @@ import { toast } from "sonner";
 import { reorderIdeasAction } from "../actions";
 import { Idea } from "./types";
 import { IdeaCard } from "./IdeaCard";
+import { Button } from "@/components/ui/button";
 
-export function IdeaList({ ideas, query, canReorder = true }: { ideas: Idea[]; query?: string; canReorder?: boolean }) {
+export function IdeaList({ ideas, query, canReorder = true, pageSize = 5 }: { ideas: Idea[]; query?: string; canReorder?: boolean; pageSize?: number }) {
   const [isMounted, setIsMounted] = useState(false);
   const [items, setItems] = useState<Idea[]>(ideas);
   const prefersReducedMotion = useReducedMotion() ?? false;
   const [isPending, startTransition] = useTransition();
   const previousItemsRef = useRef<Idea[]>(ideas);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     setIsMounted(true);
@@ -44,6 +46,7 @@ export function IdeaList({ ideas, query, canReorder = true }: { ideas: Idea[]; q
   useEffect(() => {
     setItems(ideas);
     previousItemsRef.current = ideas;
+    setPage(1);
   }, [ideas]);
 
   const sensors = useSensors(
@@ -114,6 +117,10 @@ export function IdeaList({ ideas, query, canReorder = true }: { ideas: Idea[]; q
   }
 
   const itemIds = items.map((item) => item.id);
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const paginatedItems = isMounted ? items.slice((currentPage - 1) * pageSize, currentPage * pageSize) : items;
+  const sortableIds = canReorder && isMounted ? paginatedItems.map((item) => item.id) : itemIds;
 
   return (
     <DndContext
@@ -124,9 +131,9 @@ export function IdeaList({ ideas, query, canReorder = true }: { ideas: Idea[]; q
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
+      <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
         <div className="space-y-4">
-          {items.map((idea) => (
+          {paginatedItems.map((idea) => (
             <SortableIdeaCard
               key={idea.id}
               idea={idea}
@@ -136,10 +143,41 @@ export function IdeaList({ ideas, query, canReorder = true }: { ideas: Idea[]; q
           ))}
         </div>
       </SortableContext>
+      <div className="mt-4 flex items-center justify-end gap-3 text-xs text-muted-foreground">
+        <span>
+          Showing {paginatedItems.length} of {items.length} ideas
+        </span>
+        {totalPages > 1 ? (
+          <div className="inline-flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="interactive-btn px-2 py-1"
+              onClick={() => setPage((previous) => Math.max(1, previous - 1))}
+              disabled={currentPage === 1}
+            >
+              Prev
+            </Button>
+            <span className="inline-flex min-w-[3rem] justify-center text-xs font-semibold">
+              Page {currentPage} / {totalPages}
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="interactive-btn px-2 py-1"
+              onClick={() => setPage((previous) => Math.min(totalPages, previous + 1))}
+              disabled={currentPage === totalPages}
+            >
+              Next
+            </Button>
+          </div>
+        ) : null}
+      </div>
     </DndContext>
   );
 }
-
 function SortableIdeaCard({
   idea,
   isSaving,

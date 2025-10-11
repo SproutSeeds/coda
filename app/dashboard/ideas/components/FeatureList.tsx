@@ -29,6 +29,7 @@ import { toast } from "sonner";
 import { reorderFeaturesAction } from "../actions";
 import type { Feature } from "./types";
 import { FeatureCard } from "./FeatureCard";
+import { Button } from "@/components/ui/button";
 
 export function FeatureList({
   ideaId,
@@ -50,6 +51,8 @@ export function FeatureList({
   const [isPending, startTransition] = useTransition();
   const prefersReducedMotion = useReducedMotion() ?? false;
   const [isMounted, setIsMounted] = useState(false);
+  const [page, setPage] = useState(1);
+  const pageSize = 5;
 
   const completedFeatures = showCompletedSection
     ? features
@@ -72,6 +75,7 @@ export function FeatureList({
       setActiveItems(features);
       previousItemsRef.current = features;
     }
+    setPage(1);
   }, [features, showCompletedSection]);
 
   useEffect(() => {
@@ -128,6 +132,9 @@ export function FeatureList({
   const hasActive = showCompletedSection ? activeItems.length > 0 : features.length > 0;
   const allowReorder = canReorder && showCompletedSection && hasActive && isMounted;
   const hasCompleted = showCompletedSection && completedFeatures.length > 0;
+  const totalPages = Math.max(1, Math.ceil(activeItems.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const paginatedActiveItems = activeItems.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   if (!hasActive && !hasCompleted) {
     return <p className="text-sm text-muted-foreground">{emptyLabel ?? "No features yet. Add one to start shaping this idea."}</p>;
@@ -170,7 +177,8 @@ export function FeatureList({
     );
   }
 
-  const activeIds = activeItems.map((item) => item.id);
+  const visibleActiveItems = showCompletedSection ? paginatedActiveItems : features;
+  const activeIds = visibleActiveItems.map((item) => item.id);
 
   return (
     <div className="space-y-6" data-testid="feature-list">
@@ -186,7 +194,7 @@ export function FeatureList({
           >
             <SortableContext items={activeIds} strategy={verticalListSortingStrategy}>
               <div className="space-y-3">
-                {activeItems.map((feature) => (
+                {visibleActiveItems.map((feature) => (
                   <SortableFeatureCard
                     key={feature.id}
                     feature={feature}
@@ -200,7 +208,7 @@ export function FeatureList({
           </DndContext>
         ) : (
           <div className="space-y-3">
-            {activeItems.map((feature) => (
+            {visibleActiveItems.map((feature) => (
               <FeatureCard key={feature.id} feature={feature} ideaId={ideaId} isDragging={false} />
             ))}
           </div>
@@ -218,6 +226,41 @@ export function FeatureList({
               <FeatureCard key={feature.id} feature={feature} ideaId={ideaId} isDragging={false} />
             ))}
           </div>
+        </div>
+      ) : null}
+
+      {hasActive ? (
+        <div className="flex items-center justify-end gap-3 text-xs text-muted-foreground">
+          <span>
+            Showing {visibleActiveItems.length} of {activeItems.length} active features
+          </span>
+          {totalPages > 1 ? (
+            <div className="inline-flex items-center gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="interactive-btn px-2 py-1"
+                onClick={() => setPage((previous) => Math.max(1, previous - 1))}
+                disabled={currentPage === 1}
+              >
+                Prev
+              </Button>
+              <span className="inline-flex min-w-[3rem] justify-center text-xs font-semibold">
+                Page {currentPage} / {totalPages}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="interactive-btn px-2 py-1"
+                onClick={() => setPage((previous) => Math.min(totalPages, previous + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </Button>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>
