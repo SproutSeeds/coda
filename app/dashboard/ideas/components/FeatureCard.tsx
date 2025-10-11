@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { useRouter } from "next/navigation";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, Star, StarOff, Trash2, X } from "lucide-react";
+import { Check, CheckCircle2, Circle, Star, StarOff, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+
+const FEATURE_NOTES_CHARACTER_LIMIT = 10_000;
 
 function formatFeatureUpdated(value: string) {
   try {
@@ -28,12 +30,13 @@ function formatFeatureUpdated(value: string) {
 import {
   convertFeatureToIdeaAction,
   deleteFeatureAction,
+  toggleFeatureCompletionAction,
   toggleFeatureStarAction,
   updateFeatureAction,
 } from "../actions";
 import type { Feature } from "./types";
 
-const AUTOSAVE_DELAY = 1200;
+const AUTOSAVE_DELAY = 10_000;
 
 export function FeatureCard({
   feature,
@@ -59,6 +62,8 @@ export function FeatureCard({
     title: feature.title,
     notes: feature.notes,
     updatedAt: feature.updatedAt,
+    completed: feature.completed,
+    completedAt: feature.completedAt,
   });
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [deleteInput, setDeleteInput] = useState("");
@@ -70,6 +75,9 @@ export function FeatureCard({
   const [isStarPending, startStarTransition] = useTransition();
   const [isConvertingToIdea, startConvertTransition] = useTransition();
   const [isConfirmingConvert, setIsConfirmingConvert] = useState(false);
+  const [isCompletionPending, startCompletionTransition] = useTransition();
+  const [isCompleted, setIsCompleted] = useState(Boolean(feature.completed));
+  const [completedAt, setCompletedAt] = useState<string | null>(feature.completedAt ?? null);
 
   useEffect(() => {
     setCurrentTitle(feature.title);
@@ -81,13 +89,22 @@ export function FeatureCard({
       title: feature.title,
       notes: feature.notes,
       updatedAt: feature.updatedAt,
+      completed: feature.completed,
+      completedAt: feature.completedAt,
     });
-  }, [feature.id, feature.notes, feature.starred, feature.title, feature.updatedAt]);
+    setIsCompleted(Boolean(feature.completed));
+    setCompletedAt(feature.completedAt ?? null);
+  }, [feature.completed, feature.completedAt, feature.id, feature.notes, feature.starred, feature.title, feature.updatedAt]);
 
   const trimmedDraftTitle = draftTitle.trim();
   const trimmedDraftNotes = draftNotes.trim();
   const featureDirty =
     trimmedDraftTitle !== syncedFeature.title || trimmedDraftNotes !== syncedFeature.notes;
+  const completionDisplay = isCompleted
+    ? completedAt
+      ? `Completed ${formatFeatureUpdated(completedAt)}`
+      : "Completed"
+    : `Updated ${formatFeatureUpdated(syncedFeature.updatedAt)}`;
 
   const deletePrompt = useMemo(() => `Enter "${currentTitle}" to delete`, [currentTitle]);
   const deleteTitleMatches = deleteInput.trim() === currentTitle;
@@ -148,15 +165,19 @@ export function FeatureCard({
           title: titleValue,
           notes: notesValue,
         });
-        setCurrentTitle(updated.title);
-        setCurrentNotes(updated.notes);
-        setDraftTitle(updated.title);
-        setDraftNotes(updated.notes);
+        setCurrentTitle((previous) => (previous === updated.title ? previous : updated.title));
+        setCurrentNotes((previous) => (previous === updated.notes ? previous : updated.notes));
+        setDraftTitle((previous) => (previous === updated.title ? previous : updated.title));
+        setDraftNotes((previous) => (previous === updated.notes ? previous : updated.notes));
         setSyncedFeature({
           title: updated.title,
           notes: updated.notes,
           updatedAt: updated.updatedAt,
+          completed: updated.completed,
+          completedAt: updated.completedAt,
         });
+        setIsCompleted(Boolean(updated.completed));
+        setCompletedAt(updated.completedAt ?? null);
         return updated;
       } finally {
         featureSaveInFlight.current = false;
@@ -263,6 +284,37 @@ export function FeatureCard({
     });
   };
 
+  const handleToggleCompleted = () => {
+    const next = !isCompleted;
+    startCompletionTransition(async () => {
+      try {
+        const updated = await toggleFeatureCompletionAction(feature.id, next);
+        setIsCompleted(Boolean(updated.completed));
+        setCompletedAt(updated.completedAt ?? null);
+        setSyncedFeature({
+          title: updated.title,
+          notes: updated.notes,
+          updatedAt: updated.updatedAt,
+          completed: updated.completed,
+          completedAt: updated.completedAt,
+        });
+        setCurrentTitle(updated.title);
+        setCurrentNotes(updated.notes);
+        setDraftTitle(updated.title);
+        setDraftNotes(updated.notes);
+        setIsConfirmingConvert(false);
+        setFeatureAutoState("idle");
+        if (next) {
+          setIsEditing(false);
+          resetDeleteConfirmation();
+        }
+        router.refresh();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Unable to update feature status");
+      }
+    });
+  };
+
   const handleConvertPrompt = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     setIsConfirmingConvert(true);
@@ -324,10 +376,13 @@ export function FeatureCard({
             ? "cursor-pointer hover:border-primary hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             : "",
           isDragging && "opacity-80",
+          isCompleted && !isEditing && !isConfirmingDelete
+            ? "border-emerald-500/40 bg-emerald-500/10 text-muted-foreground"
+            : "",
         )}
       >
-        <CardHeader className="flex flex-row items-start justify-between gap-4">
-          <div className="flex items-start gap-3">
+        <CardHeader className="flex flex-wrap items-start justify-between gap-3 sm:flex-nowrap sm:gap-4">
+          <div className="flex min-w-0 items-start gap-3">
             {dragHandle ? (
               <div
                 onClick={(event) => event.stopPropagation()}
@@ -337,8 +392,22 @@ export function FeatureCard({
                 {dragHandle}
               </div>
             ) : null}
-            <div className="space-y-2">
-              <CardTitle className="text-base font-semibold">{currentTitle}</CardTitle>
+            <div className="min-w-0 space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <CardTitle
+                  className={cn(
+                    "truncate text-base font-semibold",
+                    isCompleted && "text-muted-foreground line-through",
+                  )}
+                >
+                  {currentTitle}
+                </CardTitle>
+                {isCompleted ? (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wider text-emerald-700">
+                    <Check className="size-3" /> Completed
+                  </span>
+                ) : null}
+              </div>
               {!isEditing ? (
                 <div
                   className="space-y-2"
@@ -356,7 +425,14 @@ export function FeatureCard({
                         transition={{ duration: 0.2, ease: "easeInOut" }}
                       >
                         {currentNotes.trim() ? (
-                          <p className="whitespace-pre-wrap text-sm text-muted-foreground">{currentNotes}</p>
+                          <p
+                            className={cn(
+                              "whitespace-pre-wrap text-sm text-muted-foreground",
+                              isCompleted && "line-through opacity-80",
+                            )}
+                          >
+                            {currentNotes}
+                          </p>
                         ) : (
                           <p className="text-sm text-muted-foreground">No notes yet—open to add details.</p>
                         )}
@@ -378,16 +454,32 @@ export function FeatureCard({
             </div>
           </div>
           <div
-            className="flex items-start justify-between gap-3"
+            className="flex flex-wrap items-center justify-between gap-2 sm:gap-3"
             onClick={(event) => event.stopPropagation()}
             onKeyDown={(event) => event.stopPropagation()}
           >
-            <div className="flex-1">
-              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground/80">
-                Updated {formatFeatureUpdated(syncedFeature.updatedAt)}
-              </span>
-            </div>
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground/80">
+              {completionDisplay}
+            </span>
             <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "interactive-btn h-8 w-8 cursor-pointer text-muted-foreground hover:bg-transparent focus-visible:ring-0",
+                  isCompleted ? "text-emerald-600" : "hover:text-emerald-600",
+                )}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleToggleCompleted();
+                }}
+                disabled={isCompletionPending}
+                aria-label={isCompleted ? "Mark feature as in progress" : "Mark feature as completed"}
+                data-testid="feature-complete-button"
+              >
+                {isCompleted ? <CheckCircle2 className="size-4" /> : <Circle className="size-4" />}
+              </Button>
               <Button
                 type="button"
                 variant="ghost"
@@ -430,15 +522,36 @@ export function FeatureCard({
             <Input
               value={draftTitle}
               onChange={(event) => setDraftTitle(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  cancelEditing();
+                }
+              }}
               disabled={featureAutoState === "saving"}
               data-testid="feature-edit-title-input"
+              maxLength={255}
             />
             <Textarea
               value={draftNotes}
-              onChange={(event) => setDraftNotes(event.target.value)}
+              onChange={(event) => {
+                const next = event.target.value;
+                if (next.length <= FEATURE_NOTES_CHARACTER_LIMIT) {
+                  setDraftNotes(next);
+                }
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  cancelEditing();
+                }
+              }}
               rows={4}
               disabled={featureAutoState === "saving"}
               data-testid="feature-edit-notes-input"
+              maxLength={FEATURE_NOTES_CHARACTER_LIMIT}
             />
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
               <Button
@@ -465,6 +578,7 @@ export function FeatureCard({
                   disabled={
                     featureAutoState === "saving" || !featureDirty || !trimmedDraftTitle || !trimmedDraftNotes
                   }
+                  className="interactive-btn cursor-pointer"
                   data-testid="feature-save-button"
                 >
                   {featureAutoState === "saving" ? "Saving…" : "Save feature"}

@@ -112,7 +112,7 @@ export function IdeaComposerLauncher() {
             {hasDraft ? "Draft saved locally" : "Click to expand the full composer"}
           </span>
         </span>
-        <span className="rounded-full border border-border bg-card p-2 transition group-hover:bg-primary group-hover:text-primary-foreground">
+        <span className="rounded-full border border-border bg-card p-2 transition group-hover:bg-muted/70 group-hover:text-foreground">
           <Plus className="size-4" />
         </span>
       </button>
@@ -231,7 +231,7 @@ export function IdeaComposer({
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             placeholder="Idea title"
-            maxLength={200}
+            maxLength={255}
             required
           />
           <div className="space-y-1">
@@ -243,7 +243,8 @@ export function IdeaComposer({
               data-testid="idea-notes-input"
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
-              placeholder="Summarize the core plan in 1000 characters or fewer"
+              placeholder="Summarize the core plan in 10,000 characters or fewer"
+              maxLength={IDEA_NOTES_CHARACTER_LIMIT}
               rows={3}
               required
             />
@@ -259,7 +260,7 @@ export function IdeaComposer({
             <Button
               type="submit"
               disabled={isPending}
-              className="interactive-btn hover:bg-primary focus-visible:ring-0"
+              className="interactive-btn cursor-pointer"
             >
               {isPending ? "Saving…" : "Save idea"}
             </Button>

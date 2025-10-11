@@ -34,20 +34,44 @@ export function FeatureList({
   ideaId,
   features,
   emptyLabel,
+  canReorder = true,
+  showCompletedSection = true,
 }: {
   ideaId: string;
   features: Feature[];
   emptyLabel?: string;
+  canReorder?: boolean;
+  showCompletedSection?: boolean;
 }) {
-  const [items, setItems] = useState(features);
-  const previousItemsRef = useRef(features);
+  const [activeItems, setActiveItems] = useState(() =>
+    showCompletedSection ? features.filter((feature) => !feature.completed) : features,
+  );
+  const previousItemsRef = useRef(activeItems);
   const [isPending, startTransition] = useTransition();
   const prefersReducedMotion = useReducedMotion() ?? false;
 
+  const completedFeatures = showCompletedSection
+    ? features
+        .filter((feature) => feature.completed)
+        .slice()
+        .sort((a, b) => {
+          if (!a.completedAt && !b.completedAt) return 0;
+          if (!a.completedAt) return 1;
+          if (!b.completedAt) return -1;
+          return new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime();
+        })
+    : [];
+
   useEffect(() => {
-    setItems(features);
-    previousItemsRef.current = features;
-  }, [features]);
+    if (showCompletedSection) {
+      const nextActive = features.filter((feature) => !feature.completed);
+      setActiveItems(nextActive);
+      previousItemsRef.current = nextActive;
+    } else {
+      setActiveItems(features);
+      previousItemsRef.current = features;
+    }
+  }, [features, showCompletedSection]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -62,11 +86,11 @@ export function FeatureList({
   );
 
   const handleDragStart = () => {
-    previousItemsRef.current = items;
+    previousItemsRef.current = activeItems;
   };
 
   const handleDragCancel = () => {
-    setItems(previousItemsRef.current);
+    setActiveItems(previousItemsRef.current);
   };
 
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
@@ -74,15 +98,15 @@ export function FeatureList({
       return;
     }
 
-    const oldIndex = items.findIndex((item) => item.id === active.id);
-    const newIndex = items.findIndex((item) => item.id === over.id);
+    const oldIndex = activeItems.findIndex((item) => item.id === active.id);
+    const newIndex = activeItems.findIndex((item) => item.id === over.id);
     if (oldIndex === -1 || newIndex === -1) {
       return;
     }
 
     const previous = previousItemsRef.current;
-    const reordered = arrayMove(items, oldIndex, newIndex);
-    setItems(reordered);
+    const reordered = arrayMove(activeItems, oldIndex, newIndex);
+    setActiveItems(reordered);
 
     const orderedIds = reordered.map((item) => item.id);
 
@@ -90,41 +114,81 @@ export function FeatureList({
       try {
         await reorderFeaturesAction(ideaId, orderedIds);
       } catch (error) {
-        setItems(previous);
+        setActiveItems(previous);
         toast.error(error instanceof Error ? error.message : "Unable to reorder features");
       }
     });
   };
 
-  if (items.length === 0) {
+  const hasActive = showCompletedSection ? activeItems.length > 0 : features.length > 0;
+  const allowReorder = canReorder && showCompletedSection && hasActive;
+  const hasCompleted = showCompletedSection && completedFeatures.length > 0;
+
+  if (!hasActive && !hasCompleted) {
     return <p className="text-sm text-muted-foreground">{emptyLabel ?? "No features yet. Add one to start shaping this idea."}</p>;
   }
 
-  const itemIds = items.map((item) => item.id);
+  if (!showCompletedSection) {
+    return (
+      <div className="space-y-3" data-testid="feature-list">
+        {features.map((feature) => (
+          <FeatureCard key={feature.id} feature={feature} ideaId={ideaId} isDragging={false} />
+        ))}
+      </div>
+    );
+  }
+
+  const activeIds = activeItems.map((item) => item.id);
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      modifiers={[restrictToVerticalAxis]}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-      onDragCancel={handleDragCancel}
-    >
-      <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
-        <div className="space-y-3" data-testid="feature-list">
-          {items.map((feature) => (
-            <SortableFeatureCard
-              key={feature.id}
-              feature={feature}
-              ideaId={ideaId}
-              isSaving={isPending}
-              prefersReducedMotion={prefersReducedMotion}
-            />
-          ))}
+    <div className="space-y-6" data-testid="feature-list">
+      {hasActive ? (
+        allowReorder ? (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            modifiers={[restrictToVerticalAxis]}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onDragCancel={handleDragCancel}
+          >
+            <SortableContext items={activeIds} strategy={verticalListSortingStrategy}>
+              <div className="space-y-3">
+                {activeItems.map((feature) => (
+                  <SortableFeatureCard
+                    key={feature.id}
+                    feature={feature}
+                    ideaId={ideaId}
+                    isSaving={isPending}
+                    prefersReducedMotion={prefersReducedMotion}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+        ) : (
+          <div className="space-y-3">
+            {activeItems.map((feature) => (
+              <FeatureCard key={feature.id} feature={feature} ideaId={ideaId} isDragging={false} />
+            ))}
+          </div>
+        )
+      ) : null}
+
+      {hasCompleted ? (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <span className="inline-flex size-6 items-center justify-center rounded-full border border-border bg-card text-[0.7rem]">✓</span>
+            Completed ({completedFeatures.length})
+          </div>
+          <div className="space-y-3" data-testid="feature-completed-list">
+            {completedFeatures.map((feature) => (
+              <FeatureCard key={feature.id} feature={feature} ideaId={ideaId} isDragging={false} />
+            ))}
+          </div>
         </div>
-      </SortableContext>
-    </DndContext>
+      ) : null}
+    </div>
   );
 }
 

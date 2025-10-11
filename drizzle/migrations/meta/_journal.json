@@ -64,6 +64,13 @@
       "when": 1760400000000,
       "tag": "0008_add_link_label_to_ideas",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "15",
+      "when": 1760500000000,
+      "tag": "0009_add_feature_completion",
+      "breakpoints": true
     }
   ]
 }

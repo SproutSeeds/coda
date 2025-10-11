@@ -12,7 +12,7 @@ export type IdeaInput = {
 export type IdeaUpdateInput = Partial<IdeaInput> & { id: string };
 export type IdeaReorderInput = string[];
 
-const MAX_TITLE = 200;
+const MAX_TITLE = 255;
 const MAX_LINK_LABEL = 120;
 const ideaNotesCharacterLimit = IDEA_NOTES_CHARACTER_LIMIT;
 

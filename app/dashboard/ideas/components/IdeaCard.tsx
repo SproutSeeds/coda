@@ -151,24 +151,24 @@ export function IdeaCard({
           "hover:border-primary hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         )}
       >
-        <div className="flex items-start gap-3">
+        <div className="flex flex-wrap items-start gap-3 sm:flex-nowrap">
           {dragHandle ? (
             <div onClick={stopPropagation} onKeyDown={stopPropagation} className="shrink-0">
               {dragHandle}
             </div>
           ) : null}
           <div className="flex-1 space-y-2">
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-wrap items-start justify-between gap-2 sm:gap-3">
               <div className="flex min-w-0 flex-col gap-1">
                 <h3 className="truncate text-base font-semibold text-foreground">{idea.title}</h3>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
+              <div className="flex w-full flex-wrap items-center justify-between gap-2 sm:w-auto sm:flex-nowrap sm:justify-end">
                 <AnimatePresence initial={false} mode="wait">
                   {showDetails ? (
                     <motion.button
                       key="hide-details"
                       type="button"
-                      className="inline-flex cursor-pointer items-center text-xs font-medium text-primary underline-offset-4 transition hover:underline"
+                      className="order-2 inline-flex cursor-pointer items-center text-xs font-medium text-primary underline-offset-4 transition hover:underline sm:order-none"
                       onClick={(event) => {
                         event.stopPropagation();
                         setShowDetails(false);
@@ -178,34 +178,36 @@ export function IdeaCard({
                     </motion.button>
                   ) : null}
                 </AnimatePresence>
-                <span className="whitespace-nowrap text-xs font-medium uppercase tracking-wide text-muted-foreground/80">
+                <span className="order-3 w-full whitespace-nowrap text-xs font-medium uppercase tracking-wide text-muted-foreground/80 sm:order-none sm:w-auto">
                   Updated {updatedLabel}
                 </span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className={cn(
-                    "interactive-btn h-8 w-8 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-muted-foreground focus-visible:ring-0",
-                    idea.starred && "text-yellow-400",
-                  )}
-                  onClick={handleStar}
-                  aria-label={idea.starred ? "Unstar idea" : "Star idea"}
-                  data-testid="idea-star-button"
-                >
-                  {idea.starred ? <Star className="size-4 fill-current" /> : <StarOff className="size-4" />}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="interactive-btn shrink-0 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-destructive focus-visible:ring-0"
-                  onClick={handleDeleteClick}
-                  disabled={isPending}
-                  aria-label="Delete idea"
-                >
-                  <Trash2 className="size-4" />
-                </Button>
+                <div className="flex shrink-0 items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      "interactive-btn h-8 w-8 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-muted-foreground focus-visible:ring-0",
+                      idea.starred && "text-yellow-400",
+                    )}
+                    onClick={handleStar}
+                    aria-label={idea.starred ? "Unstar idea" : "Star idea"}
+                    data-testid="idea-star-button"
+                  >
+                    {idea.starred ? <Star className="size-4 fill-current" /> : <StarOff className="size-4" />}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="interactive-btn shrink-0 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-destructive focus-visible:ring-0"
+                    onClick={handleDeleteClick}
+                    disabled={isPending}
+                    aria-label="Delete idea"
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
               </div>
             </div>
             <AnimatePresence initial={false} mode="wait">

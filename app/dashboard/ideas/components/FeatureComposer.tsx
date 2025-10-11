@@ -3,23 +3,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { Plus, X } from "lucide-react";
+import { Plus, Star, StarOff, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 
 import { createFeatureAction } from "../actions";
 import { IdeaCelebration } from "./IdeaCelebration";
 
-const MAX_NOTES = 3000;
+const MAX_NOTES = 10_000;
 
 type FeatureDraft = {
   title?: string;
   notes?: string;
   expanded?: boolean;
+  starred?: boolean;
 };
 
 export function FeatureComposer({ ideaId }: { ideaId: string }) {
@@ -29,6 +31,7 @@ export function FeatureComposer({ ideaId }: { ideaId: string }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
+  const [starred, setStarred] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [celebrate, setCelebrate] = useState(false);
   const celebrationTimeout = useRef<number | null>(null);
@@ -49,6 +52,7 @@ export function FeatureComposer({ ideaId }: { ideaId: string }) {
       const parsed = JSON.parse(stored) as FeatureDraft;
       setTitle(parsed.title ?? "");
       setNotes(parsed.notes ?? "");
+      setStarred(Boolean(parsed.starred));
       if (parsed.expanded !== undefined) {
         setIsExpanded(Boolean(parsed.expanded));
       } else if (parsed.title || parsed.notes) {
@@ -63,6 +67,7 @@ export function FeatureComposer({ ideaId }: { ideaId: string }) {
 
   useEffect(() => {
     if (!hydrated || typeof window === "undefined") return;
+
     const hasDraft = Boolean(title || notes);
     if (!hasDraft && !isExpanded) {
       window.localStorage.removeItem(storageKey);
@@ -72,9 +77,10 @@ export function FeatureComposer({ ideaId }: { ideaId: string }) {
       title: title || undefined,
       notes: notes || undefined,
       expanded: isExpanded,
+      starred,
     };
     window.localStorage.setItem(storageKey, JSON.stringify(payload));
-  }, [hydrated, isExpanded, notes, storageKey, title]);
+  }, [hydrated, isExpanded, notes, starred, storageKey, title]);
 
   const resetCelebration = useCallback(() => {
     if (celebrationTimeout.current && typeof window !== "undefined") {
@@ -97,10 +103,11 @@ export function FeatureComposer({ ideaId }: { ideaId: string }) {
 
     startTransition(async () => {
       try {
-        await createFeatureAction({ ideaId, title: trimmedTitle, notes: trimmedNotes });
+        await createFeatureAction({ ideaId, title: trimmedTitle, notes: trimmedNotes, starred });
         toast.success("Feature added");
         setTitle("");
         setNotes("");
+        setStarred(false);
         setIsExpanded(false);
         setCelebrate(true);
         if (typeof window !== "undefined") {
@@ -122,18 +129,51 @@ export function FeatureComposer({ ideaId }: { ideaId: string }) {
     });
   };
 
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
     setIsExpanded(false);
-  };
+  }, []);
 
   const hasDraft = Boolean(title || notes);
+
+  useEffect(() => {
+    if (!isExpanded) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      handleCancel();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleCancel, isExpanded]);
+
+  useEffect(() => {
+    const handleComposerClose = (event: Event) => {
+      const detail = (event as CustomEvent<{ ideaId?: string }>).detail;
+      if (detail?.ideaId && detail.ideaId !== ideaId) {
+        return;
+      }
+      if (isExpanded) {
+        handleCancel();
+      }
+    };
+
+    window.addEventListener("coda:feature-composer:close", handleComposerClose);
+    return () => window.removeEventListener("coda:feature-composer:close", handleComposerClose);
+  }, [handleCancel, ideaId, isExpanded]);
 
   if (!isExpanded) {
     return (
       <button
         type="button"
         onClick={() => setIsExpanded(true)}
-        className="group flex w-full cursor-pointer items-center justify-between rounded-xl border-2 border-dashed border-border/60 bg-card/40 px-4 py-3 text-left transition hover:border-primary hover:bg-card"
+        className="group flex w-full cursor-pointer items-center justify-between rounded-xl border-2 border-dashed border-border/60 bg-card/40 px-4 py-3 text-left transition hover:border-muted hover:bg-card/60"
         data-testid="feature-launcher-open"
       >
         <span className="flex flex-col">
@@ -142,7 +182,7 @@ export function FeatureComposer({ ideaId }: { ideaId: string }) {
             {hasDraft ? "Draft saved locally" : "Click to expand the feature composer"}
           </span>
         </span>
-        <span className="rounded-full border border-border bg-card p-2 transition group-hover:bg-primary group-hover:text-primary-foreground">
+        <span className="rounded-full border border-border bg-card p-2 transition group-hover:bg-muted/70 group-hover:text-foreground">
           <Plus className="size-4" />
         </span>
       </button>
@@ -157,23 +197,48 @@ export function FeatureComposer({ ideaId }: { ideaId: string }) {
           <CardTitle>Add feature</CardTitle>
           <p className="text-xs text-muted-foreground">Frame the next step with a clear name and supporting context.</p>
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="interactive-btn h-8 w-8 text-muted-foreground hover:bg-transparent hover:text-foreground focus-visible:ring-0"
-          onClick={handleCancel}
-          data-testid="feature-composer-minimize"
-        >
-          <X className="size-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className={cn(
+              "interactive-btn h-8 w-8 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-muted-foreground focus-visible:ring-0",
+              starred && "text-yellow-400",
+            )}
+            onClick={() => setStarred((previous) => !previous)}
+            aria-label={starred ? "Remove star" : "Star feature"}
+            aria-pressed={starred}
+            data-testid="feature-star-toggle"
+            disabled={isPending}
+          >
+            {starred ? <Star className="size-4 fill-current" /> : <StarOff className="size-4" />}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="interactive-btn h-8 w-8 text-muted-foreground hover:bg-transparent hover:text-foreground focus-visible:ring-0"
+            onClick={handleCancel}
+            data-testid="feature-composer-minimize"
+          >
+            <X className="size-4" />
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <Input
           value={title}
           onChange={(event) => setTitle(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              event.stopPropagation();
+              handleCancel();
+            }
+          }}
           placeholder="Feature name"
-          maxLength={200}
+          maxLength={255}
           disabled={isPending}
           data-testid="feature-title-input"
         />
@@ -189,7 +254,15 @@ export function FeatureComposer({ ideaId }: { ideaId: string }) {
                 setNotes(event.target.value);
               }
             }}
-            placeholder="Capture the short plan for this feature (max 3000 characters)"
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                event.stopPropagation();
+                handleCancel();
+              }
+            }}
+            placeholder="Capture the short plan for this feature (max 10,000 characters)"
+            maxLength={MAX_NOTES}
             rows={4}
             disabled={isPending}
             data-testid="feature-notes-input"
@@ -204,6 +277,7 @@ export function FeatureComposer({ ideaId }: { ideaId: string }) {
             type="button"
             onClick={handleSave}
             disabled={isPending}
+            className="interactive-btn cursor-pointer"
             data-testid="feature-save-button"
           >
             {isPending ? "Saving…" : "Save feature"}

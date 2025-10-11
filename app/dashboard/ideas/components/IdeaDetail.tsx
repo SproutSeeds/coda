@@ -12,7 +12,9 @@ import {
   Clock,
   Copy,
   Link as LinkIcon,
+  Loader2,
   Pencil,
+  Trash2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -56,7 +58,14 @@ const featureSortOptions = [
   { value: "title_asc", label: "Title A→Z" },
 ] as const;
 
-const AUTOSAVE_DELAY = 1200;
+const featureFilterOptions: Array<{ value: "all" | "completed" | "starred" | "unstarred"; label: string }> = [
+  { value: "all", label: "All" },
+  { value: "completed", label: "Completed" },
+  { value: "starred", label: "Starred" },
+  { value: "unstarred", label: "Unstarred" },
+];
+
+const AUTOSAVE_DELAY = 10_000;
 
 export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[] }) {
   const router = useRouter();
@@ -69,7 +78,7 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [deleteInput, setDeleteInput] = useState("");
   const [featureQuery, setFeatureQuery] = useState("");
-  const [featureFilter, setFeatureFilter] = useState<"all" | "starred" | "unstarred">("all");
+  const [featureFilter, setFeatureFilter] = useState<"all" | "completed" | "starred" | "unstarred">("all");
   const [featureSort, setFeatureSort] = useState<(typeof featureSortOptions)[number]["value"]>("priority");
   const [linkLabelDraft, setLinkLabelDraft] = useState(idea.linkLabel ?? "GitHub Repository");
   const [syncedIdea, setSyncedIdea] = useState({
@@ -168,17 +177,19 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
           updatedAt: syncedIdea.updatedAt,
           ...fields,
         });
+        const nextGithub = updated.githubUrl ?? "";
+        const nextLinkLabel = updated.linkLabel ?? "GitHub Repository";
         setSyncedIdea({
           title: updated.title,
           notes: updated.notes,
-          githubUrl: updated.githubUrl ?? "",
-          linkLabel: updated.linkLabel ?? "GitHub Repository",
+          githubUrl: nextGithub,
+          linkLabel: nextLinkLabel,
           updatedAt: updated.updatedAt,
         });
-        setTitle(updated.title);
-        setNotes(updated.notes);
-        setGithubDraft(updated.githubUrl ?? "");
-        setLinkLabelDraft(updated.linkLabel ?? "GitHub Repository");
+        setTitle((previous) => (previous === updated.title ? previous : updated.title));
+        setNotes((previous) => (previous === updated.notes ? previous : updated.notes));
+        setGithubDraft((previous) => (previous === nextGithub ? previous : nextGithub));
+        setLinkLabelDraft((previous) => (previous === nextLinkLabel ? previous : nextLinkLabel));
         return updated;
       } finally {
         ideaSaveInFlight.current = false;
@@ -291,8 +302,21 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
   const deletePrompt = useMemo(() => `Enter "${syncedIdea.title}" to delete`, [syncedIdea.title]);
   const deleteTitleMatches = deleteInput.trim() === syncedIdea.title;
   const totalFeatures = features.length;
+  const completedFeaturesCount = useMemo(() => features.filter((item) => item.completed).length, [features]);
   const starredFeaturesCount = useMemo(() => features.filter((item) => item.starred).length, [features]);
-  const unstarredFeaturesCount = useMemo(() => totalFeatures - starredFeaturesCount, [starredFeaturesCount, totalFeatures]);
+  const unstarredFeaturesCount = useMemo(
+    () => totalFeatures - starredFeaturesCount,
+    [starredFeaturesCount, totalFeatures],
+  );
+  const filterCounts = useMemo<Record<"all" | "completed" | "starred" | "unstarred", number>>(
+    () => ({
+      all: totalFeatures,
+      completed: completedFeaturesCount,
+      starred: starredFeaturesCount,
+      unstarred: unstarredFeaturesCount,
+    }),
+    [completedFeaturesCount, starredFeaturesCount, totalFeatures, unstarredFeaturesCount],
+  );
   const selectedConvertOption = useMemo(
     () => convertOptions.find((option) => option.id === selectedConvertId) ?? null,
     [convertOptions, selectedConvertId],
@@ -303,6 +327,9 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
     const sorted = [...features];
 
     sorted.sort((a, b) => {
+      if (a.completed !== b.completed) {
+        return Number(a.completed) - Number(b.completed);
+      }
       const starCompare = Number(b.starred) - Number(a.starred);
       if (starCompare !== 0) {
         return starCompare;
@@ -319,6 +346,9 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
     });
 
     return sorted.filter((item) => {
+      if (normalizedFilter === "completed" && !item.completed) {
+        return false;
+      }
       if (normalizedFilter === "starred" && !item.starred) {
         return false;
       }
@@ -332,6 +362,9 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
       return haystack.includes(normalizedQuery);
     });
   }, [featureFilter, featureQuery, featureSort, features]);
+
+  const canReorderFeatures =
+    featureFilter === "all" && featureQuery.trim().length === 0 && featureSort === "priority";
 
   const resetDeleteConfirmation = useCallback(() => {
     setIsConfirmingDelete(false);
@@ -520,6 +553,12 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
         return;
       }
 
+      const activeComposer = document.querySelector('[data-testid="feature-composer-expanded"]');
+      if (activeComposer) {
+        window.dispatchEvent(new CustomEvent("coda:feature-composer:close", { detail: { ideaId: idea.id } }));
+        return;
+      }
+
       const convertEditing = Array.from(document.querySelectorAll('[data-testid="feature-card"]')).some((card) =>
         card.contains(document.activeElement)
       );
@@ -605,9 +644,10 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button
-              variant="secondary"
-              size="sm"
-              className="interactive-btn cursor-pointer"
+              type="button"
+              variant={isEditing ? "secondary" : "ghost"}
+              size="icon-sm"
+              className="interactive-btn text-muted-foreground hover:text-foreground"
               onClick={() => {
                 if (isEditing) {
                   exitEditingState();
@@ -618,13 +658,15 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
                 setIdeaAutoState("idle");
                 setIsEditing(true);
               }}
+              aria-label={isEditing ? "Cancel editing" : "Edit idea"}
+              data-testid="idea-edit-toggle"
             >
-              {isEditing ? "Cancel" : "Edit"}
+              {isEditing ? <X className="size-4" /> : <Pencil className="size-4" />}
             </Button>
             <Button
               variant="outline"
               size="sm"
-              className="interactive-btn cursor-pointer hover:bg-transparent"
+              className="interactive-btn cursor-pointer px-3 py-1.5 text-xs font-medium hover:bg-transparent"
               onClick={() =>
                 startExportTransition(async () => {
                   try {
@@ -654,9 +696,10 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
             <Button
               variant="outline"
               size="sm"
-              className="interactive-btn cursor-pointer hover:bg-transparent"
+              className="interactive-btn cursor-pointer px-3 py-1.5 text-xs font-medium hover:bg-transparent"
               onClick={handleToggleConvert}
               disabled={isConverting}
+              data-testid="idea-convert-toggle"
             >
               {isConvertOpen ? "Close convert" : "Convert to feature"}
             </Button>
@@ -665,9 +708,10 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
                 <Button
                   variant="destructive"
                   size="sm"
-                  className="interactive-btn"
+                  className="interactive-btn px-3 py-1.5 text-xs font-semibold"
                   onClick={handleConfirmDelete}
                   disabled={isPending || !deleteTitleMatches}
+                  data-testid="idea-delete-confirm"
                 >
                   Delete
                 </Button>
@@ -695,14 +739,17 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
               </>
             ) : (
               <Button
-                variant="destructive"
-                size="sm"
-                className="interactive-btn"
-                onClick={handleDelete}
-                disabled={isPending}
-              >
-                Delete
-              </Button>
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+              className="interactive-btn text-destructive hover:text-destructive"
+              onClick={handleDelete}
+              disabled={isPending}
+              aria-label="Delete idea"
+              data-testid="idea-delete-button"
+            >
+              {isPending ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+            </Button>
             )}
           </div>
         </CardHeader>
@@ -721,7 +768,7 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
                     <div className="relative" ref={convertDropdownRef}>
                       <button
                         type="button"
-                        className="flex h-10 w-full cursor-pointer items-center justify-between gap-2 rounded-lg border border-border/70 bg-background px-4 text-left text-sm text-foreground shadow-sm transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="flex h-10 w-full cursor-pointer items-center justify-between gap-2 rounded-lg border border-border/70 bg-background px-4 text-left text-sm text-foreground shadow-sm transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         onClick={() => setIsConvertDropdownOpen((previous) => !previous)}
                         data-testid="convert-target-trigger"
                       >
@@ -747,8 +794,8 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
                                     className={cn(
                                       "flex w-full cursor-pointer items-center justify-between gap-2 px-4 py-2 text-sm transition-colors",
                                       isActive
-                                        ? "bg-primary/10 text-primary"
-                                        : "text-muted-foreground hover:bg-primary/5 hover:text-foreground",
+                                        ? "bg-muted/60 text-foreground"
+                                        : "text-muted-foreground hover:bg-muted/30 hover:text-foreground",
                                     )}
                                     onClick={() => {
                                       setSelectedConvertId(option.id);
@@ -817,7 +864,15 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
                   data-testid="idea-edit-title-input"
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      exitEditingState();
+                    }
+                  }}
                   placeholder="Idea title"
+                  maxLength={255}
                 />
               </div>
               <div className="space-y-2">
@@ -835,6 +890,14 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
                   rows={8}
                   value={notes}
                   onChange={(event) => setNotes(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      exitEditingState();
+                    }
+                  }}
+                  maxLength={IDEA_NOTES_CHARACTER_LIMIT}
                 />
                 {notesLimitExceeded ? (
                   <p className="text-xs text-destructive">
@@ -941,7 +1004,7 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
                 </Button>
               </div>
             </div>
-            {isEditingGithub ? (
+              {isEditingGithub ? (
               <div className="space-y-3" data-testid="github-editing">
                 <Input
                   value={linkLabelDraft}
@@ -994,9 +1057,51 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
                       <span className="flex items-center gap-1 text-xs text-destructive">
                         <X className="size-3" /> Save failed
                       </span>
-                    ) : null}
-                  </div>
-                </div>
+              ) : null}
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <Button
+              variant="outline"
+              size="sm"
+              className="interactive-btn cursor-pointer px-3 py-1.5 text-xs font-medium hover:bg-transparent"
+              onClick={() =>
+                startExportTransition(async () => {
+                  try {
+                    const data = await exportIdeaAsJsonAction(idea.id);
+                    const blob = new Blob([JSON.stringify(data, null, 2)], {
+                      type: "application/json",
+                    });
+                    const url = URL.createObjectURL(blob);
+                    const anchor = document.createElement("a");
+                    anchor.href = url;
+                    anchor.download = `idea-${idea.id}.json`;
+                    document.body.appendChild(anchor);
+                    anchor.click();
+                    document.body.removeChild(anchor);
+                    URL.revokeObjectURL(url);
+                    toast.success("Idea exported");
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : "Unable to export idea");
+                  }
+                })
+              }
+              disabled={isExporting}
+              data-testid="idea-export-button"
+            >
+              {isExporting ? "Exporting…" : "Export JSON"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="interactive-btn cursor-pointer px-3 py-1.5 text-xs font-medium hover:bg-transparent"
+              onClick={handleToggleConvert}
+              disabled={isConverting}
+              data-testid="idea-convert-toggle"
+            >
+              {isConvertOpen ? "Close convert" : "Convert to feature"}
+            </Button>
+          </div>
               </div>
             ) : syncedIdea.githubUrl ? (
               <a
@@ -1023,66 +1128,80 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
               Break this idea into smaller pieces and capture the details for each feature.
             </p>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-            <div className="inline-flex items-center gap-1 rounded-lg border border-border/60 bg-background p-1">
-              <Button
-                type="button"
-                variant={featureFilter === "all" ? "default" : "outline"}
-                size="sm"
-                className={cn(
-                  "interactive-btn transition-transform duration-150",
-                  featureFilter === "all" ? "bg-primary hover:bg-primary" : "hover:bg-transparent focus-visible:ring-0",
-                )}
-                onClick={() => setFeatureFilter("all")}
-              >
-                All ({totalFeatures})
-              </Button>
-              <Button
-                type="button"
-                variant={featureFilter === "starred" ? "default" : "outline"}
-                size="sm"
-                className={cn(
-                  "interactive-btn transition-transform duration-150",
-                  featureFilter === "starred" ? "bg-primary hover:bg-primary" : "hover:bg-transparent focus-visible:ring-0",
-                )}
-                onClick={() => setFeatureFilter("starred")}
-                disabled={starredFeaturesCount === 0}
-              >
-                Starred ({starredFeaturesCount})
-              </Button>
-              <Button
-                type="button"
-                variant={featureFilter === "unstarred" ? "default" : "outline"}
-                size="sm"
-                className={cn(
-                  "interactive-btn transition-transform duration-150",
-                  featureFilter === "unstarred" ? "bg-primary hover:bg-primary" : "hover:bg-transparent focus-visible:ring-0",
-                )}
-                onClick={() => setFeatureFilter("unstarred")}
-                disabled={unstarredFeaturesCount === 0}
-              >
-                Unstarred ({unstarredFeaturesCount})
-              </Button>
+          <div className="flex flex-col gap-4 lg:w-auto lg:items-end">
+            <div className="flex flex-wrap items-center gap-2 border-b border-border/60 pb-2" role="tablist" aria-label="Filter features">
+              {featureFilterOptions.map((option) => {
+                const isActive = featureFilter === option.value;
+                const count = filterCounts[option.value];
+                const label = count > 0 ? `${option.label} (${count})` : option.label;
+                return (
+                  <Button
+                    key={option.value}
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    role="tab"
+                    aria-selected={isActive}
+                    data-state={isActive ? "active" : "inactive"}
+                    className={cn(
+                      "relative rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-wide transition",
+                      isActive
+                        ? "bg-primary/10 text-primary ring-1 ring-primary/40"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                    onClick={() => setFeatureFilter(option.value)}
+                    disabled={
+                      option.value === "all"
+                        ? false
+                        : filterCounts[option.value] === 0
+                    }
+                  >
+                    {label}
+                  </Button>
+                );
+              })}
             </div>
-            <div className="flex items-center gap-2">
-              <label htmlFor="feature-sort" className="text-xs font-medium text-muted-foreground">
-                Sort by
-              </label>
-              <select
-                id="feature-sort"
-                value={featureSort}
-                onChange={(event) =>
-                  setFeatureSort(event.target.value as (typeof featureSortOptions)[number]["value"])
-                }
-                className="rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                data-testid="feature-sort-select"
-              >
-                {featureSortOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+              <div className="flex flex-1 items-center gap-2">
+                <Input
+                  placeholder="Search features"
+                  value={featureQuery}
+                  onChange={(event) => setFeatureQuery(event.target.value)}
+                  data-testid="feature-search-input"
+                  className="max-w-md"
+                />
+                {featureQuery ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="interactive-btn"
+                    onClick={() => setFeatureQuery("")}
+                  >
+                    Clear
+                  </Button>
+                ) : null}
+              </div>
+              <div className="flex items-center gap-2">
+                <label htmlFor="feature-sort" className="text-xs font-medium text-muted-foreground">
+                  Sort by
+                </label>
+                <select
+                  id="feature-sort"
+                  value={featureSort}
+                  onChange={(event) =>
+                    setFeatureSort(event.target.value as (typeof featureSortOptions)[number]["value"])
+                  }
+                  className="rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  data-testid="feature-sort-select"
+                >
+                  {featureSortOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
         </div>
@@ -1119,6 +1238,8 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
           ideaId={idea.id}
           features={visibleFeatures}
           emptyLabel={totalFeatures === 0 ? undefined : "No features match your filters."}
+          canReorder={canReorderFeatures}
+          showCompletedSection={featureFilter !== "completed"}
         />
       </section>
     </motion.div>

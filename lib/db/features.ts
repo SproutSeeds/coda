@@ -15,7 +15,7 @@ export async function listFeatures(userId: string, ideaId: string) {
     .from(ideaFeatures)
     .innerJoin(ideas, eq(ideas.id, ideaFeatures.ideaId))
     .where(and(eq(ideas.userId, userId), eq(ideaFeatures.ideaId, ideaId), isNull(ideas.deletedAt)))
-    .orderBy(desc(ideaFeatures.starred), asc(ideaFeatures.position), desc(ideaFeatures.createdAt));
+    .orderBy(asc(ideaFeatures.completed), desc(ideaFeatures.starred), asc(ideaFeatures.position), desc(ideaFeatures.createdAt));
 
   return rows.map((row) => normalizeFeature(row.feature));
 }
@@ -50,6 +50,7 @@ export async function createFeature(userId: string, input: FeatureInput) {
       title: payload.title,
       notes: payload.notes,
       position,
+      starred: payload.starred ?? false,
     })
     .returning();
 
@@ -149,6 +150,41 @@ export async function updateFeatureStar(userId: string, id: string, starred: boo
   return feature;
 }
 
+export async function setFeatureCompletion(userId: string, id: string, completed: boolean) {
+  const db = getDb();
+
+  const [existing] = await db
+    .select({
+      id: ideaFeatures.id,
+      ideaId: ideaFeatures.ideaId,
+    })
+    .from(ideaFeatures)
+    .innerJoin(ideas, eq(ideas.id, ideaFeatures.ideaId))
+    .where(and(eq(ideaFeatures.id, id), eq(ideas.userId, userId), isNull(ideas.deletedAt)))
+    .limit(1);
+
+  if (!existing) {
+    throw new Error("Feature not found");
+  }
+
+  const [updated] = await db
+    .update(ideaFeatures)
+    .set({
+      completed,
+      completedAt: completed ? new Date() : null,
+      updatedAt: new Date(),
+    })
+    .where(eq(ideaFeatures.id, id))
+    .returning();
+
+  const feature = normalizeFeature(updated);
+
+  revalidatePath(`/dashboard/ideas/${existing.ideaId}`);
+  revalidatePath("/dashboard/ideas");
+
+  return feature;
+}
+
 export async function getFeatureById(userId: string, id: string) {
   const db = getDb();
 
@@ -182,7 +218,14 @@ export async function reorderFeatures(userId: string, ideaId: string, orderedIds
       .select({ id: ideaFeatures.id })
       .from(ideaFeatures)
       .innerJoin(ideas, eq(ideas.id, ideaFeatures.ideaId))
-      .where(and(eq(ideaFeatures.ideaId, ideaId), eq(ideas.userId, userId), isNull(ideas.deletedAt)));
+      .where(
+        and(
+          eq(ideaFeatures.ideaId, ideaId),
+          eq(ideas.userId, userId),
+          isNull(ideas.deletedAt),
+          eq(ideaFeatures.completed, false),
+        ),
+      );
 
     const existingIds = new Set(rows.map((row) => row.id));
     if (existingIds.size !== orderedIds.length) {
@@ -213,5 +256,7 @@ function normalizeFeature(row: typeof ideaFeatures.$inferSelect) {
     ...row,
     createdAt: row.createdAt?.toISOString?.() ?? String(row.createdAt),
     updatedAt: row.updatedAt?.toISOString?.() ?? String(row.updatedAt),
+    completed: Boolean(row.completed),
+    completedAt: row.completedAt ? row.completedAt.toISOString() : null,
   };
 }

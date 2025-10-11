@@ -64,15 +64,17 @@ export function IdeaBoard({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
             variant={view === "active" ? "default" : "outline"}
             size="sm"
             className={cn(
               "interactive-btn transition-transform duration-150",
-              view === "active" ? "bg-primary hover:bg-primary" : "hover:bg-transparent focus-visible:ring-0",
+              view === "active"
+                ? "bg-primary text-primary-foreground"
+                : "hover:bg-muted/40 focus-visible:ring-0",
             )}
             onClick={() => setView("active")}
           >
@@ -85,7 +87,9 @@ export function IdeaBoard({
               size="sm"
               className={cn(
                 "interactive-btn transition-transform duration-150",
-                view === "deleted" ? "bg-primary hover:bg-primary" : "hover:bg-transparent focus-visible:ring-0",
+                view === "deleted"
+                  ? "bg-primary text-primary-foreground"
+                  : "hover:bg-muted/40 focus-visible:ring-0",
               )}
               onClick={() => setView("deleted")}
             >
@@ -93,7 +97,7 @@ export function IdeaBoard({
             </Button>
           ) : null}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
           <label htmlFor="idea-sort" className="text-xs font-medium text-muted-foreground">
             Sort by
           </label>
@@ -101,7 +105,7 @@ export function IdeaBoard({
             id="idea-sort"
             value={currentSort}
             onChange={(event) => handleSortChange(event.target.value)}
-            className="rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="min-w-[10rem] rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             data-testid="ideas-sort-select"
           >
             {sortOptions.map((option) => (

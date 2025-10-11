@@ -51,7 +51,7 @@ export function PasswordReminder({ needsPassword }: { needsPassword: boolean }) 
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard/account"
-            className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow hover:bg-primary/90"
+            className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow hover:bg-primary/80"
           >
             Set password
           </Link>

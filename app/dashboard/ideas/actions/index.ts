@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 
-import { createFeature, deleteFeature, getFeatureById, listFeatures, reorderFeatures, updateFeature, updateFeatureStar } from "@/lib/db/features";
+import { createFeature, deleteFeature, getFeatureById, listFeatures, reorderFeatures, setFeatureCompletion, updateFeature, updateFeatureStar } from "@/lib/db/features";
 import { createIdea, getIdea, listDeletedIdeas, listIdeas, purgeIdea, reorderIdeas, restoreIdea, searchIdeas, softDeleteIdea, updateIdea, updateIdeaStar, type IdeaSort } from "@/lib/db/ideas";
 import { trackEvent } from "@/lib/utils/analytics";
 import { consumeRateLimit } from "@/lib/utils/rate-limit";
@@ -144,18 +144,27 @@ export async function loadDeletedIdeas() {
   return listDeletedIdeas(user.id);
 }
 
-export async function createFeatureAction(formData: FormData | { ideaId: string; title: string; notes: string }) {
+export async function createFeatureAction(formData: FormData | { ideaId: string; title: string; notes: string; starred?: boolean }) {
   const user = await requireUser();
   const payload = formData instanceof FormData
     ? {
         ideaId: String(formData.get("ideaId") ?? ""),
         title: String(formData.get("title") ?? ""),
         notes: String(formData.get("notes") ?? ""),
+        starred: (() => {
+          const value = formData.get("starred");
+          if (value == null) return false;
+          const normalized = String(value).toLowerCase();
+          return normalized === "true" || normalized === "on" || normalized === "1";
+        })(),
       }
     : formData;
 
   const feature = await createFeature(user.id, payload);
-  await trackEvent({ name: "feature_created", properties: { ideaId: payload.ideaId, featureId: feature.id } });
+  await trackEvent({
+    name: "feature_created",
+    properties: { ideaId: payload.ideaId, featureId: feature.id, starred: payload.starred ?? false },
+  });
   return feature;
 }
 
@@ -184,6 +193,19 @@ export async function toggleFeatureStarAction(id: string, starred: boolean) {
   await trackEvent({
     name: starred ? "feature_starred" : "feature_unstarred",
     properties: { featureId: id, ideaId: feature.ideaId },
+  });
+  return feature;
+}
+
+export async function toggleFeatureCompletionAction(id: string, completed: boolean) {
+  const user = await requireUser();
+  const feature = await setFeatureCompletion(user.id, id, completed);
+  await trackEvent({
+    name: completed ? "feature_completed" : "feature_reopened",
+    properties: {
+      featureId: id,
+      ideaId: feature.ideaId,
+    },
   });
   return feature;
 }
