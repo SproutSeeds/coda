@@ -1,6 +1,6 @@
 "use server";
 
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, isNotNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { getDb } from "@/lib/db";
@@ -14,8 +14,36 @@ export async function listFeatures(userId: string, ideaId: string) {
     .select({ feature: ideaFeatures })
     .from(ideaFeatures)
     .innerJoin(ideas, eq(ideas.id, ideaFeatures.ideaId))
-    .where(and(eq(ideas.userId, userId), eq(ideaFeatures.ideaId, ideaId), isNull(ideas.deletedAt)))
+    .where(
+      and(
+        eq(ideas.userId, userId),
+        eq(ideaFeatures.ideaId, ideaId),
+        isNull(ideas.deletedAt),
+        isNull(ideaFeatures.deletedAt),
+      ),
+    )
     .orderBy(asc(ideaFeatures.completed), desc(ideaFeatures.starred), asc(ideaFeatures.position), desc(ideaFeatures.createdAt));
+
+  return rows.map((row) => normalizeFeature(row.feature));
+}
+
+export async function listDeletedFeatures(userId: string, ideaId: string) {
+  const db = getDb();
+
+  const rows = await db
+    .select({ feature: ideaFeatures })
+    .from(ideaFeatures)
+    .innerJoin(ideas, eq(ideas.id, ideaFeatures.ideaId))
+    .where(
+      and(
+        eq(ideas.userId, userId),
+        eq(ideaFeatures.ideaId, ideaId),
+        isNull(ideas.deletedAt),
+        isNotNull(ideaFeatures.deletedAt),
+      ),
+    )
+    .orderBy(desc(ideaFeatures.deletedAt))
+    .limit(50);
 
   return rows.map((row) => normalizeFeature(row.feature));
 }
@@ -113,10 +141,41 @@ export async function deleteFeature(userId: string, id: string) {
     throw new Error("Feature not found");
   }
 
-  await db.delete(ideaFeatures).where(eq(ideaFeatures.id, id));
+  await db
+    .update(ideaFeatures)
+    .set({ deletedAt: new Date(), updatedAt: new Date() })
+    .where(eq(ideaFeatures.id, id));
 
   revalidatePath(`/dashboard/ideas/${existing.ideaId}`);
   revalidatePath("/dashboard/ideas");
+}
+
+export async function restoreFeature(userId: string, id: string) {
+  const db = getDb();
+
+  const [existing] = await db
+    .select({ id: ideaFeatures.id, ideaId: ideaFeatures.ideaId })
+    .from(ideaFeatures)
+    .innerJoin(ideas, eq(ideas.id, ideaFeatures.ideaId))
+    .where(and(eq(ideaFeatures.id, id), eq(ideas.userId, userId), isNull(ideas.deletedAt)))
+    .limit(1);
+
+  if (!existing) {
+    throw new Error("Feature not found");
+  }
+
+  const [updated] = await db
+    .update(ideaFeatures)
+    .set({ deletedAt: null, updatedAt: new Date() })
+    .where(eq(ideaFeatures.id, id))
+    .returning();
+
+  const feature = normalizeFeature(updated);
+
+  revalidatePath(`/dashboard/ideas/${existing.ideaId}`);
+  revalidatePath("/dashboard/ideas");
+
+  return feature;
 }
 
 export async function updateFeatureStar(userId: string, id: string, starred: boolean) {
@@ -223,6 +282,7 @@ export async function reorderFeatures(userId: string, ideaId: string, orderedIds
           eq(ideaFeatures.ideaId, ideaId),
           eq(ideas.userId, userId),
           isNull(ideas.deletedAt),
+          isNull(ideaFeatures.deletedAt),
           eq(ideaFeatures.completed, false),
         ),
       );
@@ -258,5 +318,6 @@ function normalizeFeature(row: typeof ideaFeatures.$inferSelect) {
     updatedAt: row.updatedAt?.toISOString?.() ?? String(row.updatedAt),
     completed: Boolean(row.completed),
     completedAt: row.completedAt ? row.completedAt.toISOString() : null,
+    deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
   };
 }

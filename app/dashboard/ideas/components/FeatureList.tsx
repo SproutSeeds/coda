@@ -49,6 +49,7 @@ export function FeatureList({
   const previousItemsRef = useRef(activeItems);
   const [isPending, startTransition] = useTransition();
   const prefersReducedMotion = useReducedMotion() ?? false;
+  const [isMounted, setIsMounted] = useState(false);
 
   const completedFeatures = showCompletedSection
     ? features
@@ -72,6 +73,10 @@ export function FeatureList({
       previousItemsRef.current = features;
     }
   }, [features, showCompletedSection]);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -121,7 +126,7 @@ export function FeatureList({
   };
 
   const hasActive = showCompletedSection ? activeItems.length > 0 : features.length > 0;
-  const allowReorder = canReorder && showCompletedSection && hasActive;
+  const allowReorder = canReorder && showCompletedSection && hasActive && isMounted;
   const hasCompleted = showCompletedSection && completedFeatures.length > 0;
 
   if (!hasActive && !hasCompleted) {
@@ -134,6 +139,33 @@ export function FeatureList({
         {features.map((feature) => (
           <FeatureCard key={feature.id} feature={feature} ideaId={ideaId} isDragging={false} />
         ))}
+      </div>
+    );
+  }
+
+  if (!isMounted) {
+    return (
+      <div className="space-y-6" data-testid="feature-list">
+        {hasActive ? (
+          <div className="space-y-3">
+            {activeItems.map((feature) => (
+              <FeatureCard key={feature.id} feature={feature} ideaId={ideaId} isDragging={false} />
+            ))}
+          </div>
+        ) : null}
+        {hasCompleted ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <span className="inline-flex size-6 items-center justify-center rounded-full border border-border bg-card text-[0.7rem]">✓</span>
+              Completed ({completedFeatures.length})
+            </div>
+            <div className="space-y-3" data-testid="feature-completed-list">
+              {completedFeatures.map((feature) => (
+                <FeatureCard key={feature.id} feature={feature} ideaId={ideaId} isDragging={false} />
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
     );
   }

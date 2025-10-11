@@ -131,6 +131,7 @@ export function FeatureComposer({ ideaId }: { ideaId: string }) {
 
   const handleCancel = useCallback(() => {
     setIsExpanded(false);
+    setStarred(false);
   }, []);
 
   const hasDraft = Boolean(title || notes);

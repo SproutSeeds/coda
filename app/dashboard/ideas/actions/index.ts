@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 
-import { createFeature, deleteFeature, getFeatureById, listFeatures, reorderFeatures, setFeatureCompletion, updateFeature, updateFeatureStar } from "@/lib/db/features";
+import { createFeature, deleteFeature, getFeatureById, listDeletedFeatures, listFeatures, reorderFeatures, restoreFeature, setFeatureCompletion, updateFeature, updateFeatureStar } from "@/lib/db/features";
 import { createIdea, getIdea, listDeletedIdeas, listIdeas, purgeIdea, reorderIdeas, restoreIdea, searchIdeas, softDeleteIdea, updateIdea, updateIdeaStar, type IdeaSort } from "@/lib/db/ideas";
 import { trackEvent } from "@/lib/utils/analytics";
 import { consumeRateLimit } from "@/lib/utils/rate-limit";
@@ -93,8 +93,11 @@ export async function loadIdea(id: string) {
 export async function loadIdeaWithFeatures(id: string) {
   const user = await requireUser();
   const idea = await getIdea(user.id, id);
-  const features = await listFeatures(user.id, id);
-  return { idea, features };
+  const [features, deletedFeatures] = await Promise.all([
+    listFeatures(user.id, id),
+    listDeletedFeatures(user.id, id),
+  ]);
+  return { idea, features, deletedFeatures };
 }
 
 export async function exportIdeaAsJsonAction(id: string) {
@@ -179,6 +182,16 @@ export async function deleteFeatureAction(payload: { id: string }) {
   const user = await requireUser();
   await deleteFeature(user.id, payload.id);
   await trackEvent({ name: "feature_deleted", properties: { featureId: payload.id } });
+}
+
+export async function restoreDeletedFeatureAction(payload: { id: string }) {
+  const user = await requireUser();
+  const feature = await restoreFeature(user.id, payload.id);
+  await trackEvent({
+    name: "feature_restored",
+    properties: { featureId: payload.id, ideaId: feature.ideaId },
+  });
+  return feature;
 }
 
 export async function reorderFeaturesAction(ideaId: string, ids: string[]) {

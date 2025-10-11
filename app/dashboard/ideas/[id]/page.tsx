@@ -13,7 +13,7 @@ export default async function IdeaDetailPage({ params }: { params: Promise<{ id:
 
   return (
     <section className="space-y-8">
-      <IdeaDetail idea={data.idea} features={data.features} />
+      <IdeaDetail idea={data.idea} features={data.features} deletedFeatures={data.deletedFeatures} />
     </section>
   );
 }

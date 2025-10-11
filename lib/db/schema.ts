@@ -41,6 +41,7 @@ export const ideaFeatures = pgTable("idea_features", {
   starred: boolean("starred").notNull().default(false),
   completed: boolean("completed").notNull().default(false),
   completedAt: timestamp("completed_at", { withTimezone: true }),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 }, (table) => ({
   ideaPositionIdx: index("idx_feature_idea_position").on(table.ideaId, table.position),
   ideaStarIdx: index("idx_feature_idea_star").on(table.ideaId, table.starred),

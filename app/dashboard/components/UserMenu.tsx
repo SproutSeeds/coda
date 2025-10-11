@@ -58,9 +58,9 @@ export function UserMenu({ className }: UserMenuProps) {
       <Button
         ref={triggerRef}
         type="button"
-        variant="ghost"
+        variant="outline"
         size="icon"
-        className="interactive-btn text-muted-foreground hover:text-primary focus-visible:ring-0"
+        className="interactive-btn border-transparent text-muted-foreground hover:border-border hover:bg-muted/20 hover:text-foreground focus-visible:ring-0"
         id="workspace-menu-trigger"
         aria-label="Open workspace menu"
         aria-haspopup="menu"
@@ -88,8 +88,8 @@ export function UserMenu({ className }: UserMenuProps) {
           <div className="flex flex-col gap-1 p-2" role="none">
             <Button
               asChild
-              variant="ghost"
-              className="interactive-btn w-full justify-between px-3 py-2 text-left text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground focus-visible:ring-0"
+              variant="outline"
+              className="interactive-btn w-full justify-between border-transparent px-3 py-2 text-left text-sm font-medium text-foreground hover:border-border hover:bg-muted/30 focus-visible:ring-0"
               role="menuitem"
             >
               <Link href="/dashboard/account" onClick={() => setOpen(false)}>
@@ -98,7 +98,7 @@ export function UserMenu({ className }: UserMenuProps) {
             </Button>
             <SignOutButton
               variant="ghost"
-              className="interactive-btn w-full justify-start px-3 py-2 text-sm font-medium text-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:ring-0"
+              className="interactive-btn w-full justify-start border-transparent px-3 py-2 text-sm font-medium text-foreground hover:border-border hover:bg-muted/30 focus-visible:ring-0"
               role="menuitem"
               onClick={() => setOpen(false)}
             />

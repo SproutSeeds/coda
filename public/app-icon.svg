@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" stop-opacity="0.12" />
+      <stop offset="100%" stop-color="#2563eb" stop-opacity="0.08" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="#ffffff" />
+  <rect width="512" height="512" rx="112" fill="url(#glow)" />
+  <g transform="translate(128 160)" fill="#0f172a">
+    <text x="0" y="160" font-family="'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="220" font-weight="700" letter-spacing="-8">C</text>
+    <text x="222" y="178" font-family="'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="160" font-weight="700">.</text>
+  </g>
+</svg>

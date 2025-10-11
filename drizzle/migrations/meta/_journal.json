@@ -71,6 +71,13 @@
       "when": 1760500000000,
       "tag": "0009_add_feature_completion",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "16",
+      "when": 1760600000000,
+      "tag": "0010_add_feature_deleted_at",
+      "breakpoints": true
     }
   ]
 }

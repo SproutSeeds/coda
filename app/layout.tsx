@@ -31,6 +31,15 @@ export const metadata: Metadata = {
     "Next.js app",
     "specify",
   ],
+  icons: {
+    icon: [
+      { url: "/app-icon.svg", type: "image/svg+xml" },
+      { url: "/icon-192.png", type: "image/png", sizes: "192x192" },
+      { url: "/icon-512.png", type: "image/png", sizes: "512x512" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
+    shortcut: [{ url: "/apple-touch-icon.png" }],
+  },
   openGraph: {
     title: "Add an idea, watch it grow.",
     description: "Where ideas go live with Coda’s fast, polished workspace.",

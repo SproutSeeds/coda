@@ -11,6 +11,7 @@ import {
   ChevronDown,
   Clock,
   Copy,
+  Funnel,
   Link as LinkIcon,
   Loader2,
   Pencil,
@@ -32,6 +33,7 @@ import {
   deleteIdeaAction,
   exportIdeaAsJsonAction,
   listIdeaOptionsAction,
+  restoreDeletedFeatureAction,
   restoreIdeaAction,
   updateIdeaAction,
 } from "../actions";
@@ -67,7 +69,7 @@ const featureFilterOptions: Array<{ value: "all" | "completed" | "starred" | "un
 
 const AUTOSAVE_DELAY = 10_000;
 
-export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[] }) {
+export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; features: Feature[]; deletedFeatures: Feature[] }) {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState(idea.title);
@@ -79,7 +81,9 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
   const [deleteInput, setDeleteInput] = useState("");
   const [featureQuery, setFeatureQuery] = useState("");
   const [featureFilter, setFeatureFilter] = useState<"all" | "completed" | "starred" | "unstarred">("all");
+  const [featureView, setFeatureView] = useState<"active" | "deleted">("active");
   const [featureSort, setFeatureSort] = useState<(typeof featureSortOptions)[number]["value"]>("priority");
+  const [showFilters, setShowFilters] = useState(false);
   const [linkLabelDraft, setLinkLabelDraft] = useState(idea.linkLabel ?? "GitHub Repository");
   const [syncedIdea, setSyncedIdea] = useState({
     title: idea.title,
@@ -104,6 +108,9 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
   const convertDropdownRef = useRef<HTMLDivElement | null>(null);
   const [isCoreExpanded, setIsCoreExpanded] = useState(false);
   const [isIdVisible, setIsIdVisible] = useState(false);
+  const [deletedFeaturesState, setDeletedFeaturesState] = useState(deletedFeatures);
+  const [isRestoringFeature, startRestoreFeatureTransition] = useTransition();
+  const [restoreTargetId, setRestoreTargetId] = useState<string | null>(null);
 
   useEffect(() => {
     const nextGithub = idea.githubUrl ?? "";
@@ -123,6 +130,10 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
     setIsCoreExpanded(false);
     setIsIdVisible(false);
   }, [idea.id, idea.title, idea.notes, idea.githubUrl, idea.linkLabel, idea.updatedAt]);
+
+  useEffect(() => {
+    setDeletedFeaturesState(deletedFeatures);
+  }, [deletedFeatures]);
 
   const createdAt = useMemo(() => formatDateTime(idea.createdAt), [idea.createdAt]);
   const updatedAt = useMemo(() => formatDateTime(idea.updatedAt), [idea.updatedAt]);
@@ -302,6 +313,7 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
   const deletePrompt = useMemo(() => `Enter "${syncedIdea.title}" to delete`, [syncedIdea.title]);
   const deleteTitleMatches = deleteInput.trim() === syncedIdea.title;
   const totalFeatures = features.length;
+  const totalDeletedFeatures = deletedFeaturesState.length;
   const completedFeaturesCount = useMemo(() => features.filter((item) => item.completed).length, [features]);
   const starredFeaturesCount = useMemo(() => features.filter((item) => item.starred).length, [features]);
   const unstarredFeaturesCount = useMemo(
@@ -364,7 +376,7 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
   }, [featureFilter, featureQuery, featureSort, features]);
 
   const canReorderFeatures =
-    featureFilter === "all" && featureQuery.trim().length === 0 && featureSort === "priority";
+    featureView === "active" && featureFilter === "all" && featureQuery.trim().length === 0 && featureSort === "priority";
 
   const resetDeleteConfirmation = useCallback(() => {
     setIsConfirmingDelete(false);
@@ -1129,7 +1141,60 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
             </p>
           </div>
           <div className="flex flex-col gap-4 lg:w-auto lg:items-end">
-            <div className="flex flex-wrap items-center gap-2 border-b border-border/60 pb-2" role="tablist" aria-label="Filter features">
+            <div className="flex items-center gap-2" role="tablist" aria-label="Feature view">
+              <Button
+                type="button"
+                variant={featureView === "active" ? "default" : "outline"}
+                size="sm"
+                className={cn(
+                  "interactive-btn transition-all duration-150",
+                  featureView === "active"
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-muted/40 focus-visible:ring-0",
+                )}
+                onClick={() => setFeatureView("active")}
+              >
+                Active ({totalFeatures})
+              </Button>
+              <Button
+                type="button"
+                variant={featureView === "deleted" ? "default" : "outline"}
+                size="sm"
+                className={cn(
+                  "interactive-btn transition-all duration-150",
+                  featureView === "deleted"
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-muted/40 focus-visible:ring-0",
+                )}
+                onClick={() => {
+                  setFeatureView("deleted");
+                  setShowFilters(false);
+                }}
+                disabled={totalDeletedFeatures === 0}
+              >
+                Recently deleted ({totalDeletedFeatures})
+              </Button>
+              {featureView === "active" ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="interactive-btn flex items-center gap-2 px-3 py-1.5 text-xs font-semibold hover:bg-muted/30"
+                  onClick={() => setShowFilters((previous) => !previous)}
+                  aria-label="Toggle feature filters"
+                >
+                  <Funnel className="size-4" /> Filters
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        <FeatureComposer ideaId={idea.id} />
+
+        {featureView === "active" && showFilters ? (
+          <div className="space-y-4 rounded-xl border border-border/60 bg-card/60 p-4" data-testid="feature-filter-panel">
+            <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Filter features">
               {featureFilterOptions.map((option) => {
                 const isActive = featureFilter === option.value;
                 const count = filterCounts[option.value];
@@ -1138,30 +1203,24 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
                   <Button
                     key={option.value}
                     type="button"
-                    variant="ghost"
+                    variant={isActive ? "default" : "outline"}
                     size="sm"
                     role="tab"
                     aria-selected={isActive}
                     data-state={isActive ? "active" : "inactive"}
                     className={cn(
-                      "relative rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-wide transition",
-                      isActive
-                        ? "bg-primary/10 text-primary ring-1 ring-primary/40"
-                        : "text-muted-foreground hover:text-foreground",
+                      "interactive-btn rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-wide",
+                      isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted/30",
                     )}
                     onClick={() => setFeatureFilter(option.value)}
-                    disabled={
-                      option.value === "all"
-                        ? false
-                        : filterCounts[option.value] === 0
-                    }
+                    disabled={option.value === "all" ? false : filterCounts[option.value] === 0}
                   >
                     {label}
                   </Button>
                 );
               })}
             </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-1 items-center gap-2">
                 <Input
                   placeholder="Search features"
@@ -1175,7 +1234,7 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="interactive-btn"
+                    className="interactive-btn hover:bg-muted/30"
                     onClick={() => setFeatureQuery("")}
                   >
                     Clear
@@ -1203,45 +1262,103 @@ export function IdeaDetail({ idea, features }: { idea: Idea; features: Feature[]
                 </select>
               </div>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Showing {visibleFeatures.length} of {totalFeatures} {totalFeatures === 1 ? "feature" : "features"}
+            </p>
           </div>
-        </div>
+        ) : null}
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
-            <Input
-              value={featureQuery}
-              onChange={(event) => setFeatureQuery(event.target.value)}
-              placeholder="Search features"
-              data-testid="feature-search-input"
-              className="max-w-md"
-            />
-            {featureQuery ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="interactive-btn"
-                onClick={() => setFeatureQuery("")}
-              >
-                Clear
-              </Button>
-            ) : null}
-          </div>
+        {featureView === "active" && !showFilters ? (
           <p className="text-xs text-muted-foreground">
             Showing {visibleFeatures.length} of {totalFeatures} {totalFeatures === 1 ? "feature" : "features"}
           </p>
-        </div>
+        ) : null}
 
-        <FeatureComposer ideaId={idea.id} />
-
-        <FeatureList
-          ideaId={idea.id}
-          features={visibleFeatures}
-          emptyLabel={totalFeatures === 0 ? undefined : "No features match your filters."}
-          canReorder={canReorderFeatures}
-          showCompletedSection={featureFilter !== "completed"}
-        />
+        {featureView === "active" ? (
+          <FeatureList
+            ideaId={idea.id}
+            features={visibleFeatures}
+            emptyLabel={totalFeatures === 0 ? undefined : "No features match your filters."}
+            canReorder={canReorderFeatures}
+            showCompletedSection={featureFilter !== "completed"}
+          />
+        ) : (
+          <DeletedFeatureList
+            features={deletedFeaturesState}
+            onRestore={(featureId) => {
+              setRestoreTargetId(featureId);
+              startRestoreFeatureTransition(async () => {
+                try {
+                  await restoreDeletedFeatureAction({ id: featureId });
+                  setDeletedFeaturesState((previous) => previous.filter((feature) => feature.id !== featureId));
+                  toast.success("Feature restored");
+                  router.refresh();
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : "Unable to restore feature");
+                } finally {
+                  setRestoreTargetId(null);
+                }
+              });
+            }}
+            isRestoring={isRestoringFeature}
+            restoringId={restoreTargetId}
+          />
+        )}
       </section>
     </motion.div>
+  );
+}
+
+function DeletedFeatureList({
+  features,
+  onRestore,
+  isRestoring,
+  restoringId,
+}: {
+  features: Feature[];
+  onRestore: (id: string) => void;
+  isRestoring: boolean;
+  restoringId: string | null;
+}) {
+  if (features.length === 0) {
+    return <p className="text-sm text-muted-foreground">No recently deleted features.</p>;
+  }
+
+  return (
+    <div className="space-y-3" data-testid="feature-deleted-list">
+      {features.map((feature) => {
+        const deletedLabel = feature.deletedAt ? formatDateTime(feature.deletedAt) : "Just now";
+        const isPending = isRestoring && restoringId === feature.id;
+        return (
+          <Card
+            key={feature.id}
+            className="border border-border/60 bg-muted/20"
+          >
+            <CardHeader className="flex flex-row items-center justify-between gap-3">
+              <div className="min-w-0 space-y-1">
+                <CardTitle className="truncate text-base font-semibold text-foreground">{feature.title}</CardTitle>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Deleted {deletedLabel}</p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="interactive-btn cursor-pointer px-3 py-1.5 text-xs font-semibold"
+                onClick={() => onRestore(feature.id)}
+                disabled={isPending}
+                data-testid={`feature-restore-${feature.id}`}
+              >
+                {isPending ? <Loader2 className="size-4 animate-spin" /> : "Restore"}
+              </Button>
+            </CardHeader>
+            {feature.notes ? (
+              <CardContent className="pt-0">
+                <p className="line-clamp-2 text-sm text-muted-foreground">{feature.notes}</p>
+              </CardContent>
+            ) : null}
+          </Card>
+        );
+      })}
+    </div>
   );
 }
