@@ -16,10 +16,10 @@ describe("Idea validation", () => {
     expect(() => validateIdeaInput(validIdea)).not.toThrow();
   });
 
-  it("rejects titles that exceed 200 characters", () => {
+  it("rejects titles that exceed 255 characters", () => {
     const overlong = {
       ...validIdea,
-      title: "a".repeat(201),
+      title: "a".repeat(256),
     };
 
     expect(() => validateIdeaInput(overlong)).toThrow();

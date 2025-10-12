@@ -3,12 +3,14 @@
 import { hash, compare } from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 
 import { getDb } from "@/lib/db";
-import { users } from "@/lib/db/schema";
+import { themePreferences, users } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { trackEvent } from "@/lib/utils/analytics";
 import { updatePasswordSchema } from "@/lib/validations/auth";
+import { themePreferenceInputSchema } from "@/lib/validations/theme-preference";
 
 export type UpdatePasswordState =
   | { status: "idle" }
@@ -56,4 +58,63 @@ export async function hasPassword(userId: string) {
   const db = getDb();
   const [record] = await db.select({ passwordHash: users.passwordHash }).from(users).where(eq(users.id, userId)).limit(1);
   return Boolean(record?.passwordHash);
+}
+
+type UpdateThemePreferenceInput = {
+  theme: "light" | "dark";
+  source?: "explicit" | "system-default" | "restored";
+  promptDismissed?: boolean;
+};
+
+export type UpdateThemePreferenceResult = {
+  success: true;
+  theme: "light" | "dark";
+  effectiveSource: "explicit" | "system-default" | "restored";
+};
+
+export async function updateThemePreferenceAction(input: UpdateThemePreferenceInput): Promise<UpdateThemePreferenceResult> {
+  const user = await requireUser();
+  const parsed = themePreferenceInputSchema.parse({ theme: input.theme, source: input.source });
+  const db = getDb();
+  const now = new Date();
+
+  const promptDismissedAt = input.promptDismissed || parsed.source === "explicit" ? now : undefined;
+
+  await db
+    .insert(themePreferences)
+    .values({
+      userId: user.id,
+      theme: parsed.theme,
+      source: parsed.source,
+      updatedAt: now,
+      ...(promptDismissedAt ? { promptDismissedAt } : {}),
+    })
+    .onConflictDoUpdate({
+      target: themePreferences.userId,
+      set: {
+        theme: parsed.theme,
+        source: parsed.source,
+        updatedAt: now,
+        ...(promptDismissedAt ? { promptDismissedAt } : {}),
+      },
+    });
+
+  await trackEvent({
+    name: "theme_preference.updated",
+    properties: {
+      userId: user.id,
+      theme: parsed.theme,
+      source: parsed.source,
+    },
+  });
+
+  const cookieStore = await cookies();
+  cookieStore.set("coda-theme", parsed.theme, {
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+  });
+
+  revalidatePath("/dashboard/account");
+
+  return { success: true, theme: parsed.theme, effectiveSource: parsed.source };
 }

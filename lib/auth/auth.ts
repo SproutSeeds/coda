@@ -9,6 +9,7 @@ import { createAuthAdapter } from "@/lib/auth/adapter";
 import { sendMagicLinkEmail } from "@/lib/auth/email";
 import { findOrCreateUserByEmail } from "@/lib/auth/users";
 import { getDb } from "@/lib/db";
+import { getThemePreference } from "@/lib/db/theme-preferences";
 import { users } from "@/lib/db/schema";
 import { trackEvent } from "@/lib/utils/analytics";
 import { consumeRateLimit } from "@/lib/utils/rate-limit";
@@ -118,9 +119,16 @@ export const authOptions: NextAuthOptions = {
       }
       return token;
     },
-    session({ session, token }) {
+    async session({ session, token }) {
       if (session.user && token.sub) {
-        session.user.id = token.sub;
+        (session.user as Record<string, unknown>).id = token.sub;
+        const sessionUser = session.user as typeof session.user & { theme?: "light" | "dark" };
+        if (!sessionUser.theme) {
+          const preference = await getThemePreference(token.sub);
+          if (preference?.theme) {
+            sessionUser.theme = preference.theme;
+          }
+        }
       }
       return session;
     },

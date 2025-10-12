@@ -45,7 +45,7 @@ tests/
 - Favor Server Actions + RSC; keep client bundles lean.
 
 ## Recent Changes
-- 001-build-a-lightweight: Added TypeScript 5.x targeting Next.js 14 App Router + Next.js (App Router RSC + Server Actions), Tailwind CSS + shadcn/ui, Framer Motion, Auth.js (email magic links + password credentials + dev Credentials), Drizzle ORM + drizzle-zod, Upstash Redis rate limiter, Vercel Analytics
+- 002-create-custom-gorgeously: Added persisted theme preferences with next-themes provider, theme onboarding prompt, and high-contrast safeguards.
 - 001-build-a-lightweight: Added TypeScript 5.x targeting Next.js 14 App Router + Next.js (App Router RSC + Server Actions), Tailwind CSS + shadcn/ui, Framer Motion, Auth.js (email magic links + password credentials + dev Credentials), Drizzle ORM + drizzle-zod, Upstash Redis rate limiter, Vercel Analytics
 - 001-build-a-lightweight: Added TypeScript 5.x targeting Next.js 14 App Router + Next.js (App Router RSC + Server Actions), Tailwind CSS + shadcn/ui, Framer Motion, Auth.js (email magic links + password credentials + dev Credentials), Drizzle ORM + drizzle-zod, Upstash Redis rate limiter, Vercel Analytics
 

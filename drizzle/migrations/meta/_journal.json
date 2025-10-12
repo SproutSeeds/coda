@@ -85,6 +85,13 @@
       "when": 1760700000000,
       "tag": "0011_add_meetup_checkins",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "18",
+      "when": 1760700000001,
+      "tag": "0012_add_theme_preferences",
+      "breakpoints": true
     }
   ]
 }
