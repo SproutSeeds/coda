@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, primaryKey, integer, doublePrecision, index, boolean, date, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, primaryKey, integer, doublePrecision, index, boolean, date, uniqueIndex, pgEnum } from "drizzle-orm/pg-core";
 import type { AdapterAccount } from "next-auth/adapters";
 
 export const ideas = pgTable("ideas", {
@@ -113,5 +113,26 @@ export const meetupCheckins = pgTable(
     createdAtIdx: index("idx_meetup_checkins_created_at").on(table.createdAt),
     emailIdx: index("idx_meetup_checkins_email").on(table.email),
     userEventIdx: uniqueIndex("uniq_meetup_checkins_user_event").on(table.userId, table.eventDate),
+  }),
+);
+
+export const themePreferenceThemeEnum = pgEnum("theme_preference_theme", ["light", "dark"]);
+export const themePreferenceSourceEnum = pgEnum("theme_preference_source", ["explicit", "system-default", "restored"]);
+
+export const themePreferences = pgTable(
+  "theme_preferences",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    theme: themePreferenceThemeEnum("theme").notNull().default("dark"),
+    source: themePreferenceSourceEnum("source").notNull().default("system-default"),
+    promptDismissedAt: timestamp("prompt_dismissed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    userUnique: uniqueIndex("uniq_theme_preferences_user").on(table.userId),
   }),
 );

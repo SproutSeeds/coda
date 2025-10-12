@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { cookies } from "next/headers";
 
 import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "@/components/theme-provider";
 
 import "./globals.css";
 
@@ -68,12 +70,18 @@ export const viewport: Viewport = {
   themeColor: "#0f172a",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const cookieStore = await cookies();
+  const themeCookie = cookieStore.get("coda-theme")?.value;
+  const initialTheme = themeCookie === "light" || themeCookie === "dark" ? themeCookie : undefined;
+
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning className={initialTheme}>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}>
-        {children}
-        <Toaster position="top-right" richColors />
+        <ThemeProvider attribute="class" defaultTheme={initialTheme ?? "dark"} storageKey="coda-theme" enableSystem>
+          {children}
+          <Toaster position="top-right" richColors />
+        </ThemeProvider>
       </body>
     </html>
   );
