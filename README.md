@@ -110,7 +110,7 @@ Run `pnpm db:migrate` any time migrations change.
 
 We keep the repo aligned with Spec Kit by cycling through three layers of prompts and reusing them whenever the build stage changes.
 
-| Stage | When to Run | What It Produces |
+| Stage | When to Run | What It Produces | 
 | --- | --- | --- |
 | **Specify** (`/.codex/prompts/specify.md`) | Kick off a new feature or large refactor. | Captures the product brief under `specs/<feature>/spec.md` and seeds the global constitution. |
 | **Plan** (`/.codex/prompts/plan.md`) | Right after Specify, or whenever the strategy/constraints shift. | Generates the phased roadmap and updates constitution guardrails (testing matrix, WCAG bars, etc.). |
