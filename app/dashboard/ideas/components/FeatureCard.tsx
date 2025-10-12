@@ -371,9 +371,9 @@ export function FeatureCard({
         onClick={handleCardClick}
         onKeyDown={handleCardKeyDown}
         className={cn(
-          "group border border-border/70 bg-card/80 transition",
+          "group border border-border/70 bg-card/80 transform-gpu transition-transform duration-200 ease-out",
           !(isEditing || isConfirmingDelete)
-            ? "cursor-pointer hover:border-primary hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            ? "cursor-pointer hover:-translate-y-0.5 hover:scale-[1.006] hover:rotate-[0.18deg] hover:border-primary hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:-translate-y-0.5 focus-visible:scale-[1.004] focus-visible:rotate-[0.14deg]"
             : "",
           isDragging && "opacity-80",
           isCompleted && !isEditing && !isConfirmingDelete

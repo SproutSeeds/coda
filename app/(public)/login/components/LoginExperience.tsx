@@ -50,7 +50,7 @@ export function LoginExperience({ enableDevLogin, initialTab, isAuthenticated = 
   }, [reveal]);
 
   return (
-    <>
+    <div className="pointer-events-none">
       <AnimatePresence>
         {showCard ? (
           <motion.div
@@ -64,6 +64,13 @@ export function LoginExperience({ enableDevLogin, initialTab, isAuthenticated = 
           </motion.div>
         ) : null}
       </AnimatePresence>
-    </>
+      {!showCard ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-6 flex justify-center px-4">
+          <span className="text-xs font-medium uppercase tracking-[0.28em] text-white/60">
+            Esc to Skip
+          </span>
+        </div>
+      ) : null}
+    </div>
   );
 }

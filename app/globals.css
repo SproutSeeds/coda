@@ -178,15 +178,15 @@ body {
 @layer utilities {
   .interactive-btn {
     cursor: pointer;
-    transition: transform 0.15s ease;
+    transition: transform 0.28s cubic-bezier(0.19, 1, 0.22, 1);
   }
 
   .interactive-btn:hover {
-    transform: translateY(-0.2rem) rotate(0.6deg) scale(1.03);
+    transform: translateY(-0.1rem) scale(1.03);
   }
 
   .interactive-btn:active {
-    transform: translateY(0) scale(0.99);
+    transform: translateY(0) scale(0.98);
   }
 
   .interactive-btn:disabled,
