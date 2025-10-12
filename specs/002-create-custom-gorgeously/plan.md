@@ -36,7 +36,7 @@ Users need a minimalist, accessible theme toggle inside Account settings that de
 **Target Platform**: Vercel-hosted web app  
 **Project Type**: Single Next.js web application (App Router)  
 **Performance Goals**: LCP < 2.5s, CLS ≈ 0, Lighthouse ≥ 90 across categories, motion transitions 150–200 ms  
-**Constraints**: Auth.js (Credentials + GitHub OAuth), WCAG AA contrast, theme persistence must survive multi-device usage, respect OS high-contrast  
+**Constraints**: Auth.js (magic links + credentials), WCAG AA contrast, theme persistence must survive multi-device usage, respect OS high-contrast  
 **Scale/Scope**: Single-user preference (≤1 row per user); negligible data volume but must be atomic and resilient
 
 ## Constitution Check
@@ -141,4 +141,3 @@ Design highlights:
 
 ---
 *Based on Constitution v1.0.0 - See `/memory/constitution.md`*
-

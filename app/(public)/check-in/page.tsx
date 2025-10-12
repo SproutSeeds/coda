@@ -10,14 +10,12 @@ export const metadata: Metadata = {
   description: "Experience the animated meetup flow and keep your attendance streak alive.",
 };
 
-const enableDevLogin = process.env.ENABLE_DEV_LOGIN === "true";
-
 export default async function CheckInPage() {
   const user = await getCurrentUser();
   return (
     <div className="relative min-h-screen overflow-hidden">
       <LoginHero />
-      <LoginExperience enableDevLogin={enableDevLogin} initialTab="meetup" isAuthenticated={Boolean(user)} />
+      <LoginExperience initialTab="meetup" isAuthenticated={Boolean(user)} />
     </div>
   );
 }

@@ -7,12 +7,11 @@ import { LOGIN_ANIMATION_CYCLE_MS } from "./LoginHero";
 import { LoginCard } from "./LoginCard";
 
 type LoginExperienceProps = {
-  enableDevLogin: boolean;
   initialTab: "sign-in" | "about" | "meetup";
   isAuthenticated?: boolean;
 };
 
-export function LoginExperience({ enableDevLogin, initialTab, isAuthenticated = false }: LoginExperienceProps) {
+export function LoginExperience({ initialTab, isAuthenticated = false }: LoginExperienceProps) {
   const [showCard, setShowCard] = useState(false);
   const timerRef = useRef<number | null>(null);
 
@@ -60,7 +59,7 @@ export function LoginExperience({ enableDevLogin, initialTab, isAuthenticated = 
             exit={{ opacity: 0 }}
             transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
           >
-            <LoginCard enableDevLogin={enableDevLogin} initialTab={initialTab} isAuthenticated={isAuthenticated} />
+            <LoginCard initialTab={initialTab} isAuthenticated={isAuthenticated} />
           </motion.div>
         ) : null}
       </AnimatePresence>

@@ -5,7 +5,7 @@
    pnpm install
    pnpm dev
    ```
-2. **Seed a test user** (if none exists) via existing auth flow; sign in with GitHub or credentials.
+2. **Seed a test user** (if none exists) via existing auth flow; request a magic link or use credentials.
 3. **Open Account settings** (`/dashboard/account`).
 4. **Verify first-load prompt**
    - Clear the new `theme_preferences` table (or use a new user).
@@ -26,4 +26,3 @@
    (Playwright tag to be added in tasks.)
 8. **Lighthouse sanity**
    - Run `pnpm lighthouse` against `/dashboard/account` in both themes and confirm ≥ 90 scores.
-

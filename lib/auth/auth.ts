@@ -14,8 +14,6 @@ import { users } from "@/lib/db/schema";
 import { trackEvent } from "@/lib/utils/analytics";
 import { consumeRateLimit } from "@/lib/utils/rate-limit";
 
-const enableDevLogin = process.env.ENABLE_DEV_LOGIN === "true";
-
 const providers: NextAuthOptions["providers"] = [];
 
 providers.push(
@@ -76,31 +74,6 @@ if (emailFrom && emailServer) {
   );
 }
 
-if (enableDevLogin) {
-  providers.push(
-    Credentials({
-      name: "Owner Token",
-      credentials: {
-        token: { label: "Owner token", type: "text" },
-      },
-      async authorize(credentials) {
-        const token = credentials?.token?.trim();
-        if (!token || token !== "owner-token") {
-          return null;
-        }
-
-        await ensureDevUser(token);
-
-        return {
-          id: token,
-          name: "Owner",
-          email: "owner-token@coda.dev",
-        };
-      },
-    }),
-  );
-}
-
 export const authOptions: NextAuthOptions = {
   adapter: createAuthAdapter(),
   providers,
@@ -147,19 +120,6 @@ export const authOptions: NextAuthOptions = {
 
 export function auth() {
   return getServerSession(authOptions);
-}
-
-async function ensureDevUser(userId: string) {
-  const db = getDb();
-  const existing = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-  if (existing.length === 0) {
-    await db.insert(users).values({
-      id: userId,
-      email: "owner-token@coda.dev",
-      name: "Owner",
-      emailVerified: new Date(),
-    }).onConflictDoNothing();
-  }
 }
 
 async function ensureMagicLinkUser(email: string) {

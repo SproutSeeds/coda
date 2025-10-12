@@ -6,13 +6,11 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 
-import { DevLoginForm } from "./DevLoginForm";
 import { SignInSwitcher } from "./SignInSwitcher";
 import { AboutSnapshot } from "./AboutSnapshot";
 import { MeetupSnapshot } from "./MeetupSnapshot";
 
 type LoginCardProps = {
-  enableDevLogin: boolean;
   initialTab?: Tab;
   isAuthenticated?: boolean;
 };
@@ -37,7 +35,7 @@ const LANGUAGE_PHRASES = [
   "Asa zonuɣ ad sɛent-k",
 ];
 
-export function LoginCard({ enableDevLogin, initialTab = "sign-in", isAuthenticated = false }: LoginCardProps) {
+export function LoginCard({ initialTab = "sign-in", isAuthenticated = false }: LoginCardProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
   const [currentPhrase, setCurrentPhrase] = useState(LANGUAGE_PHRASES[0]);
@@ -101,7 +99,7 @@ export function LoginCard({ enableDevLogin, initialTab = "sign-in", isAuthentica
       case "about":
         return <AboutSnapshot />;
       case "meetup":
-        return <MeetupSnapshot isAuthenticated={enableDevLogin} />;
+        return <MeetupSnapshot isAuthenticated={isAuthenticated} />;
       case "sign-in":
       default:
         return (
@@ -109,11 +107,6 @@ export function LoginCard({ enableDevLogin, initialTab = "sign-in", isAuthentica
             <div className="min-w-[260px] flex-1 space-y-6">
               <SignInSwitcher />
             </div>
-            {enableDevLogin ? (
-              <div className="w-full max-w-xs">
-                <DevLoginForm />
-              </div>
-            ) : null}
           </div>
         );
     }

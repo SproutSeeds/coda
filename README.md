@@ -22,7 +22,7 @@ We are designing toward a fully agentic product-development assistant: human-fri
 - **Ideas dashboard** – minimal cards with search, star filters, and persistent drag-and-drop ordering. Recently deleted ideas stay recoverable for seven days.
 - **Idea detail view** – autosaved title, core plan, and link metadata with collapsible sections and smooth Framer Motion transitions. Includes JSON export, convert-to-feature, and undo flows.
 - **Feature breakdowns** – every feature card supports inline autosave, drag-and-drop reordering, show/hide details, and conversion back into a full idea.
-- **Authentication** – Auth.js email magic links plus optional password sign-in. Local owner-token shortcut remains available when `ENABLE_DEV_LOGIN=true`.
+- **Authentication** – Auth.js email magic links plus optional password sign-in, with admin capabilities keyed to the `DEVELOPER_EMAIL` constant.
 - **Rate-limited workflows** – Upstash Redis keeps email and mutation flows safe; server actions wrap each critical mutation.
 - **Undo + lifecycle** – Soft deletes issue undo tokens, and a Vercel cron job purges expired items daily.
 - **Agent hooks** – Codex/Specify prompts live under `.codex/prompts/*`, making it trivial to feed ideas into automated planning/execution loops.
@@ -96,8 +96,7 @@ Run `pnpm db:migrate` any time migrations change.
    UPSTASH_REDIS_REST_TOKEN="..."
    EMAIL_SERVER="stream"   # or SMTP URI
    EMAIL_FROM="Coda <hello@example.com>"
-   ENABLE_DEV_LOGIN="true" # optional
-   ```
+  ```
 3. **Database** – run `pnpm drizzle-kit generate && pnpm drizzle-kit migrate` (Neon/Vercel Postgres URLs work too).
 4. **Run locally** – `pnpm dev` then open `http://localhost:3000/login`.
 5. **QA** – `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm playwright test`, `pnpm lighthouse`.
@@ -211,3 +210,5 @@ For questions, check `AGENTS.md` or open a discussion.
 ## License
 
 Copyright © SproutSeeds. All rights reserved.
+
+

@@ -98,6 +98,48 @@ export const verificationTokens = pgTable(
   }),
 );
 
+export const suggestions = pgTable(
+  "suggestions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerId: text("owner_id").notNull(),
+    submittedBy: text("submitted_by").references(() => users.id, { onDelete: "set null" }),
+    submittedEmail: text("submitted_email"),
+    title: text("title").notNull(),
+    notes: text("notes").notNull(),
+    position: doublePrecision("position").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    starred: boolean("starred").notNull().default(false),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    undoToken: text("undo_token"),
+    undoExpiresAt: timestamp("undo_expires_at", { withTimezone: true }),
+    completed: boolean("completed").notNull().default(false),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (table) => ({
+    ownerPositionIdx: index("idx_suggestions_owner_position").on(table.ownerId, table.position),
+    ownerStarIdx: index("idx_suggestions_owner_star").on(table.ownerId, table.starred),
+  }),
+);
+
+export const suggestionUpdates = pgTable(
+  "suggestion_updates",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    suggestionId: uuid("suggestion_id")
+      .notNull()
+      .references(() => suggestions.id, { onDelete: "cascade" }),
+    authorId: text("author_id").references(() => users.id, { onDelete: "set null" }),
+    authorEmail: text("author_email"),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    suggestionIdx: index("idx_suggestion_updates_suggestion").on(table.suggestionId, table.createdAt),
+  }),
+);
+
 export const meetupCheckins = pgTable(
   "meetup_checkins",
   {

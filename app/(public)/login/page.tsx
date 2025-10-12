@@ -15,7 +15,6 @@ export default async function LoginPage({
     redirect("/dashboard/ideas");
   }
 
-  const enableDevLogin = process.env.ENABLE_DEV_LOGIN === "true";
   const params = await searchParams;
   const tabParam = params?.tab;
   const tab = Array.isArray(tabParam) ? tabParam[0] : tabParam;
@@ -24,7 +23,7 @@ export default async function LoginPage({
   return (
     <div className="relative min-h-screen overflow-hidden">
       <LoginHero />
-      <LoginExperience enableDevLogin={enableDevLogin} initialTab={initialTab} />
+      <LoginExperience initialTab={initialTab} />
     </div>
   );
 }

@@ -92,6 +92,20 @@
       "when": 1760700000001,
       "tag": "0012_add_theme_preferences",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "19",
+      "when": 1760800000000,
+      "tag": "0013_add_suggestions",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "20",
+      "when": 1760900000000,
+      "tag": "0014_backfill_suggestion_completion",
+      "breakpoints": true
     }
   ]
 }

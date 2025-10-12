@@ -37,7 +37,6 @@ For both **Production** and **Preview** environments, add:
 | `EMAIL_SERVER` | SMTP connection string or host for magic-link delivery. |
 | `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASSWORD` | SMTP authentication details (omit user/pass for provider tokens). |
 | `EMAIL_FROM` | From address shown in the magic-link email (e.g., `Coda <login@your-domain>`). |
-| `ENABLE_DEV_LOGIN` | Omit or set to `false` in production to disable the owner-token shortcut. |
 
 You can use the Vercel dashboard (Settings → Environment Variables) or the CLI (`vercel env add` per variable).
 
@@ -57,7 +56,7 @@ Push to the tracked branch (e.g., `main`) or click **Deploy**. Watch the build l
 
 ## 7. Smoke Test the Deployment
 1. Visit `https://<your-project>.vercel.app/login`.
-2. Sign in with `owner-token` and confirm `/dashboard/ideas` loads.
+2. Sign in with the administrator account (the email defined by `DEVELOPER_EMAIL`) via magic link or password and confirm `/dashboard/ideas` loads.
 3. Exercise create/edit/delete/undo/search flows.
 4. Optionally run Playwright against the deployed URL:
    ```bash

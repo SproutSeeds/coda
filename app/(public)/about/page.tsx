@@ -10,14 +10,12 @@ export const metadata: Metadata = {
   description: "Step into the CODA experience and learn how the workspace keeps shipping calm.",
 };
 
-const enableDevLogin = process.env.ENABLE_DEV_LOGIN === "true";
-
 export default async function AboutPage() {
   const user = await getCurrentUser();
   return (
     <div className="relative min-h-screen overflow-hidden">
       <LoginHero />
-      <LoginExperience enableDevLogin={enableDevLogin} initialTab="about" isAuthenticated={Boolean(user)} />
+      <LoginExperience initialTab="about" isAuthenticated={Boolean(user)} />
     </div>
   );
 }

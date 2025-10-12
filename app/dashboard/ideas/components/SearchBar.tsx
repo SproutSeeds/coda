@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export function SearchBar({ className }: { className?: string }) {
+export function SearchBar({ className, placeholder = "Search ideas" }: { className?: string; placeholder?: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -40,7 +40,7 @@ export function SearchBar({ className }: { className?: string }) {
     <div className={cn("flex items-center gap-2", className)}>
       <Input
         data-testid="ideas-search-input"
-        placeholder="Search ideas"
+        placeholder={placeholder}
         defaultValue={query}
         onChange={(event) => updateQuery(event.target.value)}
         className="w-full"

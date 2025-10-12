@@ -28,7 +28,7 @@
   - Re-run `.specify/scripts/bash/update-agent-context.sh codex`
 
 ## Phase 3.1: Setup
-- [X] T001 Populate `.env.example` and `.env.local` with placeholders for `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `GITHUB_ID`, `GITHUB_SECRET`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `VERCEL_ANALYTICS_ID`; document sourcing steps in quickstart.
+- [X] T001 Populate `.env.example` and `.env.local` with placeholders for `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `VERCEL_ANALYTICS_ID`, and email delivery settings; document sourcing steps in quickstart.
 - [X] T002 Align `package.json` scripts (`db:generate`, `db:migrate`, `test`, `e2e`, `lighthouse`, `lint`, `typecheck`) and add drizzling scripts plus Playwright/Lighthouse runners.
 - [X] T003 Configure `drizzle.config.ts` and `lib/db/index.ts` to point at Postgres using env vars; stub migration folder and update README quickstart snippets.
 - [X] T004 Seed testing utilities: create `tests/setup/test-env.ts` with database reset + Auth.js session helpers; ensure Vitest picks it up via config.
@@ -87,11 +87,11 @@
 - [X] T047 Apply the generated migration locally with `pnpm db:migrate` and document rollback instructions in `quickstart.md`; ensure database helpers are aware of the new tables.
 - [ ] T048 [P] Author Vitest contract tests in `tests/contract/auth-email.test.ts` covering magic-link request (success, rate limit 429, unknown email), verification (valid token, expired token 410, reused token 409).
 - [X] T049 [P] Add unit tests for email transport helper in `tests/unit/email-transport.test.ts` mocking provider SDK and ensuring templated subject/body.
-- [X] T050 Implement Auth.js adapter wiring in `lib/auth/adapter.ts` using Drizzle; update `lib/auth/auth.ts` to register Email provider gated by env vars and keep `ENABLE_DEV_LOGIN` fallback.
+- [X] T050 Implement Auth.js adapter wiring in `lib/auth/adapter.ts` using Drizzle; update `lib/auth/auth.ts` to register the Email provider gated by env vars and key admin privileges off `DEVELOPER_EMAIL`.
 - [X] T051 Wire magic-link submission to NextAuth email provider (client `signIn('email')` + rate limit/analytics via provider hook); verification continues through NextAuth’s email callback.
-- [X] T052 Extend `/login` UI to surface email magic-link + password forms, success/error states, and guard owner-token form behind `ENABLE_DEV_LOGIN`.
+- [X] T052 Extend `/login` UI to surface email magic-link + password forms with success/error states and drop the legacy owner-token shortcut.
 - [X] T053 [P] Update Playwright suite with `tests/e2e/auth-email.spec.ts` simulating email flow via mock inbox (stream transport) and covering happy path, expired token, and rate limit messaging.
-- [ ] T054 [P] Refresh existing Playwright specs to use shared auth helpers (`tests/e2e/utils/auth.ts`) so owner-token shortcut remains isolated to dev; add coverage for password login success/failure paths.
+- [ ] T054 [P] Refresh existing Playwright specs to use shared auth helpers (`tests/e2e/utils/auth.ts`) and add coverage for password login success/failure paths.
 - [X] T055 Add SMTP/email provider configuration: document `EMAIL_SERVER`, `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASSWORD`, `EMAIL_FROM`, optional provider tokens; update `.env.example`, README, deployment guide, and quickstart runbooks.
 - [ ] T056 [P] Update CI and local scripts to load mail transport env vars (e.g., add `EMAIL_*` placeholders to CI secrets guidance) and confirm `pnpm test` passes with mocked transport.
 - [X] T057 Ensure rate limiting + analytics cover email flow: update `lib/utils/rate-limit.ts` (if needed) and analytics helper to log `auth_magic_link_requested` / `auth_magic_link_verified`; add contract assertions.
