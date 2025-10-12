@@ -46,9 +46,15 @@ const blendHex = (a: string, b: string, t: number) => {
   return `#${((1 << 24) + (r << 16) + (g << 8) + blue).toString(16).slice(1)}`;
 };
 
-const randomStart = (width: number, height: number): GlyphPoint => {
-  const reach = Math.max(width, height) * (0.7 + Math.random() * 0.6);
-  const angle = Math.random() * Math.PI * 2;
+const seededRandom = (seed: number) => {
+  const x = Math.sin(seed * 12.9898) * 43758.5453;
+  return x - Math.floor(x);
+};
+
+const randomStart = (width: number, height: number, index: number, cycleSeed: number): GlyphPoint => {
+  const seed = index * 101 + cycleSeed * 9973;
+  const reach = Math.max(width, height) * (0.7 + seededRandom(seed) * 0.6);
+  const angle = seededRandom(seed + 1) * Math.PI * 2;
   return {
     x: width / 2 + Math.cos(angle) * reach,
     y: height / 2 + Math.sin(angle) * reach,
@@ -95,6 +101,8 @@ export function LoginHero() {
   const animationRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
   const lastCycleProgressRef = useRef<number>(0);
+  const cycleSeedRef = useRef(0);
+  const canonicalGlyphRef = useRef<{ normalized: GlyphPoint[] } | null>(null);
 
   const gradientStops = useMemo(
     () => [
@@ -128,8 +136,22 @@ export function LoginHero() {
       const maxYOffset = Math.max(0, height - textAreaHeight);
       const desiredOffsetY = (height - textAreaHeight) / 2 + height * 0.12;
       const offsetY = clamp(desiredOffsetY, 0, maxYOffset);
-      const points =
-        wordPoints.length > 0 ? wordPoints.map((point) => ({ x: offsetX + point.x, y: offsetY + point.y })) : [];
+      if (!canonicalGlyphRef.current || canonicalGlyphRef.current.normalized.length === 0) {
+        canonicalGlyphRef.current = {
+          normalized: wordPoints.map((point) => ({
+            x: point.x / Math.max(textAreaWidth, 1),
+            y: point.y / Math.max(textAreaHeight, 1),
+          })),
+        };
+      }
+      const normalizedPoints = canonicalGlyphRef.current?.normalized ?? [];
+      const targetPoints =
+        normalizedPoints.length > 0
+          ? normalizedPoints.map((point) => ({
+              x: offsetX + point.x * textAreaWidth,
+              y: offsetY + point.y * textAreaHeight,
+            }))
+          : [];
 
       let gradient: CanvasGradient | null = null;
       try {
@@ -139,6 +161,12 @@ export function LoginHero() {
         gradient = null;
       }
 
+      const previousMeta = metaRef.current;
+      const previousStart = startTimeRef.current;
+      const now = performance.now();
+      const previousElapsed = previousStart ? now - previousStart : 0;
+      const previousProgress = previousElapsed % TOTAL_DURATION;
+
       metaRef.current = {
         width,
         height,
@@ -146,14 +174,33 @@ export function LoginHero() {
         gradient,
       };
 
-      particlesRef.current = points.map((point) => ({
-        target: point,
-        start: randomStart(width, height),
-        phaseSeed: Math.random() * Math.PI * 2,
-        lastScanTime: -Infinity,
-      }));
-      startTimeRef.current = performance.now();
-      lastCycleProgressRef.current = 0;
+      const cycleSeed = cycleSeedRef.current;
+      if (previousMeta && previousMeta.width > 0 && previousMeta.height > 0 && particlesRef.current.length === targetPoints.length) {
+        const widthRatio = width / previousMeta.width;
+        const heightRatio = height / previousMeta.height;
+        const previousParticles = particlesRef.current;
+        particlesRef.current = previousParticles.map((particle, index) => ({
+          target: targetPoints[index],
+          start: {
+            x: particle.start.x * widthRatio,
+            y: particle.start.y * heightRatio,
+          },
+          phaseSeed: particle.phaseSeed,
+          lastScanTime: particle.lastScanTime,
+        }));
+      } else if (targetPoints.length > 0) {
+        particlesRef.current = targetPoints.map((point, index) => ({
+          target: point,
+          start: randomStart(width, height, index, cycleSeed),
+          phaseSeed: seededRandom(index + 2 + cycleSeed * 0.1) * Math.PI * 2,
+          lastScanTime: -Infinity,
+        }));
+      } else {
+        particlesRef.current = [];
+      }
+
+      startTimeRef.current = previousStart ? previousStart : now;
+      lastCycleProgressRef.current = previousProgress;
     };
 
     const resizeObserver = new ResizeObserver(resize);
@@ -180,9 +227,11 @@ export function LoginHero() {
       const cycleProgress = elapsed % TOTAL_DURATION;
 
       if (cycleProgress < lastCycleProgressRef.current) {
+        const nextCycleSeed = cycleSeedRef.current + 1;
+        cycleSeedRef.current = nextCycleSeed;
         particles.forEach((particle, index) => {
-          particle.start = randomStart(width, height);
-          particle.phaseSeed = Math.random() * Math.PI * 2 + index * 0.17;
+          particle.start = randomStart(width, height, index, nextCycleSeed);
+          particle.phaseSeed = seededRandom(nextCycleSeed * 1000 + index * 13.37) * Math.PI * 2;
           particle.lastScanTime = -Infinity;
         });
       }
@@ -284,7 +333,7 @@ export function LoginHero() {
 
   return (
     <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-      <canvas ref={canvasRef} className="h-full w-full" />
+      <canvas ref={canvasRef} className="h-full w-full bg-[#0b1220]" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(124,58,237,0.22),transparent_55%),radial-gradient(circle_at_80%_20%,rgba(56,189,248,0.16),transparent_58%),radial-gradient(circle_at_50%_80%,rgba(251,191,36,0.12),transparent_60%)]" />
       <div className="absolute inset-0 bg-slate-950/40" />
     </div>
