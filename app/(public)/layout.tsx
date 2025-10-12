@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 
@@ -8,6 +11,13 @@ const NAV_ITEMS = [
 ];
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isLogin = pathname === "/login";
+
+  if (isLogin) {
+    return <div className="min-h-screen bg-background text-foreground">{children}</div>;
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b border-border/60 bg-card/90 backdrop-blur">

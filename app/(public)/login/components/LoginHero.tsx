@@ -125,7 +125,9 @@ export function LoginHero() {
       const textAreaHeight = Math.max(140, height * 0.42);
       const wordPoints = buildWordPoints("CODA", textAreaWidth, textAreaHeight);
       const offsetX = (width - textAreaWidth) / 2;
-      const offsetY = (height - textAreaHeight) / 2;
+      const maxYOffset = Math.max(0, height - textAreaHeight);
+      const desiredOffsetY = (height - textAreaHeight) / 2 + height * 0.12;
+      const offsetY = clamp(desiredOffsetY, 0, maxYOffset);
       const points =
         wordPoints.length > 0 ? wordPoints.map((point) => ({ x: offsetX + point.x, y: offsetY + point.y })) : [];
 

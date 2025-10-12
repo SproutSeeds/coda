@@ -203,4 +203,13 @@
   .swirl-button:hover {
     box-shadow: 0 14px 38px rgba(250, 204, 21, 0.25);
   }
+
+  .swirl-brand {
+    background: linear-gradient(120deg, rgba(250, 204, 21, 0.85), rgba(168, 85, 247, 0.85), rgba(250, 204, 21, 0.85));
+    background-size: 180% 180%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
 }

@@ -60,9 +60,7 @@ export function EmailSignInForm() {
       ? "Sending magic link…"
       : status === "sent"
         ? "Check your inbox for the sign-in link."
-        : status === "error" && error
-          ? error
-          : "";
+        : "";
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3" data-testid="magic-link-form">
@@ -70,19 +68,27 @@ export function EmailSignInForm() {
         <label className="text-sm font-medium" htmlFor="email">
           Email address
         </label>
-        <Input
-          id="email"
-          name="email"
-          type="email"
-          required
-          autoComplete="email"
-          placeholder="you@example.com"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          disabled={isPending}
-          className={AUTH_INPUT_STYLE}
-        />
-        <p className="text-xs text-white/70">We’ll email a link that expires in 10 minutes.</p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            required
+            autoComplete="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            disabled={isPending}
+            className={`${AUTH_INPUT_STYLE} sm:flex-1`}
+          />
+          <Button
+            type="submit"
+            className="cursor-pointer w-full border border-white/12 bg-slate-950/90 text-white shadow-lg transition hover:bg-slate-950 focus-visible:ring-white/40 focus-visible:ring-offset-0 sm:w-auto sm:min-w-[200px]"
+            disabled={isPending}
+          >
+            {isPending ? "Sending…" : "Email me a sign-in link"}
+          </Button>
+        </div>
       </div>
       {error ? (
         <p data-testid="magic-link-error" className="text-xs text-white">
@@ -92,17 +98,16 @@ export function EmailSignInForm() {
       <p
         data-testid="magic-link-status"
         aria-live="polite"
-        className={status === "idle" ? "sr-only" : "text-xs text-white transition-opacity duration-150"}
+        className={
+          status === "pending"
+            ? "text-xs text-white transition-opacity duration-150"
+            : status === "sent"
+              ? "text-xs text-emerald-300 transition-opacity duration-150"
+              : "sr-only"
+        }
       >
         {statusText}
       </p>
-      <Button
-        type="submit"
-        className="cursor-pointer w-full border border-white/12 bg-slate-950/90 text-white shadow-lg transition hover:bg-slate-950 focus-visible:ring-white/40 focus-visible:ring-offset-0"
-        disabled={isPending}
-      >
-        {isPending ? "Sending…" : "Email me a sign-in link"}
-      </Button>
     </form>
   );
 }

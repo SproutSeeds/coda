@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { motion } from "framer-motion";
@@ -61,50 +62,51 @@ export function LoginCard({ enableDevLogin, initialTab = "sign-in" }: LoginCardP
         : "Check in for rewards";
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-10 flex flex-col justify-between">
-      <div className="flex justify-center px-6 pt-12 sm:pt-16">
+    <div className="pointer-events-none fixed inset-0 z-10">
+      <Link
+        href="/"
+        aria-label="CodaCLI home"
+        className="interactive-btn pointer-events-auto absolute left-6 top-6 inline-flex items-center gap-3 text-2xl font-semibold tracking-tight transition sm:left-8 sm:top-8 sm:text-3xl"
+      >
+        <span className="swirl-brand">C</span>
+        <span className="swirl-brand font-light">.</span>
+      </Link>
+      <div className="flex h-full items-start justify-center px-6 pt-16 sm:pt-20">
         <motion.header
           className="pointer-events-auto flex w-full max-w-6xl flex-col gap-10 text-slate-100"
           initial={{ opacity: 0, y: -12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
         >
-              <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
-                <div className="space-y-4">
-                  <nav aria-label="Workspace sections" className="flex items-center gap-2 text-sm font-medium text-white/60">
-                    {tabs.map((tab) => {
-                      const isActive = tab.id === activeTab;
-                      return (
-                        <button
-                          key={tab.id}
-                          type="button"
-                          onClick={() => setActiveTab(tab.id)}
-                          className={
-                            "cursor-pointer rounded-full border border-transparent px-4 py-1 transition hover:border-white/20 hover:text-white" +
-                            (isActive ? " border-white/30 bg-white/10 text-white" : "")
-                          }
-                          aria-pressed={isActive}
-                        >
-                          {tab.label}
-                        </button>
-                      );
-                    })}
-                  </nav>
-                  <div className="space-y-2">
-                    {headline ? (
-                      <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{headline}</h1>
-                    ) : null}
-                    {activeMeta.blurb ? (
-                      <p className="max-w-xl text-sm text-white/75">{activeMeta.blurb}</p>
-                    ) : null}
-                  </div>
+              <div className="flex flex-col gap-6">
+                <nav aria-label="Workspace sections" className="flex flex-wrap items-center gap-2 text-sm font-medium text-white/60">
+                  {tabs.map((tab) => {
+                    const isActive = tab.id === activeTab;
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setActiveTab(tab.id)}
+                        className={
+                          "cursor-pointer rounded-full border border-transparent px-4 py-1 transition hover:border-white/20 hover:text-white" +
+                          (isActive ? " border-white/30 bg-white/10 text-white" : "")
+                        }
+                        aria-pressed={isActive}
+                      >
+                        {tab.label}
+                      </button>
+                    );
+                  })}
+                </nav>
+                <div className="space-y-2">
+                  {headline ? (
+                    <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{headline}</h1>
+                  ) : null}
+                  {activeMeta.blurb ? <p className="max-w-xl text-sm text-white/75">{activeMeta.blurb}</p> : null}
                 </div>
               </div>
               <div>{renderContent()}</div>
         </motion.header>
-      </div>
-      <div className="pointer-events-none px-6 pb-8 text-center">
-        <span className="hidden">Press Esc to skip</span>
       </div>
     </div>
   );

@@ -2,8 +2,8 @@ import { redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/auth/session";
 
-import { LoginCard } from "./components/LoginCard";
 import { LoginHero } from "./components/LoginHero";
+import { LoginExperience } from "./components/LoginExperience";
 
 export default async function LoginPage({
   searchParams,
@@ -22,9 +22,9 @@ export default async function LoginPage({
   const initialTab = tab === "meetup" || tab === "about" ? (tab as "meetup" | "about") : "sign-in";
 
   return (
-    <div className="relative min-h-screen">
+    <div className="relative min-h-screen overflow-hidden">
       <LoginHero />
-      <LoginCard enableDevLogin={enableDevLogin} initialTab={initialTab} />
+      <LoginExperience enableDevLogin={enableDevLogin} initialTab={initialTab} />
     </div>
   );
 }
