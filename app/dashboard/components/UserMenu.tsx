@@ -88,6 +88,26 @@ export function UserMenu({ className }: UserMenuProps) {
           <div className="flex flex-col gap-1 p-2" role="none">
             <Button
               asChild
+              variant="ghost"
+              className="interactive-btn w-full justify-start border-transparent px-3 py-2 text-sm font-medium text-foreground hover:border-border hover:bg-muted/30 focus-visible:ring-0"
+              role="menuitem"
+            >
+              <Link href="/about" onClick={() => setOpen(false)}>
+                About Coda
+              </Link>
+            </Button>
+            <Button
+              asChild
+              variant="ghost"
+              className="interactive-btn w-full justify-start border-transparent px-3 py-2 text-sm font-medium text-foreground hover:border-border hover:bg-muted/30 focus-visible:ring-0"
+              role="menuitem"
+            >
+              <Link href="/check-in" onClick={() => setOpen(false)}>
+                Meetup check-in
+              </Link>
+            </Button>
+            <Button
+              asChild
               variant="outline"
               className="interactive-btn w-full justify-between border-transparent px-3 py-2 text-left text-sm font-medium text-foreground hover:border-border hover:bg-muted/30 focus-visible:ring-0"
               role="menuitem"

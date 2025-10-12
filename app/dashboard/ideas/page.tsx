@@ -3,7 +3,6 @@ import type { IdeaSort } from "@/lib/db/ideas";
 import { loadDeletedIdeas, loadIdeas } from "./actions";
 import { IdeaComposerLauncher } from "./components/IdeaComposer";
 import { IdeaBoard } from "./components/IdeaBoard";
-import { SearchBar } from "./components/SearchBar";
 import { LoadMore } from "./components/LoadMore";
 
 export default async function IdeasPage({
@@ -22,10 +21,6 @@ export default async function IdeasPage({
   return (
     <section className="space-y-6">
       <IdeaComposerLauncher />
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <h2 className="text-lg font-semibold">Ideas</h2>
-        <SearchBar />
-      </div>
       <IdeaBoard ideas={data.items} deleted={deleted} query={params.q} sort={sortParam ?? "priority"} />
       {data.nextCursor ? <LoadMore cursor={data.nextCursor} /> : null}
     </section>

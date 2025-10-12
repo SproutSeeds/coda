@@ -8,7 +8,7 @@ test.describe("Authentication gates", () => {
     const response = await page.goto("/dashboard/ideas");
     expect(response?.status()).toBeGreaterThanOrEqual(200);
     await expect(page).toHaveURL(/login/);
-    await expect(page.getByLabel(/email address/i)).toBeVisible();
+    await gotoLogin(page);
   });
 
   test("expires sessions and forces re-authentication", async ({ page }) => {

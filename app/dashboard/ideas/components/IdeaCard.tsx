@@ -142,6 +142,7 @@ export function IdeaCard({
     >
       <Card
         data-testid="idea-card"
+        data-idea-id={idea.id}
         role="button"
         tabIndex={0}
         onClick={handleNavigate}

@@ -1164,25 +1164,49 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
       </Card>
 
       <section className="space-y-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 className="text-lg font-semibold">Features</h2>
             <p className="text-sm text-muted-foreground">
               Break this idea into smaller pieces and capture the details for each feature.
             </p>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="interactive-btn border-border text-muted-foreground hover:bg-muted/30"
-            onClick={() => setShowFilters((previous) => !previous)}
-            ref={filterTriggerRef}
-            aria-expanded={showFilters}
-            aria-label="Filter features"
-          >
-            <Funnel className="size-4" />
-          </Button>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
+            <div className="flex w-full items-center gap-2 sm:max-w-sm lg:max-w-md">
+              <Input
+                placeholder="Search features"
+                value={featureQuery}
+                onChange={(event) => setFeatureQuery(event.target.value)}
+                data-testid="feature-search-input"
+                className="w-full"
+                disabled={featureView === "deleted"}
+              />
+              {featureQuery ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="interactive-btn hover:bg-muted/30"
+                  onClick={() => setFeatureQuery("")}
+                  disabled={featureView === "deleted"}
+                >
+                  Clear
+                </Button>
+              ) : null}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="interactive-btn border-border text-muted-foreground hover:bg-muted/30"
+              onClick={() => setShowFilters((previous) => !previous)}
+              ref={filterTriggerRef}
+              aria-expanded={showFilters}
+              aria-label="Filter features"
+            >
+              <Funnel className="size-4" />
+            </Button>
+          </div>
         </div>
 
         <FeatureComposer ideaId={idea.id} />
@@ -1248,51 +1272,26 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
                     );
                   })}
                 </div>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex flex-1 items-center gap-2">
-                    <Input
-                      placeholder="Search features"
-                      value={featureQuery}
-                      onChange={(event) => setFeatureQuery(event.target.value)}
-                      data-testid="feature-search-input"
-                      className="max-w-md"
-                    />
-                    {featureQuery ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="interactive-btn hover:bg-muted/30"
-                        onClick={() => setFeatureQuery("")}
-                      >
-                        Clear
-                      </Button>
-                    ) : null}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <label htmlFor="feature-sort" className="text-xs font-medium text-muted-foreground">
-                      Sort by
-                    </label>
-                    <select
-                      id="feature-sort"
-                      value={featureSort}
-                      onChange={(event) =>
-                        setFeatureSort(event.target.value as (typeof featureSortOptions)[number]["value"])
-                      }
-                      className="rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      data-testid="feature-sort-select"
-                    >
-                      {featureSortOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <label htmlFor="feature-sort" className="text-xs font-medium text-muted-foreground">
+                    Sort by
+                  </label>
+                  <select
+                    id="feature-sort"
+                    value={featureSort}
+                    onChange={(event) =>
+                      setFeatureSort(event.target.value as (typeof featureSortOptions)[number]["value"])
+                    }
+                    className="rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    data-testid="feature-sort-select"
+                  >
+                    {featureSortOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Showing {visibleFeatures.length} of {totalFeatures} {totalFeatures === 1 ? "feature" : "features"}
-                </p>
               </>
             ) : (
               <p className="text-xs text-muted-foreground">
@@ -1300,10 +1299,6 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
               </p>
             )}
           </div>
-        ) : featureView === "active" ? (
-          <p className="text-xs text-muted-foreground">
-            Showing {visibleFeatures.length} of {totalFeatures} {totalFeatures === 1 ? "feature" : "features"}
-          </p>
         ) : null}
 
         {featureView === "active" ? (

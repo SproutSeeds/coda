@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import type { CSSProperties } from "react";
 
 import {
@@ -29,7 +29,6 @@ import { toast } from "sonner";
 import { reorderFeaturesAction } from "../actions";
 import type { Feature } from "./types";
 import { FeatureCard } from "./FeatureCard";
-import { Button } from "@/components/ui/button";
 
 export function FeatureList({
   ideaId,
@@ -51,8 +50,9 @@ export function FeatureList({
   const [isPending, startTransition] = useTransition();
   const prefersReducedMotion = useReducedMotion() ?? false;
   const [isMounted, setIsMounted] = useState(false);
-  const [page, setPage] = useState(1);
   const pageSize = 5;
+  const [visibleActiveCount, setVisibleActiveCount] = useState(pageSize);
+  const activeSentinelRef = useRef<HTMLDivElement | null>(null);
 
   const completedFeatures = showCompletedSection
     ? features
@@ -75,12 +75,16 @@ export function FeatureList({
       setActiveItems(features);
       previousItemsRef.current = features;
     }
-    setPage(1);
-  }, [features, showCompletedSection]);
+    setVisibleActiveCount(pageSize);
+  }, [features, showCompletedSection, pageSize]);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  const loadMoreActive = useCallback(() => {
+    setVisibleActiveCount((previous) => Math.min(activeItems.length, previous + pageSize));
+  }, [activeItems.length, pageSize]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -132,9 +136,33 @@ export function FeatureList({
   const hasActive = showCompletedSection ? activeItems.length > 0 : features.length > 0;
   const allowReorder = canReorder && showCompletedSection && hasActive && isMounted;
   const hasCompleted = showCompletedSection && completedFeatures.length > 0;
-  const totalPages = Math.max(1, Math.ceil(activeItems.length / pageSize));
-  const currentPage = Math.min(page, totalPages);
-  const paginatedActiveItems = activeItems.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const visibleActiveItems = activeItems.slice(0, visibleActiveCount);
+  const hasMoreActive = visibleActiveCount < activeItems.length;
+
+  useEffect(() => {
+    if (!isMounted) {
+      return;
+    }
+
+    const sentinel = activeSentinelRef.current;
+    if (!sentinel || !hasMoreActive) {
+      return;
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          loadMoreActive();
+        }
+      }
+    }, { rootMargin: "200px 0px" });
+
+    observer.observe(sentinel);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasMoreActive, loadMoreActive, isMounted]);
 
   if (!hasActive && !hasCompleted) {
     return <p className="text-sm text-muted-foreground">{emptyLabel ?? "No features yet. Add one to start shaping this idea."}</p>;
@@ -143,9 +171,10 @@ export function FeatureList({
   if (!showCompletedSection) {
     return (
       <div className="space-y-3" data-testid="feature-list">
-        {features.map((feature) => (
+        {visibleActiveItems.map((feature) => (
           <FeatureCard key={feature.id} feature={feature} ideaId={ideaId} isDragging={false} />
         ))}
+        {hasMoreActive ? <div ref={activeSentinelRef} className="h-6" aria-hidden /> : null}
       </div>
     );
   }
@@ -177,7 +206,6 @@ export function FeatureList({
     );
   }
 
-  const visibleActiveItems = showCompletedSection ? paginatedActiveItems : features;
   const activeIds = visibleActiveItems.map((item) => item.id);
 
   return (
@@ -215,6 +243,8 @@ export function FeatureList({
         )
       ) : null}
 
+      {hasMoreActive ? <div ref={activeSentinelRef} className="h-6" aria-hidden /> : null}
+
       {hasCompleted ? (
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -226,41 +256,6 @@ export function FeatureList({
               <FeatureCard key={feature.id} feature={feature} ideaId={ideaId} isDragging={false} />
             ))}
           </div>
-        </div>
-      ) : null}
-
-      {hasActive ? (
-        <div className="flex items-center justify-end gap-3 text-xs text-muted-foreground">
-          <span>
-            Showing {visibleActiveItems.length} of {activeItems.length} active features
-          </span>
-          {totalPages > 1 ? (
-            <div className="inline-flex items-center gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="interactive-btn px-2 py-1"
-                onClick={() => setPage((previous) => Math.max(1, previous - 1))}
-                disabled={currentPage === 1}
-              >
-                Prev
-              </Button>
-              <span className="inline-flex min-w-[3rem] justify-center text-xs font-semibold">
-                Page {currentPage} / {totalPages}
-              </span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="interactive-btn px-2 py-1"
-                onClick={() => setPage((previous) => Math.min(totalPages, previous + 1))}
-                disabled={currentPage === totalPages}
-              >
-                Next
-              </Button>
-            </div>
-          ) : null}
         </div>
       ) : null}
     </div>

@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import { getServerSession } from "next-auth/next";
 import type { NextAuthOptions } from "next-auth";
 import Email from "next-auth/providers/email";
@@ -9,6 +7,7 @@ import { compare } from "bcryptjs";
 
 import { createAuthAdapter } from "@/lib/auth/adapter";
 import { sendMagicLinkEmail } from "@/lib/auth/email";
+import { findOrCreateUserByEmail } from "@/lib/auth/users";
 import { getDb } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { trackEvent } from "@/lib/utils/analytics";
@@ -156,16 +155,6 @@ async function ensureDevUser(userId: string) {
 }
 
 async function ensureMagicLinkUser(email: string) {
-  const db = getDb();
-  const lower = email.toLowerCase();
-  const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, lower)).limit(1);
-  if (existing.length > 0) {
-    return existing[0].id;
-  }
-  const id = randomUUID();
-  await db.insert(users).values({
-    id,
-    email: lower,
-  });
-  return id;
+  const user = await findOrCreateUserByEmail(email);
+  return user.id;
 }

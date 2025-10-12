@@ -78,6 +78,13 @@
       "when": 1760600000000,
       "tag": "0010_add_feature_deleted_at",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "17",
+      "when": 1760700000000,
+      "tag": "0011_add_meetup_checkins",
+      "breakpoints": true
     }
   ]
 }

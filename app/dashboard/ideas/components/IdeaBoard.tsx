@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { IdeaList } from "./IdeaList";
 import { DeletedIdeaList } from "./DeletedIdeaList";
 import type { Idea } from "./types";
+import { SearchBar } from "./SearchBar";
 import { cn } from "@/lib/utils";
 import { Funnel } from "lucide-react";
 
@@ -111,34 +112,27 @@ export function IdeaBoard({
 
   return (
     <div className="relative space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="space-y-1">
           <h2 className="text-lg font-semibold">Ideas</h2>
           <p className="text-sm text-muted-foreground">High-signal captures and in-flight builds.</p>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className="interactive-btn border-border text-muted-foreground hover:bg-muted/30"
-          onClick={() => setIsFilterOpen((previous) => !previous)}
-          ref={filterTriggerRef}
-          aria-expanded={isFilterOpen}
-          aria-label="Filter ideas"
-        >
-          <Funnel className="size-4" />
-        </Button>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
+          <SearchBar className="w-full sm:max-w-sm lg:max-w-md" />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="interactive-btn border-border text-muted-foreground hover:bg-muted/30"
+            onClick={() => setIsFilterOpen((previous) => !previous)}
+            ref={filterTriggerRef}
+            aria-expanded={isFilterOpen}
+            aria-label="Filter ideas"
+          >
+            <Funnel className="size-4" />
+          </Button>
+        </div>
       </div>
-
-      {view === "active" ? (
-        <p className="text-xs text-muted-foreground">
-          Showing {filteredIdeas.length} of {totalIdeas} ideas
-        </p>
-      ) : (
-        <p className="text-xs text-muted-foreground">
-          Recently deleted ideas ({deleted.length})
-        </p>
-      )}
 
       {isFilterOpen ? (
         <div

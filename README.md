@@ -106,6 +106,28 @@ Run `pnpm db:migrate` any time migrations change.
 
 ---
 
+## Spec Kit Development Flow
+
+We keep the repo aligned with Spec Kit by cycling through three layers of prompts and reusing them whenever the build stage changes.
+
+| Stage | When to Run | What It Produces |
+| --- | --- | --- |
+| **Specify** (`/.codex/prompts/specify.md`) | Kick off a new feature or large refactor. | Captures the product brief under `specs/<feature>/spec.md` and seeds the global constitution. |
+| **Plan** (`/.codex/prompts/plan.md`) | Right after Specify, or whenever the strategy/constraints shift. | Generates the phased roadmap and updates constitution guardrails (testing matrix, WCAG bars, etc.). |
+| **Taskify** (`/.codex/prompts/tasks.md`) | After planning, or when you add a batch of fixes. | Expands the roadmap into actionable checklist items (`specs/<feature>/tasks.md`). |
+| **Clarify** (`/.codex/prompts/clarify.md`) | Any time specs/tasks leave questions unanswered. | Appends decisions and answers into the spec so future runs stay unambiguous. |
+| **Implement** (`/.codex/prompts/implement.md`) | Day-to-day execution. Run whenever you’re ready to work through the next unchecked tasks. | Drives coding + verification using the latest tasks file, and enforces constitution checks. |
+
+**Workflow Rhythm**
+
+1. **Big feature** → Specify → Plan → Clarify (if needed) → Taskify → Implement until the checklist is complete.
+2. **Polish / small fixes** → Update the spec if scope changed, rerun Taskify with a focused `$ARGUMENTS`, then keep cycling Implement.
+3. **Next big initiative** → repeat from step 1. Only rerun Specify/Plan when the product brief or high-level constraints actually change.
+
+After major code or plan shifts, run `.specify/scripts/bash/update-agent-context.sh codex` so `AGENTS.md` reflects reality. This keeps Playwright/Vitest suites, documentation, and tooling all in sync with the active Spec Kit phase.
+
+---
+
 ## Exporting Ideas
 
 - Open an idea (`/dashboard/ideas/[id]`).

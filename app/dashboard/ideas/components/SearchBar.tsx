@@ -3,11 +3,13 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useDebouncedCallback } from "use-debounce";
 
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { useTransition } from "react";
 
-export function SearchBar() {
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+export function SearchBar({ className }: { className?: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -35,12 +37,13 @@ export function SearchBar() {
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div className={cn("flex items-center gap-2", className)}>
       <Input
         data-testid="ideas-search-input"
         placeholder="Search ideas"
         defaultValue={query}
         onChange={(event) => updateQuery(event.target.value)}
+        className="w-full"
       />
       {query ? (
         <Button variant="ghost" size="sm" onClick={clear} disabled={isPending}>

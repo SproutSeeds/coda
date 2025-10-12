@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, primaryKey, integer, doublePrecision, index, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, primaryKey, integer, doublePrecision, index, boolean, date, uniqueIndex } from "drizzle-orm/pg-core";
 import type { AdapterAccount } from "next-auth/adapters";
 
 export const ideas = pgTable("ideas", {
@@ -95,5 +95,23 @@ export const verificationTokens = pgTable(
   },
   (verificationToken) => ({
     compositePk: primaryKey(verificationToken.identifier, verificationToken.token),
+  }),
+);
+
+export const meetupCheckins = pgTable(
+  "meetup_checkins",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    eventDate: date("event_date").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    createdAtIdx: index("idx_meetup_checkins_created_at").on(table.createdAt),
+    emailIdx: index("idx_meetup_checkins_email").on(table.email),
+    userEventIdx: uniqueIndex("uniq_meetup_checkins_user_event").on(table.userId, table.eventDate),
   }),
 );

@@ -7,6 +7,8 @@ import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+import { AUTH_INPUT_STYLE } from "./EmailSignInForm";
+
 export function PasswordSignInForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -62,6 +64,7 @@ export function PasswordSignInForm() {
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           disabled={isPending}
+          className={AUTH_INPUT_STYLE}
         />
       </div>
       <div className="space-y-2">
@@ -78,14 +81,19 @@ export function PasswordSignInForm() {
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           disabled={isPending}
+          className={AUTH_INPUT_STYLE}
         />
       </div>
       {error ? (
-        <p className="text-xs text-destructive" data-testid="password-error">
+        <p className="text-xs text-white" data-testid="password-error">
           {error}
         </p>
       ) : null}
-      <Button type="submit" className="w-full" disabled={isPending}>
+      <Button
+        type="submit"
+        className="cursor-pointer w-full border border-white/12 bg-slate-950/90 text-white shadow-lg transition hover:bg-slate-950 focus-visible:ring-white/40 focus-visible:ring-offset-0"
+        disabled={isPending}
+      >
         {isPending ? "Signing in…" : "Sign in with password"}
       </Button>
     </form>

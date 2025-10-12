@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import type { CSSProperties } from "react";
 
 import {
@@ -29,7 +29,6 @@ import { toast } from "sonner";
 import { reorderIdeasAction } from "../actions";
 import { Idea } from "./types";
 import { IdeaCard } from "./IdeaCard";
-import { Button } from "@/components/ui/button";
 
 export function IdeaList({ ideas, query, canReorder = true, pageSize = 5 }: { ideas: Idea[]; query?: string; canReorder?: boolean; pageSize?: number }) {
   const [isMounted, setIsMounted] = useState(false);
@@ -37,7 +36,8 @@ export function IdeaList({ ideas, query, canReorder = true, pageSize = 5 }: { id
   const prefersReducedMotion = useReducedMotion() ?? false;
   const [isPending, startTransition] = useTransition();
   const previousItemsRef = useRef<Idea[]>(ideas);
-  const [page, setPage] = useState(1);
+  const [visibleCount, setVisibleCount] = useState(pageSize);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
@@ -46,8 +46,12 @@ export function IdeaList({ ideas, query, canReorder = true, pageSize = 5 }: { id
   useEffect(() => {
     setItems(ideas);
     previousItemsRef.current = ideas;
-    setPage(1);
-  }, [ideas]);
+    setVisibleCount(pageSize);
+  }, [ideas, pageSize]);
+
+  const loadMore = useCallback(() => {
+    setVisibleCount((previous) => Math.min(items.length, previous + pageSize));
+  }, [items.length, pageSize]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -96,7 +100,37 @@ export function IdeaList({ ideas, query, canReorder = true, pageSize = 5 }: { id
     });
   };
 
-  if (items.length === 0) {
+  const visibleItems = items.slice(0, visibleCount);
+  const hasMore = visibleCount < items.length;
+  const isEmpty = items.length === 0;
+  const isFiltering = Boolean(query && query.trim().length > 0);
+
+  useEffect(() => {
+    if (!isMounted) {
+      return;
+    }
+
+    const sentinel = sentinelRef.current;
+    if (!sentinel || !hasMore) {
+      return;
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          loadMore();
+        }
+      }
+    }, { rootMargin: "200px 0px" });
+
+    observer.observe(sentinel);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasMore, loadMore, isMounted]);
+
+  if (isEmpty) {
     return (
       <p className="text-sm text-muted-foreground">
         {query ? "No ideas match your search." : "No ideas yet. Capture your first thought to get started."}
@@ -104,23 +138,19 @@ export function IdeaList({ ideas, query, canReorder = true, pageSize = 5 }: { id
     );
   }
 
-  const isFiltering = Boolean(query && query.trim().length > 0);
-
   if (!isMounted || !canReorder || isFiltering) {
     return (
       <div className="space-y-4">
-        {items.map((idea) => (
+        {visibleItems.map((idea) => (
           <IdeaCard key={idea.id} idea={idea} />
         ))}
+        {hasMore ? <div ref={sentinelRef} className="h-6" aria-hidden /> : null}
       </div>
     );
   }
 
   const itemIds = items.map((item) => item.id);
-  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
-  const currentPage = Math.min(page, totalPages);
-  const paginatedItems = isMounted ? items.slice((currentPage - 1) * pageSize, currentPage * pageSize) : items;
-  const sortableIds = canReorder && isMounted ? paginatedItems.map((item) => item.id) : itemIds;
+  const sortableIds = canReorder && isMounted ? visibleItems.map((item) => item.id) : itemIds;
 
   return (
     <DndContext
@@ -133,7 +163,7 @@ export function IdeaList({ ideas, query, canReorder = true, pageSize = 5 }: { id
     >
       <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
         <div className="space-y-4">
-          {paginatedItems.map((idea) => (
+          {visibleItems.map((idea) => (
             <SortableIdeaCard
               key={idea.id}
               idea={idea}
@@ -143,38 +173,7 @@ export function IdeaList({ ideas, query, canReorder = true, pageSize = 5 }: { id
           ))}
         </div>
       </SortableContext>
-      <div className="mt-4 flex items-center justify-end gap-3 text-xs text-muted-foreground">
-        <span>
-          Showing {paginatedItems.length} of {items.length} ideas
-        </span>
-        {totalPages > 1 ? (
-          <div className="inline-flex items-center gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="interactive-btn px-2 py-1"
-              onClick={() => setPage((previous) => Math.max(1, previous - 1))}
-              disabled={currentPage === 1}
-            >
-              Prev
-            </Button>
-            <span className="inline-flex min-w-[3rem] justify-center text-xs font-semibold">
-              Page {currentPage} / {totalPages}
-            </span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="interactive-btn px-2 py-1"
-              onClick={() => setPage((previous) => Math.min(totalPages, previous + 1))}
-              disabled={currentPage === totalPages}
-            >
-              Next
-            </Button>
-          </div>
-        ) : null}
-      </div>
+      {hasMore ? <div ref={sentinelRef} className="h-6" aria-hidden /> : null}
     </DndContext>
   );
 }
