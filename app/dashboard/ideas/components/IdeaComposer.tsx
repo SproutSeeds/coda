@@ -146,6 +146,7 @@ export function IdeaComposer({
   const [isPending, startTransition] = useTransition();
   const [celebrate, setCelebrate] = useState(false);
   const celebrationTimeout = useRef<number | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
 
   useEffect(() => {
     setTitle(initialTitle);
@@ -168,6 +169,13 @@ export function IdeaComposer({
     }
     celebrationTimeout.current = null;
   }, []);
+
+  const submitForm = useCallback(() => {
+    if (isPending) {
+      return;
+    }
+    formRef.current?.requestSubmit();
+  }, [isPending]);
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -224,12 +232,18 @@ export function IdeaComposer({
       </Button>
         ) : null}
       </CardHeader>
-      <form onSubmit={handleSubmit}>
+      <form ref={formRef} onSubmit={handleSubmit}>
         <CardContent className="grid gap-1.5 pt-0 pb-2">
           <Input
             data-testid="idea-title-input"
             value={title}
             onChange={(event) => setTitle(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey && !(event.nativeEvent as KeyboardEvent).isComposing) {
+                event.preventDefault();
+                submitForm();
+              }
+            }}
             placeholder="Idea title"
             maxLength={255}
             required
@@ -243,6 +257,12 @@ export function IdeaComposer({
               data-testid="idea-notes-input"
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey && !(event.nativeEvent as KeyboardEvent).isComposing) {
+                  event.preventDefault();
+                  submitForm();
+                }
+              }}
               placeholder="Summarize the core plan in 10,000 characters or fewer"
               maxLength={IDEA_NOTES_CHARACTER_LIMIT}
               rows={3}

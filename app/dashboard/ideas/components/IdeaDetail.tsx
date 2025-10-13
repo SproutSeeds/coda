@@ -908,6 +908,12 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
                   onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey && !(event.nativeEvent as KeyboardEvent).isComposing) {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      handleUpdate();
+                      return;
+                    }
                     if (event.key === "Escape") {
                       event.preventDefault();
                       event.stopPropagation();
@@ -934,6 +940,12 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
                   value={notes}
                   onChange={(event) => setNotes(event.target.value)}
                   onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey && !(event.nativeEvent as KeyboardEvent).isComposing) {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      handleUpdate();
+                      return;
+                    }
                     if (event.key === "Escape") {
                       event.preventDefault();
                       event.stopPropagation();
@@ -1052,6 +1064,22 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
                 <Input
                   value={linkLabelDraft}
                   onChange={(event) => setLinkLabelDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey && !(event.nativeEvent as KeyboardEvent).isComposing) {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      handleGithubSave();
+                      return;
+                    }
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setGithubDraft(syncedIdea.githubUrl);
+                      setLinkLabelDraft(syncedIdea.linkLabel);
+                      setIsEditingGithub(false);
+                      setGithubAutoState("idle");
+                    }
+                  }}
                   placeholder="Title of URL"
                   disabled={githubAutoState === "saving"}
                   data-testid="github-title-input"
@@ -1059,6 +1087,22 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
                 <Input
                   value={githubDraft}
                   onChange={(event) => setGithubDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey && !(event.nativeEvent as KeyboardEvent).isComposing) {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      handleGithubSave();
+                      return;
+                    }
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setGithubDraft(syncedIdea.githubUrl);
+                      setLinkLabelDraft(syncedIdea.linkLabel);
+                      setIsEditingGithub(false);
+                      setGithubAutoState("idle");
+                    }
+                  }}
                   placeholder="https://github.com/your-org/your-repo"
                   autoFocus
                 />

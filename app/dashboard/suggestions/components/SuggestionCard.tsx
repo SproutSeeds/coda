@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter } from "next/navigation";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Star, StarOff, Trash2 } from "lucide-react";
+import { Copy, Star, StarOff, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -53,6 +53,12 @@ export function SuggestionCard({
   const deletePrompt = useMemo(() => `Enter "${suggestion.title}" to delete`, [suggestion.title]);
   const deleteTitleMatches = deleteInput.trim() === suggestion.title;
   const isSubmitterView = mode === "submitter";
+  const trimmedNotes = suggestion.notes?.trim?.() ?? "";
+  const suggestionMarkdown = useMemo(() => {
+    const header = `## Suggestion: ${suggestion.title}`;
+    const body = trimmedNotes || "_No details provided._";
+    return `${header}\n\n${body}`.trim();
+  }, [suggestion.title, trimmedNotes]);
 
   const resetDeleteConfirmation = useCallback(() => {
     setIsConfirmingDelete(false);
@@ -77,8 +83,6 @@ export function SuggestionCard({
   }, [isConfirmingDelete, resetDeleteConfirmation]);
 
   const updatedLabel = formatDate(suggestion.updatedAt ?? suggestion.createdAt);
-  const trimmedNotes = suggestion.notes?.trim?.() ?? "";
-
   const handleStar: MouseEventHandler<HTMLButtonElement> = (event) => {
     event.stopPropagation();
     const nextValue = !suggestion.starred;
@@ -90,6 +94,16 @@ export function SuggestionCard({
         toast.error(err instanceof Error ? err.message : "Unable to update star status");
       }
     });
+  };
+
+  const handleCopy: MouseEventHandler<HTMLButtonElement> = async (event) => {
+    event.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(suggestionMarkdown);
+      toast.success("Copied suggestion to clipboard");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Unable to copy suggestion");
+    }
   };
 
   const stopPropagation = (event: SyntheticEvent) => {
@@ -204,34 +218,47 @@ export function SuggestionCard({
                 <span className="order-3 w-full whitespace-nowrap text-xs font-medium uppercase tracking-wide text-muted-foreground/80 sm:order-none sm:w-auto">
                   Updated {updatedLabel}
                 </span>
-                {!isSubmitterView ? (
-                  <div className="flex shrink-0 items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className={cn(
-                        "interactive-btn h-8 w-8 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-muted-foreground focus-visible:ring-0",
-                        suggestion.starred && "text-yellow-400",
-                      )}
-                      onClick={handleStar}
-                      aria-label={suggestion.starred ? "Unstar suggestion" : "Star suggestion"}
-                      data-testid="suggestion-star-button"
-                    >
-                      {suggestion.starred ? <Star className="size-4 fill-current" /> : <StarOff className="size-4" />}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="interactive-btn h-8 w-8 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-destructive focus-visible:ring-0"
-                      onClick={handleDelete}
-                      aria-label="Delete suggestion"
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
-                  </div>
-                ) : null}
+                <div className="flex shrink-0 items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="interactive-btn h-8 w-8 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-foreground focus-visible:ring-0"
+                    onClick={handleCopy}
+                    aria-label="Copy suggestion details"
+                    data-testid="suggestion-copy-button"
+                  >
+                    <Copy className="size-4" />
+                  </Button>
+                  {!isSubmitterView ? (
+                    <>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                          "interactive-btn h-8 w-8 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-muted-foreground focus-visible:ring-0",
+                          suggestion.starred && "text-yellow-400",
+                        )}
+                        onClick={handleStar}
+                        aria-label={suggestion.starred ? "Unstar suggestion" : "Star suggestion"}
+                        data-testid="suggestion-star-button"
+                      >
+                        {suggestion.starred ? <Star className="size-4 fill-current" /> : <StarOff className="size-4" />}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="interactive-btn h-8 w-8 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-destructive focus-visible:ring-0"
+                        onClick={handleDelete}
+                        aria-label="Delete suggestion"
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </>
+                  ) : null}
+                </div>
               </div>
             </div>
             {trimmedNotes ? (

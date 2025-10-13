@@ -134,6 +134,23 @@ export function FeatureComposer({ ideaId }: { ideaId: string }) {
     setStarred(false);
   }, []);
 
+  const handleKeyCommands = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      if (event.key === "Enter" && !event.shiftKey && !(event.nativeEvent as KeyboardEvent).isComposing) {
+        event.preventDefault();
+        event.stopPropagation();
+        handleSave();
+        return;
+      }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        handleCancel();
+      }
+    },
+    [handleCancel, handleSave],
+  );
+
   const hasDraft = Boolean(title || notes);
 
   useEffect(() => {
@@ -231,13 +248,7 @@ export function FeatureComposer({ ideaId }: { ideaId: string }) {
         <Input
           value={title}
           onChange={(event) => setTitle(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.preventDefault();
-              event.stopPropagation();
-              handleCancel();
-            }
-          }}
+          onKeyDown={handleKeyCommands}
           placeholder="Feature name"
           maxLength={255}
           disabled={isPending}
@@ -255,13 +266,7 @@ export function FeatureComposer({ ideaId }: { ideaId: string }) {
                 setNotes(event.target.value);
               }
             }}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                event.preventDefault();
-                event.stopPropagation();
-                handleCancel();
-              }
-            }}
+            onKeyDown={handleKeyCommands}
             placeholder="Capture the short plan for this feature (max 10,000 characters)"
             maxLength={MAX_NOTES}
             rows={4}

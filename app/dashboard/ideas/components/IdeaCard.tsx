@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter } from "next/navigation";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Star, StarOff, Trash2, X } from "lucide-react";
+import { Copy, Star, StarOff, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -47,6 +47,12 @@ export function IdeaCard({
 
   const deletePrompt = useMemo(() => `Enter "${idea.title}" to delete`, [idea.title]);
   const deleteTitleMatches = deleteInput.trim() === idea.title;
+  const trimmedNotes = idea.notes?.trim?.() ?? "";
+  const ideaMarkdown = useMemo(() => {
+    const header = `## Idea: ${idea.title}`;
+    const body = trimmedNotes || "_No notes yet._";
+    return `${header}\n\n${body}`.trim();
+  }, [idea.title, trimmedNotes]);
 
   const resetDeleteConfirmation = useCallback(() => {
     setIsConfirmingDelete(false);
@@ -71,8 +77,6 @@ export function IdeaCard({
   }, [isConfirmingDelete, resetDeleteConfirmation]);
 
   const updatedLabel = formatUpdated(idea.updatedAt ?? idea.createdAt);
-  const trimmedNotes = idea.notes?.trim?.() ?? "";
-
   const handleNavigate = () => {
     router.push(`/dashboard/ideas/${idea.id}`);
   };
@@ -130,6 +134,16 @@ export function IdeaCard({
     });
   };
 
+  const handleCopy: MouseEventHandler<HTMLButtonElement> = async (event) => {
+    event.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(ideaMarkdown);
+      toast.success("Copied idea to clipboard");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Unable to copy idea");
+    }
+  };
+
   return (
     <motion.div
       layout
@@ -185,6 +199,17 @@ export function IdeaCard({
                   Updated {updatedLabel}
                 </span>
                 <div className="flex shrink-0 items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="interactive-btn h-8 w-8 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-foreground focus-visible:ring-0"
+                    onClick={handleCopy}
+                    aria-label="Copy idea details"
+                    data-testid="idea-copy-button"
+                  >
+                    <Copy className="size-4" />
+                  </Button>
                   <Button
                     type="button"
                     variant="ghost"

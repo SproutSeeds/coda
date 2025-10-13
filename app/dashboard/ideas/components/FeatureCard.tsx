@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { useRouter } from "next/navigation";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, CheckCircle2, Circle, Star, StarOff, Trash2, X } from "lucide-react";
+import { Check, CheckCircle2, Circle, Copy, Star, StarOff, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -78,6 +78,13 @@ export function FeatureCard({
   const [isCompletionPending, startCompletionTransition] = useTransition();
   const [isCompleted, setIsCompleted] = useState(Boolean(feature.completed));
   const [completedAt, setCompletedAt] = useState<string | null>(feature.completedAt ?? null);
+  const featureMarkdown = useMemo(() => {
+    const normalizedTitle = currentTitle?.trim?.() || feature.title;
+    const normalizedNotes = currentNotes?.trim?.() ?? "";
+    const header = `## Feature: ${normalizedTitle}`;
+    const body = normalizedNotes ? normalizedNotes : "_No notes yet._";
+    return `${header}\n\n${body}`.trim();
+  }, [currentNotes, currentTitle, feature.title]);
 
   useEffect(() => {
     setCurrentTitle(feature.title);
@@ -466,6 +473,25 @@ export function FeatureCard({
                 type="button"
                 variant="ghost"
                 size="icon"
+                className="interactive-btn h-8 w-8 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-foreground focus-visible:ring-0"
+                onClick={async (event) => {
+                  event.stopPropagation();
+                  try {
+                    await navigator.clipboard.writeText(featureMarkdown);
+                    toast.success("Copied feature to clipboard");
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : "Unable to copy feature");
+                  }
+                }}
+                aria-label="Copy feature details"
+                data-testid="feature-copy-button"
+              >
+                <Copy className="size-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
                 className={cn(
                   "interactive-btn h-8 w-8 cursor-pointer text-muted-foreground hover:bg-transparent focus-visible:ring-0",
                   isCompleted ? "text-emerald-600" : "hover:text-emerald-600",
@@ -523,6 +549,12 @@ export function FeatureCard({
               value={draftTitle}
               onChange={(event) => setDraftTitle(event.target.value)}
               onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey && !(event.nativeEvent as KeyboardEvent).isComposing) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  handleManualSave();
+                  return;
+                }
                 if (event.key === "Escape") {
                   event.preventDefault();
                   event.stopPropagation();
@@ -542,6 +574,12 @@ export function FeatureCard({
                 }
               }}
               onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey && !(event.nativeEvent as KeyboardEvent).isComposing) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  handleManualSave();
+                  return;
+                }
                 if (event.key === "Escape") {
                   event.preventDefault();
                   event.stopPropagation();
