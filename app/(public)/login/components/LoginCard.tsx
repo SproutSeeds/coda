@@ -84,7 +84,7 @@ export function LoginCard({ initialTab = "sign-in", isAuthenticated = false }: L
 
   const tabs = useMemo(
     () => [
-      { id: "about" as Tab, label: "About us", blurb: "Why Cody built Coda and how it keeps ideas moving." },
+      { id: "about" as Tab, label: "About Coda", blurb: "Why Cody built Coda and how it keeps ideas moving." },
       { id: "meetup" as Tab, label: "Meetup check-in", blurb: "" },
       { id: "sign-in" as Tab, label: "Sign in", blurb: "A notes app that never lets you down." },
     ],

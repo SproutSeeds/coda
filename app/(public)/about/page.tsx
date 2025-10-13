@@ -6,7 +6,7 @@ import { LoginExperience } from "../login/components/LoginExperience";
 import { LoginHero } from "../login/components/LoginHero";
 
 export const metadata: Metadata = {
-  title: "About",
+  title: "About Coda",
   description: "A notes app that never lets you down.",
 };
 

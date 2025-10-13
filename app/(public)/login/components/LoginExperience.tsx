@@ -12,7 +12,7 @@ type LoginExperienceProps = {
 };
 
 export function LoginExperience({ initialTab, isAuthenticated = false }: LoginExperienceProps) {
-  const [showCard, setShowCard] = useState(false);
+  const [showCard, setShowCard] = useState(() => isAuthenticated);
   const timerRef = useRef<number | null>(null);
 
   const reveal = useCallback(() => {
@@ -26,15 +26,27 @@ export function LoginExperience({ initialTab, isAuthenticated = false }: LoginEx
   }, [showCard]);
 
   useEffect(() => {
+    if (isAuthenticated || showCard) {
+      if (timerRef.current !== null) {
+        window.clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      setShowCard(true);
+      return;
+    }
+
     timerRef.current = window.setTimeout(reveal, LOGIN_ANIMATION_CYCLE_MS);
     return () => {
       if (timerRef.current !== null) {
         window.clearTimeout(timerRef.current);
       }
     };
-  }, [reveal]);
+  }, [isAuthenticated, reveal, showCard]);
 
   useEffect(() => {
+    if (showCard) {
+      return;
+    }
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
@@ -46,7 +58,7 @@ export function LoginExperience({ initialTab, isAuthenticated = false }: LoginEx
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [reveal]);
+  }, [reveal, showCard]);
 
   return (
     <div className="pointer-events-none">
