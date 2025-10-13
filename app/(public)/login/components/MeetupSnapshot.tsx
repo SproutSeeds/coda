@@ -30,7 +30,7 @@ export function MeetupSnapshot({ isAuthenticated }: { isAuthenticated: boolean }
   };
 
   return (
-    <div className="space-y-4 text-white/80" style={{ maxWidth: "min(100%, clamp(32rem, 62vw, 74rem))" }}>
+    <div className="space-y-3 text-white/80">
       {isAuthenticated ? (
         <Button
           type="button"
@@ -41,7 +41,7 @@ export function MeetupSnapshot({ isAuthenticated }: { isAuthenticated: boolean }
           {didCheckIn ? "You're checked in" : open ? "Check in here" : "Check-in opens Saturdays 11 AM CT"}
         </Button>
       ) : (
-        <form onSubmit={handleCheckIn} className="space-y-3 max-w-4xl">
+        <form onSubmit={handleCheckIn} className="space-y-3">
           <label className="text-xs font-semibold uppercase tracking-wide text-white/55" htmlFor="meetup-email">
             Email address
           </label>
@@ -52,13 +52,13 @@ export function MeetupSnapshot({ isAuthenticated }: { isAuthenticated: boolean }
             placeholder="you@example.com"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className={`${AUTH_INPUT_STYLE} text-base`}
+            className={AUTH_INPUT_STYLE}
             disabled={didCheckIn}
           />
           <Button
             type="submit"
             disabled={!open || didCheckIn}
-            className="interactive-btn cursor-pointer w-full border border-white/12 bg-slate-950/80 text-white hover:bg-slate-950 text-base py-2.5"
+            className="interactive-btn cursor-pointer w-full border border-white/12 bg-slate-950/80 text-white hover:bg-slate-950"
           >
             {didCheckIn ? "You're checked in" : open ? "Email me the link" : "Check-in opens Saturdays 11 AM CT"}
           </Button>
@@ -68,7 +68,7 @@ export function MeetupSnapshot({ isAuthenticated }: { isAuthenticated: boolean }
         href="https://www.meetup.com/building-ai-with-ai/"
         target="_blank"
         rel="noreferrer"
-        className="interactive-btn swirl-button inline-flex w-full items-center justify-center rounded-md px-4 py-2.5 text-base font-semibold text-slate-950"
+        className="interactive-btn swirl-button inline-flex w-full items-center justify-center rounded-md px-3 py-2 text-sm font-semibold text-slate-950"
       >
         Join the Coda meetup
       </Link>

@@ -210,7 +210,7 @@ export function LoginCard({ initialTab = "sign-in", isAuthenticated = false, sca
       </Link>
       <div className="flex h-full items-start justify-center px-6 pt-16 sm:pt-20">
         <div
-          className={cn("pointer-events-auto w-full origin-top", containerClassName)}
+          className={cn("pointer-events-auto w-full max-w-6xl origin-top", containerClassName)}
           style={(() => {
             const transformParts = [
               typeof containerStyle?.transform === "string" ? containerStyle.transform : null,
@@ -220,7 +220,6 @@ export function LoginCard({ initialTab = "sign-in", isAuthenticated = false, sca
 
             const merged: CSSProperties = {
               ...containerStyle,
-              maxWidth: containerStyle?.maxWidth ?? "min(100%, clamp(32rem, 68vw, 78rem))",
               transform: transformParts.length ? transformParts.join(" ") : containerStyle?.transform,
               transformOrigin: containerStyle?.transformOrigin ?? "50% 0%",
             };
@@ -261,7 +260,9 @@ export function LoginCard({ initialTab = "sign-in", isAuthenticated = false, sca
                 {activeMeta.blurb ? <p className="max-w-xl text-sm text-white/75">{activeMeta.blurb}</p> : null}
               </div>
             </div>
-            <div>{renderContent()}</div>
+            <div className="max-h-[60vh] overflow-y-auto pr-2 sm:pr-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              {renderContent()}
+            </div>
           </motion.header>
         </div>
       </div>

@@ -13,18 +13,9 @@ export const metadata: Metadata = {
 export default async function AboutPage() {
   const user = await getCurrentUser();
   return (
-    <div className="relative min-h-screen overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+    <div className="relative min-h-screen overflow-hidden">
       <LoginHero />
-      <LoginExperience
-        initialTab="about"
-        isAuthenticated={Boolean(user)}
-        cardScale={0.78}
-        cardOffsetY={-48}
-        cardContainerClassName="max-w-none"
-        cardContainerStyle={{
-          maxWidth: "min(100%, clamp(36rem, 70vw, 80rem))",
-        }}
-      />
+      <LoginExperience initialTab="about" isAuthenticated={Boolean(user)} />
     </div>
   );
 }

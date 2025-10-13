@@ -87,7 +87,7 @@ export function EmailSignInForm() {
           />
           <Button
             type="submit"
-            className={cn(AUTH_PRIMARY_BUTTON_STYLE, "w-full sm:w-auto sm:min-w-[200px]")}
+            className={cn(AUTH_PRIMARY_BUTTON_STYLE, "w-full sm:w-auto sm:min-w-[220px]")}
             disabled={isPending}
           >
             {isPending ? "Sending…" : "Email me a sign-in link"}

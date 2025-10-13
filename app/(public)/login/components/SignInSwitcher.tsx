@@ -27,13 +27,11 @@ export function SignInSwitcher() {
   const current = modes[mode];
 
   return (
-    <div className="space-y-6" style={{ maxWidth: "min(100%, clamp(34rem, 66vw, 76rem))" }}>
+    <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
-          <h2 className="text-xl font-semibold text-white sm:text-2xl">{current.title}</h2>
-          <p className="text-[clamp(1rem,0.3vw+1rem,1.2rem)] text-white/80">
-            {current.description}
-          </p>
+          <h2 className="text-lg font-medium text-white">{current.title}</h2>
+          <p className="text-sm text-white/75">{current.description}</p>
         </div>
         <Button
           type="button"
