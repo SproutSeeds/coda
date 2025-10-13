@@ -2,7 +2,7 @@ import type { SuggestionUpdateRecord } from "@/lib/db/suggestions";
 
 export function SuggestionUpdateList({ updates }: { updates: SuggestionUpdateRecord[] }) {
   if (updates.length === 0) {
-    return <p className="text-sm text-muted-foreground">No updates yet. Developers can post progress notes here.</p>;
+    return <p className="text-sm text-muted-foreground">No updates yet. Add one below to start the conversation.</p>;
   }
 
   return (

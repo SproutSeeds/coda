@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import type { CSSProperties } from "react";
 
 import { LOGIN_ANIMATION_CYCLE_MS } from "./LoginHero";
 import { LoginCard } from "./LoginCard";
@@ -9,10 +10,22 @@ import { LoginCard } from "./LoginCard";
 type LoginExperienceProps = {
   initialTab: "sign-in" | "about" | "meetup";
   isAuthenticated?: boolean;
+  cardScale?: number;
+  cardOffsetY?: number;
+  cardContainerClassName?: string;
+  cardContainerStyle?: CSSProperties;
 };
 
-export function LoginExperience({ initialTab, isAuthenticated = false }: LoginExperienceProps) {
+export function LoginExperience({
+  initialTab,
+  isAuthenticated = false,
+  cardScale,
+  cardOffsetY,
+  cardContainerClassName,
+  cardContainerStyle,
+}: LoginExperienceProps) {
   const [showCard, setShowCard] = useState(() => isAuthenticated);
+  const [skipLabel, setSkipLabel] = useState("ESC to skip");
   const timerRef = useRef<number | null>(null);
 
   const reveal = useCallback(() => {
@@ -44,6 +57,14 @@ export function LoginExperience({ initialTab, isAuthenticated = false }: LoginEx
   }, [isAuthenticated, reveal, showCard]);
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const coarsePointer = typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+    setSkipLabel(coarsePointer ? "TAP to skip" : "ESC to skip");
+  }, []);
+
+  useEffect(() => {
     if (showCard) {
       return;
     }
@@ -60,6 +81,21 @@ export function LoginExperience({ initialTab, isAuthenticated = false }: LoginEx
     };
   }, [reveal, showCard]);
 
+  useEffect(() => {
+    if (isAuthenticated || showCard) {
+      return;
+    }
+
+    const handlePointer = () => {
+      reveal();
+    };
+
+    window.addEventListener("pointerdown", handlePointer, { passive: true });
+    return () => {
+      window.removeEventListener("pointerdown", handlePointer);
+    };
+  }, [isAuthenticated, reveal, showCard]);
+
   return (
     <div className="pointer-events-none">
       <AnimatePresence>
@@ -71,14 +107,32 @@ export function LoginExperience({ initialTab, isAuthenticated = false }: LoginEx
             exit={{ opacity: 0 }}
             transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
           >
-            <LoginCard initialTab={initialTab} isAuthenticated={isAuthenticated} />
+            <LoginCard
+              initialTab={initialTab}
+              isAuthenticated={isAuthenticated}
+              scale={cardScale}
+              offsetY={cardOffsetY}
+              containerClassName={cardContainerClassName}
+              containerStyle={cardContainerStyle}
+            />
           </motion.div>
         ) : null}
       </AnimatePresence>
       {!showCard ? (
         <div className="pointer-events-none absolute inset-x-0 bottom-6 flex justify-center px-4">
-          <span className="text-xs font-medium uppercase tracking-[0.28em] text-white/60">
-            Esc to Skip
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={() => reveal()}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                reveal();
+              }
+            }}
+            className="pointer-events-auto cursor-pointer text-xs font-medium tracking-[0.24em] text-white/65 transition hover:text-white"
+          >
+            {skipLabel}
           </span>
         </div>
       ) : null}

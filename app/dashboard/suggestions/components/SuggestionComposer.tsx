@@ -169,9 +169,19 @@ export function SuggestionComposer({
     celebrationTimeout.current = null;
   }, []);
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const submitSuggestion = () => {
+    if (isPending) {
+      return;
+    }
     setError(null);
+
+    const trimmedTitle = title.trim();
+    const trimmedNotes = notes.trim();
+
+    if (!trimmedTitle || !trimmedNotes) {
+      setError("Add a title and description before submitting.");
+      return;
+    }
 
     if (notesLimitExceeded) {
       setError(`Keep the elevator pitch under ${IDEA_NOTES_CHARACTER_LIMIT} characters.`);
@@ -180,7 +190,7 @@ export function SuggestionComposer({
 
     startTransition(async () => {
       try {
-        await createSuggestionAction({ title, notes });
+        await createSuggestionAction({ title: trimmedTitle, notes: trimmedNotes });
         setTitle("");
         setNotes("");
         onDraftChange?.({ title: "", notes: "" });
@@ -202,6 +212,11 @@ export function SuggestionComposer({
         setError(err instanceof Error ? err.message : "Unable to capture suggestion");
       }
     });
+  };
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    submitSuggestion();
   };
 
   useEffect(() => () => resetCelebration(), [resetCelebration]);
@@ -238,6 +253,17 @@ export function SuggestionComposer({
             onChange={(event) => setTitle(event.target.value)}
             disabled={isPending}
             required
+            onKeyDown={(event) => {
+              if (event.nativeEvent.isComposing) return;
+              if (event.key === "Enter" && !event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey) {
+                event.preventDefault();
+                submitSuggestion();
+              } else if (event.key === "Escape") {
+                event.preventDefault();
+                resetCelebration();
+                onClose?.();
+              }
+            }}
           />
           <div className="space-y-2">
             <Textarea
@@ -248,6 +274,17 @@ export function SuggestionComposer({
               disabled={isPending}
               maxLength={IDEA_NOTES_CHARACTER_LIMIT}
               required
+              onKeyDown={(event) => {
+                if (event.nativeEvent.isComposing) return;
+                if (event.key === "Enter" && !event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey) {
+                  event.preventDefault();
+                  submitSuggestion();
+                } else if (event.key === "Escape") {
+                  event.preventDefault();
+                  resetCelebration();
+                  onClose?.();
+                }
+              }}
             />
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>{characterCount}/{IDEA_NOTES_CHARACTER_LIMIT} characters</span>

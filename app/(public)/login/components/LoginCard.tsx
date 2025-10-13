@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
@@ -9,10 +10,15 @@ import { ArrowRight } from "lucide-react";
 import { SignInSwitcher } from "./SignInSwitcher";
 import { AboutSnapshot } from "./AboutSnapshot";
 import { MeetupSnapshot } from "./MeetupSnapshot";
+import { cn } from "@/lib/utils";
 
 type LoginCardProps = {
   initialTab?: Tab;
   isAuthenticated?: boolean;
+  scale?: number;
+  offsetY?: number;
+  containerClassName?: string;
+  containerStyle?: CSSProperties;
 };
 
 type Tab = "sign-in" | "about" | "meetup";
@@ -35,7 +41,7 @@ const LANGUAGE_PHRASES = [
   "Asa zonuɣ ad sɛent-k",
 ];
 
-export function LoginCard({ initialTab = "sign-in", isAuthenticated = false }: LoginCardProps) {
+export function LoginCard({ initialTab = "sign-in", isAuthenticated = false, scale = 1, offsetY = 0, containerClassName, containerStyle }: LoginCardProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
   const [currentPhrase, setCurrentPhrase] = useState(LANGUAGE_PHRASES[0]);
@@ -203,41 +209,61 @@ export function LoginCard({ initialTab = "sign-in", isAuthenticated = false }: L
         <span className="swirl-brand font-light">.</span>
       </Link>
       <div className="flex h-full items-start justify-center px-6 pt-16 sm:pt-20">
-        <motion.header
-          className="pointer-events-auto flex w-full max-w-6xl flex-col gap-10 text-slate-100"
-          initial={{ opacity: 0, y: -12 }}
-          animate={
-            isRedirecting
-              ? {
-                  opacity: [1, 0.9, 0.55, 0],
-                  y: [0, -10, -24, -36],
-                  filter: ["blur(0px)", "blur(2px)", "blur(6px)", "blur(10px)"],
-                }
-              : { opacity: 1, y: 0, filter: "blur(0px)" }
-          }
-          transition={{
-            duration: 0.7,
-            ease: "easeInOut",
-            times: isRedirecting ? [0, 0.35, 0.7, 1] : undefined,
-          }}
-        >
-          <div className="flex flex-col gap-6">
-            <nav
-              aria-label="Workspace sections"
-              className="flex flex-wrap items-center gap-3 text-sm font-medium text-white/60"
-            >
-              {navItems}
-            </nav>
+        <div
+          className={cn("pointer-events-auto w-full origin-top", containerClassName)}
+          style={(() => {
+            const transformParts = [
+              typeof containerStyle?.transform === "string" ? containerStyle.transform : null,
+              offsetY ? `translateY(${offsetY}px)` : null,
+              scale !== 1 ? `scale(${scale})` : null,
+            ].filter(Boolean);
 
-            <div className="space-y-2">
-              {headline ? (
-                <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{headline}</h1>
-              ) : null}
-              {activeMeta.blurb ? <p className="max-w-xl text-sm text-white/75">{activeMeta.blurb}</p> : null}
+            const merged: CSSProperties = {
+              ...containerStyle,
+              maxWidth: containerStyle?.maxWidth ?? "min(100%, clamp(32rem, 68vw, 78rem))",
+              transform: transformParts.length ? transformParts.join(" ") : containerStyle?.transform,
+              transformOrigin: containerStyle?.transformOrigin ?? "50% 0%",
+            };
+
+            return merged;
+          })()}
+        >
+          <motion.header
+            className="flex w-full flex-col gap-10 text-slate-100"
+            initial={{ opacity: 0, y: -12 }}
+            animate={
+              isRedirecting
+                ? {
+                    opacity: [1, 0.9, 0.55, 0],
+                    y: [0, -10, -24, -36],
+                    filter: ["blur(0px)", "blur(2px)", "blur(6px)", "blur(10px)"],
+                  }
+                : { opacity: 1, y: 0, filter: "blur(0px)" }
+            }
+            transition={{
+              duration: 0.7,
+              ease: "easeInOut",
+              times: isRedirecting ? [0, 0.35, 0.7, 1] : undefined,
+            }}
+          >
+            <div className="flex flex-col gap-6">
+              <nav
+                aria-label="Workspace sections"
+                className="flex flex-wrap items-center gap-3 text-sm font-medium text-white/60"
+              >
+                {navItems}
+              </nav>
+
+              <div className="space-y-2">
+                {headline ? (
+                  <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{headline}</h1>
+                ) : null}
+                {activeMeta.blurb ? <p className="max-w-xl text-sm text-white/75">{activeMeta.blurb}</p> : null}
+              </div>
             </div>
-          </div>
-          <div>{renderContent()}</div>
-        </motion.header>
+            <div>{renderContent()}</div>
+          </motion.header>
+        </div>
       </div>
     </div>
   );

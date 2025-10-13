@@ -6,8 +6,9 @@ import { signIn } from "next-auth/react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
-import { AUTH_INPUT_STYLE } from "./EmailSignInForm";
+import { AUTH_INPUT_STYLE, AUTH_PRIMARY_BUTTON_STYLE } from "./EmailSignInForm";
 
 export function PasswordSignInForm() {
   const router = useRouter();
@@ -91,7 +92,7 @@ export function PasswordSignInForm() {
       ) : null}
       <Button
         type="submit"
-        className="cursor-pointer w-full border border-white/12 bg-slate-950/90 text-white shadow-lg transition hover:bg-slate-950 focus-visible:ring-white/40 focus-visible:ring-offset-0"
+        className={cn(AUTH_PRIMARY_BUTTON_STYLE, "w-full")}
         disabled={isPending}
       >
         {isPending ? "Signing in…" : "Sign in with password"}

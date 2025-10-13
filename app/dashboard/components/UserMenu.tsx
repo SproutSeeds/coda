@@ -102,6 +102,16 @@ export function UserMenu({ className }: UserMenuProps) {
               className="interactive-btn w-full justify-start border-transparent px-3 py-2 text-sm font-medium text-foreground hover:border-border hover:bg-muted/30 focus-visible:ring-0"
               role="menuitem"
             >
+              <Link href="/dashboard/keyboard-shortcuts" onClick={() => setOpen(false)}>
+                Keyboard shortcuts
+              </Link>
+            </Button>
+            <Button
+              asChild
+              variant="ghost"
+              className="interactive-btn w-full justify-start border-transparent px-3 py-2 text-sm font-medium text-foreground hover:border-border hover:bg-muted/30 focus-visible:ring-0"
+              role="menuitem"
+            >
               <Link href="/dashboard/suggestions" onClick={() => setOpen(false)}>
                 Suggestion box
               </Link>

@@ -149,11 +149,11 @@ export function IdeaComposer({
   const formRef = useRef<HTMLFormElement | null>(null);
 
   useEffect(() => {
-    setTitle(initialTitle);
+    setTitle((prev) => (prev === initialTitle ? prev : initialTitle));
   }, [initialTitle]);
 
   useEffect(() => {
-    setNotes(initialNotes);
+    setNotes((prev) => (prev === initialNotes ? prev : initialNotes));
   }, [initialNotes]);
 
   useEffect(() => {

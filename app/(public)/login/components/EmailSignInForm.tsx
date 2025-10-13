@@ -5,12 +5,16 @@ import { signIn } from "next-auth/react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 type Status = "idle" | "pending" | "sent" | "error";
 const RATE_LIMIT_WINDOW_MS = 30_000;
 
 export const AUTH_INPUT_STYLE =
   "border-white/20 bg-white/[0.02] text-slate-100 placeholder:text-slate-200/60 backdrop-blur-lg focus-visible:border-white/35 focus-visible:ring-white/30 focus:bg-white/[0.02] focus:text-slate-100";
+
+export const AUTH_PRIMARY_BUTTON_STYLE =
+  "interactive-btn border-none bg-gradient-to-r from-amber-300 via-amber-400 to-yellow-300 text-slate-950 shadow-[0_0_16px_rgba(251,191,36,0.5)] transition-shadow duration-300 hover:shadow-[0_0_26px_rgba(251,191,36,0.7)] focus-visible:ring-2 focus-visible:ring-yellow-300/70 focus-visible:ring-offset-0 disabled:opacity-70 disabled:cursor-not-allowed";
 
 export function EmailSignInForm() {
   const [email, setEmail] = useState("");
@@ -83,7 +87,7 @@ export function EmailSignInForm() {
           />
           <Button
             type="submit"
-            className="cursor-pointer w-full border border-white/12 bg-slate-950/90 text-white shadow-lg transition hover:bg-slate-950 focus-visible:ring-white/40 focus-visible:ring-offset-0 sm:w-auto sm:min-w-[200px]"
+            className={cn(AUTH_PRIMARY_BUTTON_STYLE, "w-full sm:w-auto sm:min-w-[200px]")}
             disabled={isPending}
           >
             {isPending ? "Sending…" : "Email me a sign-in link"}

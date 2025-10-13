@@ -54,6 +54,18 @@ function formatDateTime(value: string) {
   }
 }
 
+function buildIdeaExportFilename(title: string | null | undefined, id: string) {
+  const trimmed = (title ?? "").trim();
+  const normalized = trimmed
+    .normalize("NFKD")
+    .replace(/[^\p{Letter}\p{Number}]+/gu, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const slug = normalized.toLowerCase();
+  const safeTitle = slug.length > 0 ? slug.slice(0, 80) : "untitled";
+  return `${safeTitle}-idea-${id}.json`;
+}
+
 const featureSortOptions = [
   { value: "priority", label: "Manual priority" },
   { value: "updated_desc", label: "Recently updated" },
@@ -544,7 +556,10 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
     setDeleteInput("");
   };
 
-  const handleConfirmDelete = () => {
+  const confirmDelete = useCallback(() => {
+    if (isPending) {
+      return;
+    }
     if (deleteInput.trim() !== syncedIdea.title) {
       toast.error("Title didn't match. Idea not deleted.");
       return;
@@ -564,7 +579,7 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
         toast.error(err instanceof Error ? err.message : "Unable to delete idea");
       }
     });
-  };
+  }, [deleteIdeaAction, deleteInput, idea.id, isPending, restoreIdeaAction, router, showUndoToast, startTransition, syncedIdea.title]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -720,7 +735,7 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
                     const url = URL.createObjectURL(blob);
                     const anchor = document.createElement("a");
                     anchor.href = url;
-                    anchor.download = `idea-${idea.id}.json`;
+                    anchor.download = buildIdeaExportFilename(idea.title, idea.id);
                     document.body.appendChild(anchor);
                     anchor.click();
                     document.body.removeChild(anchor);
@@ -752,7 +767,7 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
                   variant="destructive"
                   size="sm"
                   className="interactive-btn px-3 py-1.5 text-xs font-semibold"
-                  onClick={handleConfirmDelete}
+                  onClick={confirmDelete}
                   disabled={isPending || !deleteTitleMatches}
                   data-testid="idea-delete-confirm"
                 >
@@ -762,6 +777,12 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
                   <Input
                     value={deleteInput}
                     onChange={(event) => setDeleteInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        confirmDelete();
+                      }
+                    }}
                     placeholder={deletePrompt}
                     aria-label={deletePrompt}
                     data-testid="idea-detail-delete-inline-input"
@@ -1162,7 +1183,7 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
                     const url = URL.createObjectURL(blob);
                     const anchor = document.createElement("a");
                     anchor.href = url;
-                    anchor.download = `idea-${idea.id}.json`;
+                    anchor.download = buildIdeaExportFilename(idea.title, idea.id);
                     document.body.appendChild(anchor);
                     anchor.click();
                     document.body.removeChild(anchor);

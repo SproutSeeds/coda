@@ -26,7 +26,7 @@ export default async function SuggestionDetailPage({ params }: { params: Promise
     notFound();
   }
 
-  const { suggestion, updates, isDeveloper } = detail;
+  const { suggestion, updates, isDeveloper, canPostUpdates } = detail;
 
   return (
     <section className="space-y-6">
@@ -79,17 +79,26 @@ export default async function SuggestionDetailPage({ params }: { params: Promise
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-foreground">Updates</h2>
-          {isDeveloper ? (
-            <span className="text-xs text-muted-foreground">Visible to the requester immediately</span>
+          {canPostUpdates ? (
+            <span className="text-xs text-muted-foreground">
+              {isDeveloper ? "Visible to the requester immediately" : "Shared privately with the Coda team"}
+            </span>
           ) : null}
         </div>
         <SuggestionUpdateList updates={updates} />
-        {isDeveloper ? (
+        {canPostUpdates ? (
           <div className="rounded-2xl border border-border/60 bg-card/80 p-6">
             <h3 className="text-sm font-semibold text-foreground">Post an update</h3>
-            <p className="text-xs text-muted-foreground">Share progress, status changes, or planned timelines.</p>
+            <p className="text-xs text-muted-foreground">
+              {isDeveloper
+                ? "Share progress, status changes, or planned timelines."
+                : "Keep the Coda team in the loop with new details or questions."}
+            </p>
             <div className="mt-4">
-              <SuggestionUpdateComposer suggestionId={suggestion.id} />
+              <SuggestionUpdateComposer
+                suggestionId={suggestion.id}
+                mode={isDeveloper ? "developer" : "submitter"}
+              />
             </div>
           </div>
         ) : null}

@@ -198,16 +198,44 @@ export async function loadSuggestionDetailAction(id: string) {
     : await getSuggestionForSubmitter(user.id, user.email ?? null, id);
 
   const updates = await listSuggestionUpdates(id);
-  return { suggestion, updates, isDeveloper, viewerEmail: user.email ?? null } as const;
+  const normalizedEmail = user.email?.toLowerCase() ?? null;
+  const canPostUpdates =
+    isDeveloper ||
+    suggestion.submittedBy === user.id ||
+    (normalizedEmail && suggestion.submittedEmail?.toLowerCase() === normalizedEmail);
+
+  return { suggestion, updates, isDeveloper, canPostUpdates, viewerEmail: user.email ?? null } as const;
 }
 
 export async function createSuggestionUpdateAction(input: { suggestionId: string; body: string }) {
-  const { user } = await requireDeveloper();
+  const user = await requireUser();
   const trimmed = input.body.trim();
   if (!trimmed) {
     throw new Error("Update cannot be empty.");
   }
+
+  const developerId = await resolveDeveloperId(DEVELOPER_EMAIL);
+  if (!developerId) {
+    throw new Error("Suggestion box unavailable");
+  }
+
+  const normalizedEmail = user.email?.toLowerCase() ?? null;
+  const isDeveloper = normalizedEmail === DEVELOPER_EMAIL.toLowerCase();
+
+  if (isDeveloper) {
+    await getSuggestion(developerId, input.suggestionId);
+  } else {
+    await getSuggestionForSubmitter(user.id, user.email ?? null, input.suggestionId);
+  }
+
   const update = await createSuggestionUpdate(input.suggestionId, user.id, user.email ?? null, trimmed);
-  await trackEvent({ name: "suggestion_update_created", properties: { suggestionId: input.suggestionId, updateId: update.id } });
+  await trackEvent({
+    name: "suggestion_update_created",
+    properties: {
+      suggestionId: input.suggestionId,
+      updateId: update.id,
+      authorRole: isDeveloper ? "developer" : "submitter",
+    },
+  });
   return update;
 }

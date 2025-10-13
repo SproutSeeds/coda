@@ -260,7 +260,10 @@ export function FeatureCard({
     setDeleteInput("");
   };
 
-  const handleConfirmDelete = () => {
+  const confirmDelete = useCallback(() => {
+    if (isMutating) {
+      return;
+    }
     if (!deleteTitleMatches) {
       toast.error("Title didn't match. Feature not deleted.");
       return;
@@ -270,12 +273,13 @@ export function FeatureCard({
       try {
         await deleteFeatureAction({ id: feature.id });
         toast.success("Feature removed");
+        resetDeleteConfirmation();
         router.refresh();
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Unable to delete feature");
       }
     });
-  };
+  }, [deleteFeatureAction, deleteTitleMatches, feature.id, isMutating, resetDeleteConfirmation, router, startMutate]);
 
   const handleToggleStar = () => {
     const next = !isStarred;
@@ -697,6 +701,12 @@ export function FeatureCard({
                   <Input
                     value={deleteInput}
                     onChange={(event) => setDeleteInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        confirmDelete();
+                      }
+                    }}
                     placeholder={deletePrompt}
                     aria-label={deletePrompt}
                     data-testid="feature-delete-input"
@@ -725,7 +735,7 @@ export function FeatureCard({
                   className="interactive-btn"
                   onClick={(event) => {
                     event.stopPropagation();
-                    handleConfirmDelete();
+                    confirmDelete();
                   }}
                   disabled={isMutating || !deleteTitleMatches}
                   data-testid="feature-delete-confirm"

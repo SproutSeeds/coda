@@ -116,8 +116,10 @@ export function SuggestionCard({
     setDeleteInput("");
   };
 
-  const handleConfirmDelete: MouseEventHandler<HTMLButtonElement> = (event) => {
-    event.stopPropagation();
+  const confirmDelete = useCallback(() => {
+    if (isPending) {
+      return;
+    }
     if (!deleteTitleMatches) {
       toast.error("Title didn't match. Suggestion not deleted.");
       return;
@@ -145,6 +147,11 @@ export function SuggestionCard({
         toast.error(err instanceof Error ? err.message : "Unable to delete suggestion");
       }
     });
+  }, [deleteSuggestionAction, deleteTitleMatches, isPending, resetDeleteConfirmation, restoreSuggestionAction, router, startTransition, suggestion.id]);
+
+  const handleConfirmDelete: MouseEventHandler<HTMLButtonElement> = (event) => {
+    event.stopPropagation();
+    confirmDelete();
   };
 
   const notePreview = trimmedNotes.length > 240 ? `${trimmedNotes.slice(0, 240)}…` : trimmedNotes;
@@ -290,6 +297,12 @@ export function SuggestionCard({
             <Input
               value={deleteInput}
               onChange={(event) => setDeleteInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  confirmDelete();
+                }
+              }}
               autoFocus
               placeholder={suggestion.title}
               disabled={isPending}

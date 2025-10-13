@@ -94,8 +94,10 @@ export function IdeaCard({
     setDeleteInput("");
   };
 
-  const handleConfirmDelete: MouseEventHandler<HTMLButtonElement> = (event) => {
-    event.stopPropagation();
+  const confirmDelete = useCallback(() => {
+    if (isPending) {
+      return;
+    }
     if (deleteInput.trim() !== idea.title) {
       toast.error("Title didn't match. Idea not deleted.");
       return;
@@ -115,6 +117,11 @@ export function IdeaCard({
         toast.error(err instanceof Error ? err.message : "Unable to delete idea");
       }
     });
+  }, [deleteInput, deleteIdeaAction, idea.id, idea.title, isPending, resetDeleteConfirmation, restoreIdeaAction, showUndoToast, startTransition]);
+
+  const handleConfirmDelete: MouseEventHandler<HTMLButtonElement> = (event) => {
+    event.stopPropagation();
+    confirmDelete();
   };
 
   const stopPropagation = (event: SyntheticEvent) => {
@@ -294,6 +301,12 @@ export function IdeaCard({
                 <Input
                   value={deleteInput}
                   onChange={(event) => setDeleteInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      confirmDelete();
+                    }
+                  }}
                   placeholder={deletePrompt}
                   aria-label={deletePrompt}
                   data-testid="idea-delete-input"
