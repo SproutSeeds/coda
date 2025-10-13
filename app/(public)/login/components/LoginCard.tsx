@@ -86,7 +86,7 @@ export function LoginCard({ initialTab = "sign-in", isAuthenticated = false }: L
     () => [
       { id: "about" as Tab, label: "About us", blurb: "Why Cody built Coda and how it keeps ideas moving." },
       { id: "meetup" as Tab, label: "Meetup check-in", blurb: "" },
-      { id: "sign-in" as Tab, label: "Sign in", blurb: "Enter your workspace and keep ideas, specs, and agents in sync." },
+      { id: "sign-in" as Tab, label: "Sign in", blurb: "A notes app that never lets you down." },
     ],
     [],
   );

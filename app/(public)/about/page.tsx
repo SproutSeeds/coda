@@ -7,7 +7,7 @@ import { LoginHero } from "../login/components/LoginHero";
 
 export const metadata: Metadata = {
   title: "About",
-  description: "Step into the CODA experience and learn how the workspace keeps shipping calm.",
+  description: "A notes app that never lets you down.",
 };
 
 export default async function AboutPage() {

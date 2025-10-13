@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     default: "Coda",
     template: "%s · Coda",
   },
-  description: "Where ideas go live.",
+  description: "A notes app that never lets you down.",
   keywords: [
     "Coda",
     "C .",
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "Add an idea, watch it grow.",
-    description: "Where ideas go live with Coda’s fast, polished workspace.",
+    description: "A notes app that never lets you down.",
     url: "https://codacli.com",
     siteName: "Coda",
     locale: "en_US",
@@ -54,14 +54,14 @@ export const metadata: Metadata = {
         url: "/opengraph-image",
         width: 1200,
         height: 630,
-        alt: "C . logomark with the Coda tagline, Where ideas go live.",
+        alt: "C . logomark with the Coda tagline, A notes app that never lets you down.",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Add an idea, watch it grow.",
-    description: "Where ideas go live.",
+    description: "A notes app that never lets you down.",
     images: ["/twitter-image"],
   },
 };
