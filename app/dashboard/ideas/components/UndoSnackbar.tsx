@@ -1,26 +1,63 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-export function showUndoToast(options: { message: string; onUndo: () => Promise<void> | void; duration?: number }) {
-  const { message, onUndo, duration = 10_000 } = options;
-  toast.custom((id) => <UndoToast id={id} message={message} onUndo={onUndo} duration={duration} />, {
-    duration,
+type ShowUndoToastOptions = {
+  message: string;
+  onUndo: () => Promise<void> | void;
+  duration?: number;
+  expiresAt?: string | Date;
+};
+
+const DEFAULT_DURATION_MS = 10_000;
+
+function resolveDurationMs({ duration, expiresAt }: { duration?: number; expiresAt?: string | Date }): number {
+  const fromExpiry = (() => {
+    if (!expiresAt) return null;
+    const expiryTime = typeof expiresAt === "string" ? Date.parse(expiresAt) : expiresAt.getTime();
+    if (!Number.isFinite(expiryTime)) {
+      return null;
+    }
+    return expiryTime - Date.now();
+  })();
+
+  const candidate = duration ?? fromExpiry ?? DEFAULT_DURATION_MS;
+
+  if (!Number.isFinite(candidate)) {
+    return DEFAULT_DURATION_MS;
+  }
+
+  const rounded = Math.round(candidate);
+  return rounded > 0 ? rounded : 1;
+}
+
+export function showUndoToast(options: ShowUndoToastOptions) {
+  const safeDuration = resolveDurationMs({ duration: options.duration, expiresAt: options.expiresAt });
+  toast.custom((id) => <UndoToast id={id} message={options.message} onUndo={options.onUndo} duration={safeDuration} />, {
+    duration: safeDuration,
   });
 }
 
 function UndoToast({ id, message, onUndo, duration }: { id: string | number; message: string; onUndo: () => Promise<void> | void; duration: number }) {
-  const [remaining, setRemaining] = useState(duration / 1000);
+  const initialRemaining = useMemo(() => Math.max(0, Math.ceil(duration / 1_000)), [duration]);
+  const [remaining, setRemaining] = useState(initialRemaining);
 
   useEffect(() => {
+    if (duration <= 0) {
+      setRemaining(0);
+      return;
+    }
+
+    const endAt = Date.now() + duration;
     const interval = window.setInterval(() => {
-      setRemaining((value) => (value > 0 ? value - 1 : 0));
+      const millisLeft = endAt - Date.now();
+      setRemaining(Math.max(0, Math.ceil(millisLeft / 1_000)));
     }, 1_000);
     return () => window.clearInterval(interval);
-  }, []);
+  }, [duration]);
 
   const handleUndo = async () => {
     await onUndo();

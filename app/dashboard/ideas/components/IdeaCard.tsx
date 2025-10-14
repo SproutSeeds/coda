@@ -107,6 +107,7 @@ export function IdeaCard({
         const result = await deleteIdeaAction({ id: idea.id });
         showUndoToast({
           message: "Idea deleted",
+          expiresAt: result.expiresAt,
           onUndo: async () => {
             await restoreIdeaAction({ id: idea.id, token: result.undoToken });
             toast.success("Idea restored");
