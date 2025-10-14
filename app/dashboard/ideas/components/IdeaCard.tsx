@@ -185,7 +185,9 @@ export function IdeaCard({
           <div className="flex-1 space-y-2">
             <div className="flex flex-wrap items-start justify-between gap-2 sm:gap-3">
               <div className="flex min-w-0 flex-col gap-1">
-                <h3 className="truncate text-base font-semibold text-foreground">{idea.title}</h3>
+                <h3 className="line-clamp-2 break-words text-base font-semibold leading-snug text-foreground">
+                  {idea.title}
+                </h3>
               </div>
               <div className="flex w-full flex-wrap items-center justify-between gap-2 sm:w-auto sm:flex-nowrap sm:justify-end">
                 <AnimatePresence initial={false} mode="wait">
