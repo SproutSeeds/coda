@@ -5,16 +5,19 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { useRouter } from "next/navigation";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, CheckCircle2, Circle, Copy, Star, StarOff, Trash2, X } from "lucide-react";
+import { Check, CheckCircle2, Circle, Copy, MoreHorizontal, Plus, Star, StarOff, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 const FEATURE_NOTES_CHARACTER_LIMIT = 10_000;
+const FEATURE_DETAIL_CHARACTER_LIMIT = 10_000;
+const FEATURE_DETAIL_LABEL_LIMIT = 60;
 
 function formatFeatureUpdated(value: string) {
   try {
@@ -56,11 +59,17 @@ export function FeatureCard({
   const [isExpanded, setIsExpanded] = useState(false);
   const [draftTitle, setDraftTitle] = useState(feature.title);
   const [draftNotes, setDraftNotes] = useState(feature.notes);
+  const [draftDetail, setDraftDetail] = useState(feature.detail ?? "");
+  const [draftDetailLabel, setDraftDetailLabel] = useState(feature.detailLabel ?? "Detail");
   const [currentTitle, setCurrentTitle] = useState(feature.title);
   const [currentNotes, setCurrentNotes] = useState(feature.notes);
+  const [currentDetail, setCurrentDetail] = useState(feature.detail ?? "");
+  const [currentDetailLabel, setCurrentDetailLabel] = useState(feature.detailLabel ?? "Detail");
   const [syncedFeature, setSyncedFeature] = useState({
     title: feature.title,
     notes: feature.notes,
+    detail: feature.detail ?? "",
+    detailLabel: feature.detailLabel ?? "Detail",
     updatedAt: feature.updatedAt,
     completed: feature.completed,
     completedAt: feature.completedAt,
@@ -78,35 +87,84 @@ export function FeatureCard({
   const [isCompletionPending, startCompletionTransition] = useTransition();
   const [isCompleted, setIsCompleted] = useState(Boolean(feature.completed));
   const [completedAt, setCompletedAt] = useState<string | null>(feature.completedAt ?? null);
+  const [isDetailEditorVisible, setIsDetailEditorVisible] = useState(
+    Boolean(feature.detail?.trim?.()),
+  );
+  const [isConfirmingDetailClear, setIsConfirmingDetailClear] = useState(false);
+  const hasRenderedDetail = useMemo(() => Boolean(currentDetail.trim()), [currentDetail]);
+  const hasNotes = useMemo(() => Boolean(currentNotes.trim()), [currentNotes]);
+  const detailPreviewLabels = useMemo(() => {
+    if (!hasRenderedDetail) return [] as string[];
+    const raw = currentDetailLabel || "Detail";
+    const tokens = raw
+      .split(/[,|]/)
+      .map((label) => label.trim())
+      .filter(Boolean);
+    const labels = tokens.length > 0 ? tokens : ["Detail"];
+    return labels.slice(0, 4);
+  }, [currentDetailLabel, hasRenderedDetail]);
   const featureMarkdown = useMemo(() => {
     const normalizedTitle = currentTitle?.trim?.() || feature.title;
     const normalizedNotes = currentNotes?.trim?.() ?? "";
+    const normalizedDetail = currentDetail?.trim?.();
+    const normalizedDetailLabel = currentDetailLabel?.trim?.() || "Detail";
     const header = `## Feature: ${normalizedTitle}`;
     const body = normalizedNotes ? normalizedNotes : "_No notes yet._";
-    return `${header}\n\n${body}`.trim();
-  }, [currentNotes, currentTitle, feature.title]);
+    const includeDetail = Boolean(normalizedDetail) && isExpanded;
+    const detailSection = includeDetail ? `\n\n**${normalizedDetailLabel}**\n\n${normalizedDetail}` : "";
+    return `${header}\n\n${body}${detailSection}`.trim();
+  }, [currentDetail, currentDetailLabel, currentNotes, currentTitle, feature.title, isExpanded]);
+  const featureDetailMarkdown = useMemo(() => {
+    const normalizedDetail = currentDetail?.trim?.();
+    if (!normalizedDetail) return "";
+    const normalizedDetailLabel = currentDetailLabel?.trim?.() || "Detail";
+    return `**${normalizedDetailLabel}**\n\n${normalizedDetail}`.trim();
+  }, [currentDetail, currentDetailLabel]);
 
   useEffect(() => {
     setCurrentTitle(feature.title);
     setCurrentNotes(feature.notes);
+    setCurrentDetail(feature.detail ?? "");
+    setCurrentDetailLabel(feature.detailLabel ?? "Detail");
     setDraftTitle(feature.title);
     setDraftNotes(feature.notes);
+    setDraftDetail(feature.detail ?? "");
+    setDraftDetailLabel(feature.detailLabel ?? "Detail");
     setIsStarred(feature.starred);
     setSyncedFeature({
       title: feature.title,
       notes: feature.notes,
+      detail: feature.detail ?? "",
+      detailLabel: feature.detailLabel ?? "Detail",
       updatedAt: feature.updatedAt,
       completed: feature.completed,
       completedAt: feature.completedAt,
     });
     setIsCompleted(Boolean(feature.completed));
     setCompletedAt(feature.completedAt ?? null);
-  }, [feature.completed, feature.completedAt, feature.id, feature.notes, feature.starred, feature.title, feature.updatedAt]);
+    setIsDetailEditorVisible(Boolean(feature.detail?.trim?.()));
+  }, [
+    feature.completed,
+    feature.completedAt,
+    feature.detail,
+    feature.detailLabel,
+    feature.id,
+    feature.notes,
+    feature.starred,
+    feature.title,
+    feature.updatedAt,
+  ]);
 
   const trimmedDraftTitle = draftTitle.trim();
   const trimmedDraftNotes = draftNotes.trim();
+  const trimmedDraftDetail = draftDetail.trim();
+  const trimmedDraftDetailLabel = draftDetailLabel.trim();
+  const effectiveDetailLabel = trimmedDraftDetailLabel || "Detail";
   const featureDirty =
-    trimmedDraftTitle !== syncedFeature.title || trimmedDraftNotes !== syncedFeature.notes;
+    trimmedDraftTitle !== syncedFeature.title ||
+    trimmedDraftNotes !== syncedFeature.notes ||
+    trimmedDraftDetail !== syncedFeature.detail ||
+    (trimmedDraftDetailLabel || "Detail") !== (syncedFeature.detailLabel || "Detail");
   const completionDisplay = isCompleted
     ? completedAt
       ? `Completed ${formatFeatureUpdated(completedAt)}`
@@ -124,37 +182,41 @@ export function FeatureCard({
   const cancelEditing = useCallback(() => {
     setDraftTitle(syncedFeature.title);
     setDraftNotes(syncedFeature.notes);
+    setDraftDetail(syncedFeature.detail);
+    setDraftDetailLabel(syncedFeature.detailLabel ?? "Detail");
+    setIsDetailEditorVisible(Boolean(syncedFeature.detail.trim()));
+    setIsConfirmingDetailClear(false);
     setIsEditing(false);
     setFeatureAutoState("idle");
     setIsConfirmingConvert(false);
-  }, [syncedFeature.notes, syncedFeature.title, setIsConfirmingConvert]);
+  }, [syncedFeature.detail, syncedFeature.detailLabel, syncedFeature.notes, syncedFeature.title, setIsConfirmingConvert]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") {
-        return;
-      }
+      if (event.key !== "Escape") return;
 
-      event.preventDefault();
+      let handled = false;
 
       if (isConfirmingDelete) {
         resetDeleteConfirmation();
-        return;
-      }
-
-      if (isConfirmingConvert) {
+        handled = true;
+      } else if (isConfirmingConvert) {
         setIsConfirmingConvert(false);
-        return;
-      }
-
-      if (isEditing) {
+        handled = true;
+      } else if (isEditing) {
         cancelEditing();
-        return;
+        handled = true;
+      } else if (isExpanded) {
+        setIsExpanded(false);
+        handled = true;
       }
 
-      if (isExpanded) {
-        setIsExpanded(false);
-        return;
+      if (handled) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (typeof event.stopImmediatePropagation === "function") {
+          event.stopImmediatePropagation();
+        }
       }
     };
 
@@ -163,7 +225,7 @@ export function FeatureCard({
   }, [cancelEditing, isConfirmingConvert, isConfirmingDelete, isEditing, isExpanded, resetDeleteConfirmation, setIsConfirmingConvert]);
 
   const saveFeature = useCallback(
-    async (titleValue: string, notesValue: string) => {
+    async (titleValue: string, notesValue: string, detailValue: string, detailLabelValue: string) => {
       featureSaveInFlight.current = true;
       try {
         const updated = await updateFeatureAction({
@@ -171,20 +233,31 @@ export function FeatureCard({
           ideaId,
           title: titleValue,
           notes: notesValue,
+          detail: detailValue,
+          detailLabel: detailLabelValue,
         });
-        setCurrentTitle((previous) => (previous === updated.title ? previous : updated.title));
-        setCurrentNotes((previous) => (previous === updated.notes ? previous : updated.notes));
-        setDraftTitle((previous) => (previous === updated.title ? previous : updated.title));
-        setDraftNotes((previous) => (previous === updated.notes ? previous : updated.notes));
+        const normalizedDetail = updated.detail ?? "";
+        const normalizedDetailLabel = updated.detailLabel ?? "Detail";
+        setCurrentTitle(updated.title);
+        setCurrentNotes(updated.notes);
+        setCurrentDetail(normalizedDetail);
+        setCurrentDetailLabel(normalizedDetailLabel);
+        setDraftTitle(updated.title);
+        setDraftNotes(updated.notes);
+        setDraftDetail(normalizedDetail);
+        setDraftDetailLabel(normalizedDetailLabel);
         setSyncedFeature({
           title: updated.title,
           notes: updated.notes,
+          detail: normalizedDetail,
+          detailLabel: normalizedDetailLabel,
           updatedAt: updated.updatedAt,
           completed: updated.completed,
           completedAt: updated.completedAt,
         });
         setIsCompleted(Boolean(updated.completed));
         setCompletedAt(updated.completedAt ?? null);
+        setIsDetailEditorVisible(Boolean(normalizedDetail.trim()));
         return updated;
       } finally {
         featureSaveInFlight.current = false;
@@ -222,7 +295,7 @@ export function FeatureCard({
         return;
       }
       setFeatureAutoState("saving");
-      void saveFeature(trimmedDraftTitle, trimmedDraftNotes)
+      void saveFeature(trimmedDraftTitle, trimmedDraftNotes, trimmedDraftDetail, effectiveDetailLabel)
         .then(() => setFeatureAutoState("saved"))
         .catch((error) => {
           setFeatureAutoState("error");
@@ -236,7 +309,16 @@ export function FeatureCard({
         featureAutoTimer.current = null;
       }
     };
-  }, [featureAutoState, featureDirty, isEditing, saveFeature, trimmedDraftNotes, trimmedDraftTitle]);
+  }, [
+    effectiveDetailLabel,
+    featureAutoState,
+    featureDirty,
+    isEditing,
+    saveFeature,
+    trimmedDraftDetail,
+    trimmedDraftNotes,
+    trimmedDraftTitle,
+  ]);
 
   const handleManualSave = () => {
     if (!trimmedDraftTitle || !trimmedDraftNotes) {
@@ -244,7 +326,7 @@ export function FeatureCard({
       return;
     }
     setFeatureAutoState("saving");
-    void saveFeature(trimmedDraftTitle, trimmedDraftNotes)
+    void saveFeature(trimmedDraftTitle, trimmedDraftNotes, trimmedDraftDetail, effectiveDetailLabel)
       .then(() => {
         setFeatureAutoState("saved");
         setIsEditing(false);
@@ -302,17 +384,26 @@ export function FeatureCard({
         const updated = await toggleFeatureCompletionAction(feature.id, next);
         setIsCompleted(Boolean(updated.completed));
         setCompletedAt(updated.completedAt ?? null);
+        const normalizedDetail = updated.detail ?? "";
+        const normalizedDetailLabel = updated.detailLabel ?? "Detail";
         setSyncedFeature({
           title: updated.title,
           notes: updated.notes,
+          detail: normalizedDetail,
+          detailLabel: normalizedDetailLabel,
           updatedAt: updated.updatedAt,
           completed: updated.completed,
           completedAt: updated.completedAt,
         });
         setCurrentTitle(updated.title);
         setCurrentNotes(updated.notes);
+        setCurrentDetail(normalizedDetail);
+        setCurrentDetailLabel(normalizedDetailLabel);
         setDraftTitle(updated.title);
         setDraftNotes(updated.notes);
+        setDraftDetail(normalizedDetail);
+        setDraftDetailLabel(normalizedDetailLabel);
+        setIsDetailEditorVisible(Boolean(normalizedDetail.trim()));
         setIsConfirmingConvert(false);
         setFeatureAutoState("idle");
         if (next) {
@@ -421,10 +512,72 @@ export function FeatureCard({
               </div>
               {!isEditing ? (
                 <div
-                  className="space-y-2"
+                  className="space-y-3"
                   onClick={(event) => event.stopPropagation()}
                   onKeyDown={(event) => event.stopPropagation()}
                 >
+                  {hasRenderedDetail ? (
+                    <div className="rounded-lg border border-border/60 bg-card/60 px-3 py-2" data-testid="feature-detail-summary">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {detailPreviewLabels.map((label, index) => (
+                            <span
+                              key={`${label}-${index}`}
+                              className="rounded-full border border-border/70 bg-background/70 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground"
+                            >
+                              {label}
+                            </span>
+                          ))}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            className="interactive-btn h-8 w-8 shrink-0 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-foreground focus-visible:ring-0"
+                            onClick={async (event) => {
+                              event.stopPropagation();
+                              if (!featureDetailMarkdown) return;
+                              try {
+                                await navigator.clipboard.writeText(featureDetailMarkdown);
+                                toast.success("Copied detail to clipboard");
+                              } catch (err) {
+                                toast.error(err instanceof Error ? err.message : "Unable to copy detail");
+                              }
+                            }}
+                            aria-label="Copy detail"
+                            data-testid="feature-detail-copy-button"
+                            disabled={!featureDetailMarkdown}
+                          >
+                            <Copy className="size-4" />
+                          </Button>
+                        </div>
+                        <button
+                          type="button"
+                          className="inline-flex cursor-pointer items-center gap-1 text-xs font-semibold uppercase tracking-wide text-primary underline-offset-4 transition hover:underline"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setIsExpanded((prev) => !prev);
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key === "Escape") {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              setIsExpanded(false);
+                            }
+                          }}
+                        >
+                          {isExpanded ? (
+                            <>
+                              <X className="size-3" /> Hide details
+                            </>
+                          ) : (
+                            <>
+                              <MoreHorizontal className="size-3" /> More detail
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
                   <AnimatePresence initial={false} mode="wait">
                     {isExpanded ? (
                       <motion.div
@@ -434,6 +587,14 @@ export function FeatureCard({
                         animate={{ height: "auto", opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
                         transition={{ duration: 0.2, ease: "easeInOut" }}
+                        className="space-y-3 rounded-lg border border-border/60 bg-card/70 px-4 py-3"
+                        onKeyDown={(event) => {
+                          if (event.key === "Escape") {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            setIsExpanded(false);
+                          }
+                        }}
                       >
                         {currentNotes.trim() ? (
                           <p
@@ -447,19 +608,74 @@ export function FeatureCard({
                         ) : (
                           <p className="text-sm text-muted-foreground">No notes yet—open to add details.</p>
                         )}
+                        {hasRenderedDetail ? (
+                          <div className="space-y-2 rounded-md border border-border/50 bg-background/70 px-3 py-2">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/80">
+                                {currentDetailLabel || "Detail"}
+                              </span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                className="interactive-btn h-8 w-8 shrink-0 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-foreground focus-visible:ring-0"
+                                onClick={async (event) => {
+                                  event.stopPropagation();
+                                  if (!featureDetailMarkdown) return;
+                                  try {
+                                    await navigator.clipboard.writeText(featureDetailMarkdown);
+                                    toast.success("Copied detail to clipboard");
+                                  } catch (err) {
+                                    toast.error(err instanceof Error ? err.message : "Unable to copy detail");
+                                  }
+                                }}
+                                aria-label="Copy detail"
+                                data-testid="feature-detail-copy-button-expanded"
+                                disabled={!featureDetailMarkdown}
+                              >
+                                <Copy className="size-4" />
+                              </Button>
+                            </div>
+                            <p
+                              className={cn(
+                                "whitespace-pre-wrap text-sm text-muted-foreground",
+                                isCompleted && "line-through opacity-80",
+                              )}
+                            >
+                              {currentDetail}
+                            </p>
+                          </div>
+                        ) : null}
                       </motion.div>
                     ) : null}
                   </AnimatePresence>
-                  <button
-                    type="button"
-                    className="inline-flex cursor-pointer items-center text-xs font-medium text-primary underline-offset-4 transition hover:underline"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setIsExpanded((prev) => !prev);
-                    }}
-                  >
-                    {isExpanded ? "Hide details" : "Show details"}
-                  </button>
+                  {!hasRenderedDetail && hasNotes ? (
+                    <button
+                      type="button"
+                      className="inline-flex cursor-pointer items-center gap-1 text-xs font-medium text-primary underline-offset-4 transition hover:underline"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setIsExpanded((prev) => !prev);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Escape") {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          setIsExpanded(false);
+                        }
+                      }}
+                    >
+                      {isExpanded ? (
+                        <>
+                          <X className="size-3" /> Hide details
+                        </>
+                      ) : (
+                        <>
+                          <MoreHorizontal className="size-3" /> Show details
+                        </>
+                      )}
+                    </button>
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -595,6 +811,135 @@ export function FeatureCard({
               data-testid="feature-edit-notes-input"
               maxLength={FEATURE_NOTES_CHARACTER_LIMIT}
             />
+            {isDetailEditorVisible ? (
+              <div className="rounded-xl border-2 border-dashed border-border/60 bg-card/40 p-3" data-testid="feature-detail-editor">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <Label
+                      htmlFor={`feature-${feature.id}-detail-label`}
+                      className="text-xs font-medium uppercase tracking-wide text-muted-foreground/80"
+                    >
+                      Detail label
+                    </Label>
+                    <Input
+                      id={`feature-${feature.id}-detail-label`}
+                      value={draftDetailLabel}
+                      onChange={(event) => {
+                        const next = event.target.value;
+                        if (next.length <= FEATURE_DETAIL_LABEL_LIMIT) {
+                          setDraftDetailLabel(next);
+                        }
+                      }}
+                      maxLength={FEATURE_DETAIL_LABEL_LIMIT}
+                      disabled={featureAutoState === "saving"}
+                      placeholder="Detail heading"
+                      data-testid="feature-edit-detail-label-input"
+                      className="mt-1"
+                    />
+                  </div>
+                  {isConfirmingDetailClear ? (
+                    <div className="mt-5 flex items-center gap-2" data-testid="feature-detail-clear-confirmation">
+                      <span className="text-xs text-muted-foreground">Ya sure?</span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="destructive"
+                        className="interactive-btn"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setDraftDetail("");
+                          setDraftDetailLabel("Detail");
+                          setIsDetailEditorVisible(false);
+                          setIsConfirmingDetailClear(false);
+                        }}
+                        disabled={featureAutoState === "saving"}
+                        data-testid="feature-detail-clear-confirm"
+                      >
+                        Yes
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="interactive-btn hover:bg-transparent"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setIsConfirmingDetailClear(false);
+                        }}
+                        disabled={featureAutoState === "saving"}
+                        data-testid="feature-detail-clear-cancel"
+                      >
+                        No
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className="interactive-btn mt-6 h-8 w-8 shrink-0 text-muted-foreground hover:bg-transparent"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setIsConfirmingDetailClear(true);
+                      }}
+                      disabled={featureAutoState === "saving"}
+                      aria-label="Remove detail"
+                      data-testid="feature-detail-clear-trigger"
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  )}
+                </div>
+                <Textarea
+                  value={draftDetail}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    if (next.length <= FEATURE_DETAIL_CHARACTER_LIMIT) {
+                      setDraftDetail(next);
+                    }
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey && !(event.nativeEvent as KeyboardEvent).isComposing) {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      handleManualSave();
+                      return;
+                    }
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      cancelEditing();
+                    }
+                  }}
+                  rows={3}
+                  disabled={featureAutoState === "saving"}
+                  placeholder="Add optional detail for quick reference"
+                  data-testid="feature-edit-detail-input"
+                  maxLength={FEATURE_DETAIL_CHARACTER_LIMIT}
+                  className="mt-3"
+                />
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setIsDetailEditorVisible(true);
+                  if (!draftDetailLabel.trim()) {
+                    setDraftDetailLabel("Detail");
+                  }
+                }}
+                className="group flex w-full cursor-pointer items-center justify-between rounded-xl border-2 border-dashed border-border/60 bg-card/40 px-4 py-3 text-left transition hover:border-muted hover:bg-card/60"
+              >
+                <span className="flex flex-col">
+                  <span className="text-sm font-semibold text-foreground">Add a detail section</span>
+                  <span className="text-xs text-muted-foreground">Store quick snippets, links, or extra context.</span>
+                </span>
+                <span className="rounded-full border border-border bg-card p-2 transition group-hover:bg-muted/70 group-hover:text-foreground">
+                  <Plus className="size-4" />
+                </span>
+              </button>
+            )}
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
               <Button
                 type="button"

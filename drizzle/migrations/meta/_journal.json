@@ -107,5 +107,21 @@
       "tag": "0014_backfill_suggestion_completion",
       "breakpoints": true
     }
+    ,
+    {
+      "idx": 15,
+      "version": "21",
+      "when": 1761000000000,
+      "tag": "0015_add_feature_detail",
+      "breakpoints": true
+    }
+    ,
+    {
+      "idx": 16,
+      "version": "22",
+      "when": 1761100000000,
+      "tag": "0016_add_feature_detail_label",
+      "breakpoints": true
+    }
   ]
 }

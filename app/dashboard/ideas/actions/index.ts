@@ -147,13 +147,17 @@ export async function loadDeletedIdeas() {
   return listDeletedIdeas(user.id);
 }
 
-export async function createFeatureAction(formData: FormData | { ideaId: string; title: string; notes: string; starred?: boolean }) {
+export async function createFeatureAction(
+  formData: FormData | { ideaId: string; title: string; notes: string; detail?: string; detailLabel?: string; starred?: boolean },
+) {
   const user = await requireUser();
   const payload = formData instanceof FormData
     ? {
         ideaId: String(formData.get("ideaId") ?? ""),
         title: String(formData.get("title") ?? ""),
         notes: String(formData.get("notes") ?? ""),
+        detailLabel: String(formData.get("detailLabel") ?? ""),
+        detail: String(formData.get("detail") ?? ""),
         starred: (() => {
           const value = formData.get("starred");
           if (value == null) return false;
@@ -171,7 +175,7 @@ export async function createFeatureAction(formData: FormData | { ideaId: string;
   return feature;
 }
 
-export async function updateFeatureAction(payload: { id: string; ideaId: string; title?: string; notes?: string }) {
+export async function updateFeatureAction(payload: { id: string; ideaId: string; title?: string; notes?: string; detail?: string; detailLabel?: string }) {
   const user = await requireUser();
   const feature = await updateFeature(user.id, payload);
   await trackEvent({ name: "feature_updated", properties: { ideaId: payload.ideaId, featureId: feature.id } });
@@ -245,6 +249,8 @@ export async function convertIdeaToFeatureAction(input: { sourceIdeaId: string; 
     ideaId: input.targetIdeaId,
     title: sourceIdea.title,
     notes: sourceIdea.notes,
+    detail: "",
+    detailLabel: "Detail",
   });
 
   const undo = createUndoToken(input.sourceIdeaId);
@@ -268,7 +274,9 @@ export async function convertFeatureToIdeaAction(input: { featureId: string }) {
 
   const idea = await createIdea(user.id, {
     title: feature.title,
-    notes: feature.notes,
+    notes: feature.detail
+      ? `${feature.notes}\n\n---\n\n${feature.detailLabel || "Detail"}\n\n${feature.detail}`
+      : feature.notes,
   });
 
   await deleteFeature(user.id, input.featureId);

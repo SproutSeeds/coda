@@ -31,6 +31,8 @@ export const ideaFeatures = pgTable("idea_features", {
     .references(() => ideas.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   notes: text("notes").notNull(),
+  detail: text("detail").notNull().default(""),
+  detailLabel: text("detail_label").notNull().default("Detail"),
   position: doublePrecision("position").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()

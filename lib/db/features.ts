@@ -77,6 +77,8 @@ export async function createFeature(userId: string, input: FeatureInput) {
       ideaId: payload.ideaId,
       title: payload.title,
       notes: payload.notes,
+      detail: payload.detail ?? "",
+      detailLabel: payload.detailLabel ?? "Detail",
       position,
       starred: payload.starred ?? false,
     })
@@ -112,6 +114,8 @@ export async function updateFeature(userId: string, input: FeatureUpdateInput) {
   const updates: Partial<typeof ideaFeatures.$inferInsert> = { updatedAt: new Date() };
   if (payload.title !== undefined) updates.title = payload.title;
   if (payload.notes !== undefined) updates.notes = payload.notes;
+  if (payload.detail !== undefined) updates.detail = payload.detail;
+  if (payload.detailLabel !== undefined) updates.detailLabel = payload.detailLabel;
 
   const [updated] = await db
     .update(ideaFeatures)
@@ -314,6 +318,8 @@ export type FeatureRecord = ReturnType<typeof normalizeFeature>;
 function normalizeFeature(row: typeof ideaFeatures.$inferSelect) {
   return {
     ...row,
+    detail: row.detail ?? "",
+    detailLabel: row.detailLabel ?? "Detail",
     createdAt: row.createdAt?.toISOString?.() ?? String(row.createdAt),
     updatedAt: row.updatedAt?.toISOString?.() ?? String(row.updatedAt),
     completed: Boolean(row.completed),
