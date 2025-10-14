@@ -125,6 +125,15 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
   const [restoreTargetId, setRestoreTargetId] = useState<string | null>(null);
   const filterPanelRef = useRef<HTMLDivElement | null>(null);
   const filterTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const blurActiveElement = useCallback(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+    const active = document.activeElement;
+    if (active instanceof HTMLElement) {
+      active.blur();
+    }
+  }, []);
 
   useEffect(() => {
     const nextGithub = idea.githubUrl ?? "";
@@ -166,6 +175,7 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
 
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        blurActiveElement();
         setShowFilters(false);
       }
     };
@@ -176,7 +186,7 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
       document.removeEventListener("mousedown", handleClick);
       document.removeEventListener("keydown", handleKey);
     };
-  }, [showFilters]);
+  }, [blurActiveElement, showFilters]);
 
   const createdAt = useMemo(() => formatDateTime(idea.createdAt), [idea.createdAt]);
   const updatedAt = useMemo(() => formatDateTime(idea.updatedAt), [idea.updatedAt]);
@@ -580,7 +590,7 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
         toast.error(err instanceof Error ? err.message : "Unable to delete idea");
       }
     });
-  }, [deleteIdeaAction, deleteInput, idea.id, isPending, restoreIdeaAction, router, showUndoToast, startTransition, syncedIdea.title]);
+  }, [deleteInput, idea.id, isPending, router, startTransition, syncedIdea.title]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -592,6 +602,7 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
 
       if (isConfirmingDelete) {
         resetDeleteConfirmation();
+        blurActiveElement();
         return;
       }
 
@@ -599,22 +610,26 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
         setGithubDraft(syncedIdea.githubUrl);
         setIsEditingGithub(false);
         setGithubAutoState("idle");
+        blurActiveElement();
         return;
       }
 
       if (isEditing) {
         exitEditingState();
+        blurActiveElement();
         return;
       }
 
       if (isCoreExpanded) {
         setIsCoreExpanded(false);
+        blurActiveElement();
         return;
       }
 
       const activeComposer = document.querySelector('[data-testid="feature-composer-expanded"]');
       if (activeComposer) {
         window.dispatchEvent(new CustomEvent("coda:feature-composer:close", { detail: { ideaId: idea.id } }));
+        blurActiveElement();
         return;
       }
 
@@ -626,12 +641,24 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
         return;
       }
 
+      blurActiveElement();
       router.push("/dashboard/ideas");
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [exitEditingState, isConfirmingDelete, isEditing, isEditingGithub, isCoreExpanded, resetDeleteConfirmation, router, syncedIdea.githubUrl]);
+  }, [
+    blurActiveElement,
+    exitEditingState,
+    idea.id,
+    isConfirmingDelete,
+    isEditing,
+    isEditingGithub,
+    isCoreExpanded,
+    resetDeleteConfirmation,
+    router,
+    syncedIdea.githubUrl,
+  ]);
 
   return (
     <motion.div
@@ -940,6 +967,7 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
                       event.preventDefault();
                       event.stopPropagation();
                       exitEditingState();
+                      blurActiveElement();
                     }
                   }}
                   placeholder="Idea title"
@@ -972,6 +1000,7 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
                       event.preventDefault();
                       event.stopPropagation();
                       exitEditingState();
+                      blurActiveElement();
                     }
                   }}
                   maxLength={IDEA_NOTES_CHARACTER_LIMIT}
@@ -1081,7 +1110,7 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
                 </Button>
               </div>
             </div>
-              {isEditingGithub ? (
+            {isEditingGithub ? (
               <div className="space-y-3" data-testid="github-editing">
                 <Input
                   value={linkLabelDraft}
@@ -1100,6 +1129,7 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
                       setLinkLabelDraft(syncedIdea.linkLabel);
                       setIsEditingGithub(false);
                       setGithubAutoState("idle");
+                      blurActiveElement();
                     }
                   }}
                   placeholder="Title of URL"
@@ -1123,6 +1153,7 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
                       setLinkLabelDraft(syncedIdea.linkLabel);
                       setIsEditingGithub(false);
                       setGithubAutoState("idle");
+                      blurActiveElement();
                     }
                   }}
                   placeholder="https://github.com/your-org/your-repo"

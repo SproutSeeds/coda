@@ -1,6 +1,12 @@
 "use client";
 
-import type { CSSProperties, KeyboardEventHandler, MouseEventHandler, ReactNode, SyntheticEvent } from "react";
+import type {
+  CSSProperties,
+  KeyboardEventHandler,
+  MouseEventHandler,
+  ReactNode,
+  SyntheticEvent,
+} from "react";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
@@ -59,6 +65,16 @@ export function IdeaCard({
     setDeleteInput("");
   }, []);
 
+  const blurActiveElement = useCallback(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+    const active = document.activeElement;
+    if (active instanceof HTMLElement) {
+      active.blur();
+    }
+  }, []);
+
   useEffect(() => {
     if (!isConfirmingDelete) {
       return;
@@ -69,12 +85,13 @@ export function IdeaCard({
         return;
       }
       event.preventDefault();
+      blurActiveElement();
       resetDeleteConfirmation();
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isConfirmingDelete, resetDeleteConfirmation]);
+  }, [blurActiveElement, isConfirmingDelete, resetDeleteConfirmation]);
 
   const updatedLabel = formatUpdated(idea.updatedAt ?? idea.createdAt);
   const handleNavigate = () => {
@@ -118,7 +135,7 @@ export function IdeaCard({
         toast.error(err instanceof Error ? err.message : "Unable to delete idea");
       }
     });
-  }, [deleteInput, deleteIdeaAction, idea.id, idea.title, isPending, resetDeleteConfirmation, restoreIdeaAction, showUndoToast, startTransition]);
+  }, [deleteInput, idea.id, idea.title, isPending, resetDeleteConfirmation, startTransition]);
 
   const handleConfirmDelete: MouseEventHandler<HTMLButtonElement> = (event) => {
     event.stopPropagation();
@@ -126,6 +143,13 @@ export function IdeaCard({
   };
 
   const stopPropagation = (event: SyntheticEvent) => {
+    event.stopPropagation();
+  };
+
+  const stopKeyDownPropagation: KeyboardEventHandler<HTMLElement> = (event) => {
+    if (event.key === "Escape") {
+      return;
+    }
     event.stopPropagation();
   };
 
@@ -178,7 +202,7 @@ export function IdeaCard({
       >
         <div className="flex flex-wrap items-start gap-3 sm:flex-nowrap">
           {dragHandle ? (
-            <div onClick={stopPropagation} onKeyDown={stopPropagation} className="shrink-0">
+            <div onClick={stopPropagation} onKeyDown={stopKeyDownPropagation} className="shrink-0">
               {dragHandle}
             </div>
           ) : null}

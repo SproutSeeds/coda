@@ -38,8 +38,15 @@ export function FeatureComposer({ ideaId }: { ideaId: string }) {
   const [hydrated, setHydrated] = useState(false);
 
   const trimmedTitle = title.trim();
-  const trimmedNotes = notes.trim();
-
+  const blurActiveElement = useCallback(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+    const active = document.activeElement;
+    if (active instanceof HTMLElement) {
+      active.blur();
+    }
+  }, []);
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -91,19 +98,21 @@ export function FeatureComposer({ ideaId }: { ideaId: string }) {
 
   useEffect(() => () => resetCelebration(), [resetCelebration]);
 
-  const handleSave = () => {
-    if (!trimmedTitle) {
+  const handleSave = useCallback(() => {
+    const nextTitle = title.trim();
+    const nextNotes = notes.trim();
+    if (!nextTitle) {
       toast.error("Name your feature before saving");
       return;
     }
-    if (!trimmedNotes) {
+    if (!nextNotes) {
       toast.error("Describe the feature before saving");
       return;
     }
 
     startTransition(async () => {
       try {
-        await createFeatureAction({ ideaId, title: trimmedTitle, notes: trimmedNotes, starred });
+        await createFeatureAction({ ideaId, title: nextTitle, notes: nextNotes, starred });
         toast.success("Feature added");
         setTitle("");
         setNotes("");
@@ -127,12 +136,13 @@ export function FeatureComposer({ ideaId }: { ideaId: string }) {
         toast.error(error instanceof Error ? error.message : "Unable to add feature");
       }
     });
-  };
+  }, [ideaId, notes, router, startTransition, starred, storageKey, title]);
 
   const handleCancel = useCallback(() => {
     setIsExpanded(false);
     setStarred(false);
-  }, []);
+    blurActiveElement();
+  }, [blurActiveElement]);
 
   const handleKeyCommands = useCallback(
     (event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -146,9 +156,10 @@ export function FeatureComposer({ ideaId }: { ideaId: string }) {
         event.preventDefault();
         event.stopPropagation();
         handleCancel();
+        blurActiveElement();
       }
     },
-    [handleCancel, handleSave],
+    [blurActiveElement, handleCancel, handleSave],
   );
 
   const hasDraft = Boolean(title || notes);
@@ -165,11 +176,12 @@ export function FeatureComposer({ ideaId }: { ideaId: string }) {
       event.preventDefault();
       event.stopPropagation();
       handleCancel();
+      blurActiveElement();
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleCancel, isExpanded]);
+  }, [blurActiveElement, handleCancel, isExpanded]);
 
   useEffect(() => {
     const handleComposerClose = (event: Event) => {

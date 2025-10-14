@@ -147,7 +147,7 @@ export function SuggestionCard({
         toast.error(err instanceof Error ? err.message : "Unable to delete suggestion");
       }
     });
-  }, [deleteSuggestionAction, deleteTitleMatches, isPending, resetDeleteConfirmation, restoreSuggestionAction, router, startTransition, suggestion.id]);
+  }, [deleteTitleMatches, isPending, resetDeleteConfirmation, router, startTransition, suggestion.id]);
 
   const handleConfirmDelete: MouseEventHandler<HTMLButtonElement> = (event) => {
     event.stopPropagation();

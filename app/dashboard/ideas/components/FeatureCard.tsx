@@ -191,6 +191,16 @@ export function FeatureCard({
     setIsConfirmingConvert(false);
   }, [syncedFeature.detail, syncedFeature.detailLabel, syncedFeature.notes, syncedFeature.title, setIsConfirmingConvert]);
 
+  const blurActiveElement = useCallback(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+    const active = document.activeElement;
+    if (active instanceof HTMLElement) {
+      active.blur();
+    }
+  }, []);
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
@@ -217,12 +227,13 @@ export function FeatureCard({
         if (typeof event.stopImmediatePropagation === "function") {
           event.stopImmediatePropagation();
         }
+        blurActiveElement();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [cancelEditing, isConfirmingConvert, isConfirmingDelete, isEditing, isExpanded, resetDeleteConfirmation, setIsConfirmingConvert]);
+  }, [blurActiveElement, cancelEditing, isConfirmingConvert, isConfirmingDelete, isEditing, isExpanded, resetDeleteConfirmation, setIsConfirmingConvert]);
 
   const saveFeature = useCallback(
     async (titleValue: string, notesValue: string, detailValue: string, detailLabelValue: string) => {
@@ -361,7 +372,7 @@ export function FeatureCard({
         toast.error(error instanceof Error ? error.message : "Unable to delete feature");
       }
     });
-  }, [deleteFeatureAction, deleteTitleMatches, feature.id, isMutating, resetDeleteConfirmation, router, startMutate]);
+  }, [deleteTitleMatches, feature.id, isMutating, resetDeleteConfirmation, router, startMutate]);
 
   const handleToggleStar = () => {
     const next = !isStarred;
@@ -488,7 +499,12 @@ export function FeatureCard({
             {dragHandle ? (
               <div
                 onClick={(event) => event.stopPropagation()}
-                onKeyDown={(event) => event.stopPropagation()}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    return;
+                  }
+                  event.stopPropagation();
+                }}
                 className="shrink-0"
               >
                 {dragHandle}
@@ -514,7 +530,12 @@ export function FeatureCard({
                 <div
                   className="space-y-3"
                   onClick={(event) => event.stopPropagation()}
-                  onKeyDown={(event) => event.stopPropagation()}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      return;
+                    }
+                    event.stopPropagation();
+                  }}
                 >
                   {hasRenderedDetail ? (
                     <div className="rounded-lg border border-border/60 bg-card/60 px-3 py-2" data-testid="feature-detail-summary">
@@ -552,19 +573,23 @@ export function FeatureCard({
                         </div>
                         <button
                           type="button"
-                          className="inline-flex cursor-pointer items-center gap-1 text-xs font-semibold uppercase tracking-wide text-primary underline-offset-4 transition hover:underline"
+                          className="inline-flex cursor-pointer items-center gap-1 text-xs font-semibold tracking-wide text-primary underline-offset-4 transition hover:underline"
                           onClick={(event) => {
                             event.stopPropagation();
                             setIsExpanded((prev) => !prev);
                           }}
                           onKeyDown={(event) => {
-                            if (event.key === "Escape") {
-                              event.preventDefault();
-                              event.stopPropagation();
-                              setIsExpanded(false);
-                            }
-                          }}
-                        >
+                          if (event.key !== "Escape") {
+                            return;
+                          }
+                          if (isExpanded) {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            setIsExpanded(false);
+                            blurActiveElement();
+                          }
+                        }}
+                      >
                           {isExpanded ? (
                             <>
                               <X className="size-3" /> Hide details
@@ -593,6 +618,7 @@ export function FeatureCard({
                             event.preventDefault();
                             event.stopPropagation();
                             setIsExpanded(false);
+                            blurActiveElement();
                           }
                         }}
                       >
@@ -658,10 +684,14 @@ export function FeatureCard({
                         setIsExpanded((prev) => !prev);
                       }}
                       onKeyDown={(event) => {
-                        if (event.key === "Escape") {
+                        if (event.key !== "Escape") {
+                          return;
+                        }
+                        if (isExpanded) {
                           event.preventDefault();
                           event.stopPropagation();
                           setIsExpanded(false);
+                          blurActiveElement();
                         }
                       }}
                     >
@@ -683,7 +713,12 @@ export function FeatureCard({
           <div
             className="flex flex-wrap items-center justify-between gap-2 sm:gap-3"
             onClick={(event) => event.stopPropagation()}
-            onKeyDown={(event) => event.stopPropagation()}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                return;
+              }
+              event.stopPropagation();
+            }}
           >
             <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground/80">
               {completionDisplay}
@@ -763,7 +798,12 @@ export function FeatureCard({
           <CardContent
             className="space-y-3"
             onClick={(event) => event.stopPropagation()}
-            onKeyDown={(event) => event.stopPropagation()}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                return;
+              }
+              event.stopPropagation();
+            }}
           >
             <Input
               value={draftTitle}
@@ -775,12 +815,13 @@ export function FeatureCard({
                   handleManualSave();
                   return;
                 }
-                if (event.key === "Escape") {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  cancelEditing();
-                }
-              }}
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      cancelEditing();
+                      blurActiveElement();
+                    }
+                  }}
               disabled={featureAutoState === "saving"}
               data-testid="feature-edit-title-input"
               maxLength={255}
@@ -804,6 +845,7 @@ export function FeatureCard({
                   event.preventDefault();
                   event.stopPropagation();
                   cancelEditing();
+                  blurActiveElement();
                 }
               }}
               rows={4}
@@ -905,12 +947,13 @@ export function FeatureCard({
                       handleManualSave();
                       return;
                     }
-                    if (event.key === "Escape") {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      cancelEditing();
-                    }
-                  }}
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  cancelEditing();
+                  blurActiveElement();
+                }
+              }}
                   rows={3}
                   disabled={featureAutoState === "saving"}
                   placeholder="Add optional detail for quick reference"
@@ -1035,7 +1078,12 @@ export function FeatureCard({
           <CardContent
             className="pt-0"
             onClick={(event) => event.stopPropagation()}
-            onKeyDown={(event) => event.stopPropagation()}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                return;
+              }
+              event.stopPropagation();
+            }}
           >
             <div
               className="mt-2 rounded-lg border border-destructive/40 bg-destructive/5 p-4"
