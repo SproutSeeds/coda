@@ -3,13 +3,15 @@
 Auto-generated from active feature plans. Last updated: 2025-10-05
 
 ## Active Technologies
-- TypeScript 5.x with Next.js App Router (strict mode, Server Actions)
+- TypeScript 5.x with Next.js App Router (Node runtime)
 - Tailwind CSS + shadcn/ui + lucide-react component set
-- Framer Motion micro-interactions with prefers-reduced-motion support
-- Drizzle ORM + drizzle-zod with PostgreSQL (Neon locally, Vercel Postgres in prod)
-- Auth.js (email magic links + password credentials)
-- Upstash Redis rate limiting, Vercel Analytics instrumentation
-- Drag-and-drop ordering via @dnd-kit (mouse + keyboard accessible)
+- Framer Motion for premium micro-interactions with prefers-reduced-motion support
+- Drizzle ORM + Drizzle Kit with drizzle-zod validation for PostgreSQL
+- Auth.js (email magic links + password credentials) authentication flows
+- Drag-and-drop idea ordering with @dnd-kit (mouse + keyboard accessible)
+- TypeScript 5.x targeting Next.js 14 App Router + Next.js (App Router RSC + Server Actions), Tailwind CSS + shadcn/ui, Framer Motion, Auth.js (email magic links + password credentials), Drizzle ORM + drizzle-zod, Upstash Redis rate limiter, Vercel Analytics (001-build-a-lightweight)
+- PostgreSQL (Vercel Postgres in prod, Neon for local dev) with Drizzle migrations (001-build-a-lightweight)
+- TypeScript 5.x targeting Next.js 14 App Router + Next.js (App Router RSC + Server Actions), Tailwind CSS + shadcn/ui, Framer Motion, Auth.js (email magic links + password credentials + dev Credentials), Drizzle ORM + drizzle-zod, Upstash Redis rate limiter, Vercel Analytics (001-build-a-lightweight)
 
 ## Project Structure
 ```
@@ -43,9 +45,10 @@ tests/
 - Favor Server Actions + RSC; keep client bundles lean.
 
 ## Recent Changes
-- 003-build-out-a: Extended import/export flows, strict-mode Next.js App Router upgrades, Redis-backed rate limiting.
 - 002-create-custom-gorgeously: Added persisted theme preferences with next-themes provider, theme onboarding prompt, and high-contrast safeguards.
-- 001-build-a-lightweight: Introduced the core MVP stack (Next.js App Router, Tailwind + shadcn/ui, Framer Motion, Auth.js, Drizzle ORM, Upstash Redis, Vercel Analytics).
+- 001-build-a-lightweight: Added TypeScript 5.x targeting Next.js 14 App Router + Next.js (App Router RSC + Server Actions), Tailwind CSS + shadcn/ui, Framer Motion, Auth.js (email magic links + password credentials + dev Credentials), Drizzle ORM + drizzle-zod, Upstash Redis rate limiter, Vercel Analytics
+- 001-build-a-lightweight: Added TypeScript 5.x targeting Next.js 14 App Router + Next.js (App Router RSC + Server Actions), Tailwind CSS + shadcn/ui, Framer Motion, Auth.js (email magic links + password credentials + dev Credentials), Drizzle ORM + drizzle-zod, Upstash Redis rate limiter, Vercel Analytics
 
 <!-- MANUAL ADDITIONS START -->
+- All new interactive buttons or links must use our standard “interactive-btn” grow & tilt hover treatment; do **not** reintroduce the legacy green highlight state.
 <!-- MANUAL ADDITIONS END -->

@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
 
 import { IdeaList } from "./IdeaList";
 import { DeletedIdeaList } from "./DeletedIdeaList";
@@ -12,9 +11,6 @@ import type { Idea } from "./types";
 import { SearchBar } from "./SearchBar";
 import { cn } from "@/lib/utils";
 import { Funnel } from "lucide-react";
-import { exportAllIdeasAsJsonAction } from "../actions";
-import { useImportIdeas } from "./hooks/useImportIdeas";
-import { ImportIdeasDialog } from "./ImportIdeasDialog";
 
 const sortOptions = [
   { value: "priority", label: "Manual priority" },
@@ -41,29 +37,6 @@ export function IdeaBoard({
   const filterPanelRef = useRef<HTMLDivElement | null>(null);
   const filterTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [ideaFilter, setIdeaFilter] = useState<"all" | "starred" | "unstarred">("all");
-  const [isExportingAll, startExportAllTransition] = useTransition();
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  const {
-    handleFileChange: handleImportFileChange,
-    isPreviewing,
-    isCommitting,
-    dialogOpen,
-    preview,
-    rows,
-    decisions,
-    applyToAllAction,
-    updateDecision,
-    clearApplyToAll,
-    confirmImport,
-    resetState: resetImportState,
-  } = useImportIdeas({
-    onResetInput: () => {
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    },
-  });
 
   const currentSort = useMemo(() => {
     const allowed = sortOptions.map((option) => option.value);
@@ -137,70 +110,15 @@ export function IdeaBoard({
     }
   }, [ideaFilter, ideas]);
 
-  const handleExportAll = () => {
-    startExportAllTransition(async () => {
-      try {
-        const payload = await exportAllIdeasAsJsonAction();
-        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-        const anchor = document.createElement("a");
-        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-        const url = URL.createObjectURL(blob);
-        anchor.href = url;
-        anchor.download = `coda-ideas-export-${timestamp}.json`;
-        document.body.appendChild(anchor);
-        anchor.click();
-        document.body.removeChild(anchor);
-        toast.success("Export ready");
-        setTimeout(() => {
-          URL.revokeObjectURL(url);
-        }, 0);
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Unable to export ideas");
-      }
-    });
-  };
-
   return (
     <div className="relative space-y-4">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="space-y-1">
           <h2 className="text-lg font-semibold">Ideas</h2>
-          <p className="text-sm text-muted-foreground">Keep ’em coming!</p>
+          <p className="text-sm text-muted-foreground">High-signal captures and in-flight builds.</p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
           <SearchBar className="w-full sm:max-w-sm lg:max-w-md" />
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="application/json"
-            className="hidden"
-            data-testid="ideas-import-input"
-            onChange={(event) => {
-              handleImportFileChange(event.target.files);
-              event.target.value = "";
-            }}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="interactive-btn whitespace-nowrap text-xs font-semibold uppercase text-muted-foreground hover:bg-transparent hover:text-foreground"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isPreviewing || isCommitting}
-            data-testid="ideas-import-button"
-          >
-            {isPreviewing ? "Analyzing…" : isCommitting ? "Importing…" : "Import ideas"}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="interactive-btn whitespace-nowrap text-xs font-semibold uppercase text-muted-foreground hover:bg-transparent hover:text-foreground"
-            onClick={handleExportAll}
-            disabled={isExportingAll}
-          >
-            {isExportingAll ? "Exporting…" : "Export all ideas"}
-          </Button>
           <Button
             type="button"
             variant="outline"
@@ -313,19 +231,6 @@ export function IdeaBoard({
       ) : (
         <DeletedIdeaList ideas={deleted} />
       )}
-
-      <ImportIdeasDialog
-        open={dialogOpen}
-        summary={preview}
-        rows={rows}
-        decisions={decisions}
-        applyToAllAction={applyToAllAction}
-        onDecisionChange={updateDecision}
-        onClearApplyToAll={clearApplyToAll}
-        onConfirm={confirmImport}
-        onClose={resetImportState}
-        isCommitting={isCommitting}
-      />
     </div>
   );
 }

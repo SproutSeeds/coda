@@ -144,45 +144,6 @@ After major code or plan shifts, run `.specify/scripts/bash/update-agent-context
 
 ---
 
-## Importing Ideas
-
-- Click **Import ideas** on the Ideas dashboard (adjacent to **Export all ideas**).
-- Select a JSON bundle produced by the export flow. The preview dialog summarises how many ideas/features are new, updated, or unchanged.
-- For duplicate titles, pick **Update existing** or **Create new**. Use the **Apply to all** control to cascade the current decision across every duplicate.
-- Confirm the import. Success toasts list created/updated counts; errors display a red toast with diagnostics and no data mutations.
-- Re-import a previous export to restore the workspace or seed another environment.
-
-### JSON Schema & Sample Payload
-
-- **Sample**: `docs/idea-import-sample.json` shows a one-idea export with three nested features—it matches what the UI downloads.
-- **Schema**: `docs/idea-import-export-schema.json` captures the contract (envelope fields, idea/feature shapes). Highlights:
-  - Top level: `schemaVersion`, `exportedAt`, `ideaCount`, `featureCount`, `ideas[]`.
-  - Each entry in `ideas[]` contains an `idea` object and a `features[]` collection.
-  - Optional nullable fields (`githubUrl`, `deletedAt`, `completedAt`) stay explicit to avoid ambiguity at import time.
-
-A trimmed excerpt of the sample payload:
-
-```jsonc
-{
-  "schemaVersion": 1,
-  "ideaCount": 1,
-  "featureCount": 4,
-  "ideas": [
-    {
-      "idea": { "id": "coda-aurora-0001", "title": "Coda Aurora Initiative", "starred": true },
-      "features": [
-        { "id": "aurora-telescope", "title": "Telemetry Telescope", "starred": true },
-        { "id": "aurora-fieldguide", "title": "Field Guide Narratives" },
-        { "id": "aurora-signalflare", "title": "Signal Flare Automations", "starred": true },
-        { "id": "aurora-compass", "title": "Roadmap Compass" }
-      ]
-    }
-  ]
-}
-```
-
----
-
 ## Conversion Flows
 
 | Action | Entry Point | Result |
@@ -199,41 +160,6 @@ Both conversions record analytics events and reuse server actions for consistenc
 - **Interactive elements** use the `interactive-btn` helper for the subtle grow/tilt effect. Do not reinstate the old green hover state.
 - **Collapsible sections** default to hidden. Motion durations stay ≤ 200 ms to respect reduced-motion settings.
 - **Outline buttons** stay neutral on hover: we apply `hover:bg-primary/5` or `hover:bg-transparent` depending on context.
-
----
-
-## Environment & Deployment Setup
-
-### Required Environment Variables
-- `DATABASE_URL` – Neon (local) or Vercel Postgres (cloud) connection string.
-- `NEXTAUTH_SECRET`, `NEXTAUTH_URL` – Auth.js session secret + base URL.
-- `EMAIL_*` – SMTP configuration for Auth.js magic links.
-- `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` – Redis REST credentials for rate limiting.
-- `CRON_SECRET` – Shared secret for Vercel Cron invocations.
-- `GITHUB_ID`, `GITHUB_SECRET` – Optional GitHub OAuth provider.
-
-Create `.env.local` from `.env.example`, populate the values above, and mirror them in Vercel for Development/Preview/Production.
-
-### Upstash Redis
-1. Create a free Redis database at [Upstash](https://upstash.com/).
-2. Copy the REST URL/token into `.env.local` and Vercel (`UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`).
-3. No client-side access is needed—the server actions call Upstash directly.
-
-### Vercel Cron (Undo Purge)
-1. Add `vercel.json` to schedule the purge script:
-   ```json
-   {
-     "crons": [
-       { "path": "/api/cron/purge-undo", "schedule": "0 8 * * *" }
-     ]
-   }
-   ```
-2. Generate a secret (`openssl rand -hex 32`) and set it as `CRON_SECRET` in Vercel + `.env.local`.
-3. The cron handler checks `Authorization: Bearer ${CRON_SECRET}` before triggering the purge.
-
-### Local vs. Cloud Databases
-- Neon is recommended for local development; run `pnpm db:migrate` after pulling a teammate’s changes.
-- Vercel Postgres handles Preview/Production deployments; migrations run in the postbuild script guarded by `VERCEL_ENV === "production"`.
 
 ---
 
@@ -284,3 +210,5 @@ For questions, check `AGENTS.md` or open a discussion.
 ## License
 
 Copyright © SproutSeeds. All rights reserved.
+
+

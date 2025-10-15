@@ -3,14 +3,11 @@
 import { redirect } from "next/navigation";
 
 import { createFeature, deleteFeature, getFeatureById, listDeletedFeatures, listFeatures, reorderFeatures, restoreFeature, setFeatureCompletion, updateFeature, updateFeatureStar } from "@/lib/db/features";
-import { createIdea, getIdea, listDeletedIdeas, listIdeas, purgeIdea, reorderIdeas, restoreIdea, searchIdeas, softDeleteIdea, updateIdea, updateIdeaStar, type IdeaRecord, type IdeaSort } from "@/lib/db/ideas";
+import { createIdea, getIdea, listDeletedIdeas, listIdeas, purgeIdea, reorderIdeas, restoreIdea, searchIdeas, softDeleteIdea, updateIdea, updateIdeaStar, type IdeaSort } from "@/lib/db/ideas";
 import { trackEvent } from "@/lib/utils/analytics";
 import { consumeRateLimit } from "@/lib/utils/rate-limit";
 import { consumeUndoToken, createUndoToken } from "@/lib/utils/undo";
 import { requireUser } from "@/lib/auth/session";
-import { importIdeasAction } from "./import";
-
-export { importIdeasAction };
 
 export async function createIdeaAction(formData: FormData | { title: string; notes: string }) {
   const user = await requireUser();
@@ -103,62 +100,14 @@ export async function loadIdeaWithFeatures(id: string) {
   return { idea, features, deletedFeatures };
 }
 
-type IdeaExportBundle = {
-  idea: IdeaRecord;
-  features: Awaited<ReturnType<typeof listFeatures>>;
-};
-
-function buildIdeaExportEnvelope(bundles: IdeaExportBundle[], exportedAt: Date) {
-  return {
-    schemaVersion: 1,
-    exportedAt: exportedAt.toISOString(),
-    ideaCount: bundles.length,
-    featureCount: bundles.reduce((total, bundle) => total + bundle.features.length, 0),
-    ideas: bundles,
-  };
-}
-
-async function fetchIdeaBundle(userId: string, ideaId: string): Promise<IdeaExportBundle> {
-  const idea = await getIdea(userId, ideaId);
-  const features = await listFeatures(userId, ideaId);
-  return { idea, features };
-}
-
 export async function exportIdeaAsJsonAction(id: string) {
   const user = await requireUser();
-  const exportedAt = new Date();
-  const bundle = await fetchIdeaBundle(user.id, id);
-  return buildIdeaExportEnvelope([bundle], exportedAt);
-}
-
-export async function exportAllIdeasAsJsonAction() {
-  const user = await requireUser();
-  const pageSize = 200;
-  let cursor: string | undefined;
-  const bundles: IdeaExportBundle[] = [];
-  const exportedAt = new Date();
-
-  while (true) {
-    const { items, nextCursor } = await listIdeas(user.id, pageSize, cursor, "priority");
-    if (items.length === 0) {
-      break;
-    }
-
-    const featureBatches = await Promise.all(items.map((idea) => listFeatures(user.id, idea.id)));
-    items.forEach((idea, index) => {
-      bundles.push({
-        idea,
-        features: featureBatches[index] ?? [],
-      });
-    });
-
-    if (!nextCursor) {
-      break;
-    }
-    cursor = nextCursor;
-  }
-
-  return buildIdeaExportEnvelope(bundles, exportedAt);
+  const idea = await getIdea(user.id, id);
+  const features = await listFeatures(user.id, id);
+  return {
+    idea,
+    features,
+  };
 }
 
 export async function requireAuth() {

@@ -777,7 +777,7 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
               disabled={isExporting}
               data-testid="idea-export-button"
             >
-            {isExporting ? "Exporting…" : "Export idea"}
+              {isExporting ? "Exporting…" : "Export JSON"}
             </Button>
             <Button
               variant="outline"
@@ -1229,7 +1229,7 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
               disabled={isExporting}
               data-testid="idea-export-button"
             >
-            {isExporting ? "Exporting…" : "Export idea"}
+              {isExporting ? "Exporting…" : "Export JSON"}
             </Button>
             <Button
               variant="outline"
