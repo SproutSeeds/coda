@@ -67,7 +67,7 @@ export async function importIdeasAction(formData: FormData): Promise<ImportIdeas
     envelope = parseImportEnvelope({ payload: coercedPayload, sizeInBytes: file.size });
   } catch (error) {
     if (error instanceof ZodError) {
-      const detail = error.errors?.map?.((issue) => issue.message).join("; ") || "Invalid structure";
+      const detail = error.issues.map((issue) => issue.message).join("; ") || "Invalid structure";
       throw new Error(`Invalid import file: ${detail}`);
     }
     throw error;
