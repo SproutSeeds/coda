@@ -246,23 +246,30 @@ export function coerceImportPayload(payload: unknown): unknown {
   }
 
   const idea = record.idea;
-  const features = Array.isArray(record.features) ? record.features : [];
   if (!idea || typeof idea !== "object") {
     return payload;
   }
+
+  const typedIdea = idea as Record<string, unknown>;
+  if (typeof typedIdea.title !== "string" || typedIdea.title.trim().length === 0) {
+    return payload;
+  }
+
+  const featuresRaw = Array.isArray(record.features) ? record.features : [];
+  const normalizedFeatures = featuresRaw.filter((feature) => feature && typeof feature === "object");
 
   return {
     schemaVersion: 1,
     exportedAt: undefined,
     ideaCount: 1,
-    featureCount: features.length,
+    featureCount: normalizedFeatures.length,
     ideas: [
       {
-        idea,
-        features,
+        idea: typedIdea,
+        features: normalizedFeatures,
       },
     ],
-  } satisfies Partial<ImportEnvelope>;
+  } as unknown as Partial<ImportEnvelope>;
 }
 
 export function parseImportEnvelope({ payload, sizeInBytes }: { payload: unknown; sizeInBytes: number }): ImportEnvelope {
