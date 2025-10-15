@@ -1,0 +1,172 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Coda Idea Export",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "ideaCount",
+    "featureCount",
+    "ideas"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "exportedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ideaCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "featureCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "ideas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "idea",
+          "features"
+        ],
+        "properties": {
+          "idea": {
+            "type": "object",
+            "required": [
+              "id",
+              "title",
+              "notes"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "userId": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "notes": {
+                "type": "string"
+              },
+              "position": {
+                "type": "number"
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "updatedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "starred": {
+                "type": "boolean"
+              },
+              "githubUrl": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "linkLabel": {
+                "type": "string"
+              },
+              "deletedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "undoToken": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "undoExpiresAt": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "features": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "title"
+              ],
+              "properties": {
+                "id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "ideaId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "title": {
+                  "type": "string"
+                },
+                "notes": {
+                  "type": "string"
+                },
+                "detail": {
+                  "type": "string"
+                },
+                "detailLabel": {
+                  "type": "string"
+                },
+                "position": {
+                  "type": "number"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "updatedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "starred": {
+                  "type": "boolean"
+                },
+                "completed": {
+                  "type": "boolean"
+                },
+                "completedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "deletedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
