@@ -47,7 +47,7 @@ From your local machine (with `DATABASE_URL` or one of the supported aliases poi
 DATABASE_URL="<production connection string>" pnpm drizzle-kit migrate
 ```
 
-> New in the drag-and-drop release: `0003_add_position_to_ideas.sql` adds the `position` column used for persistent ordering.
+> Keep migrations in order—recent work added import/export helpers, feature detail columns, and completion fields. Running the full set ensures the dashboard, undo flows, and idea import pipeline stay in sync.
 
 Run the same command for the Preview database if you provision one.
 

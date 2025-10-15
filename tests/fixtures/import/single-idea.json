@@ -1,0 +1,64 @@
+{
+  "idea": {
+    "id": "fd24d19b-2fc8-427f-b2e6-ac7190cd2d25",
+    "userId": "be16329a-ff8e-4ef9-8afb-c400a527874a",
+    "title": "Meetup talking points",
+    "notes": "- how are we planning?\n- how are we insuring our success?\n- we are inherently scattered like stars in the sky. It’s interesting when we become less scattered.",
+    "position": 3000,
+    "createdAt": "2025-10-10T15:13:35.167Z",
+    "updatedAt": "2025-10-10T15:13:49.594Z",
+    "starred": true,
+    "githubUrl": null,
+    "linkLabel": "GitHub Repository",
+    "deletedAt": null,
+    "undoToken": null,
+    "undoExpiresAt": null
+  },
+  "features": [
+    {
+      "id": "8252f18b-7f23-400a-804c-338ae95c43b9",
+      "ideaId": "fd24d19b-2fc8-427f-b2e6-ac7190cd2d25",
+      "title": "Develop LIVE Coda Website features",
+      "notes": "About us\nA cool effect on the landing page\na little more information minimalistic to let people know what this is at face value",
+      "detail": "",
+      "detailLabel": "Detail",
+      "position": 1760198143654,
+      "createdAt": "2025-10-11T15:55:43.656Z",
+      "updatedAt": "2025-10-11T15:55:43.656Z",
+      "starred": true,
+      "completed": false,
+      "completedAt": null,
+      "deletedAt": null
+    },
+    {
+      "id": "787f3bd1-5e53-43ae-8f20-cd313970ebdf",
+      "ideaId": "fd24d19b-2fc8-427f-b2e6-ac7190cd2d25",
+      "title": "What should we be building?",
+      "notes": "Looking steps ahead of where we are, what is going to be most in demand?",
+      "detail": "",
+      "detailLabel": "Detail",
+      "position": 1760198141654,
+      "createdAt": "2025-10-11T15:57:03.184Z",
+      "updatedAt": "2025-10-11T15:57:03.184Z",
+      "starred": false,
+      "completed": false,
+      "completedAt": null,
+      "deletedAt": null
+    },
+    {
+      "id": "0c30dc0a-c20f-4d4e-bcbc-2d7c7ab18ef3",
+      "ideaId": "fd24d19b-2fc8-427f-b2e6-ac7190cd2d25",
+      "title": "OpenAI - Keynote Devday 2025",
+      "notes": "Codex CLI\nAgent Kit\nChat Kit\nintegrated apps within chatgpt",
+      "detail": "",
+      "detailLabel": "Detail",
+      "position": 1760198142654,
+      "createdAt": "2025-10-11T15:56:42.304Z",
+      "updatedAt": "2025-10-11T15:56:42.304Z",
+      "starred": false,
+      "completed": false,
+      "completedAt": null,
+      "deletedAt": null
+    }
+  ]
+}
