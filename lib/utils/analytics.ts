@@ -13,6 +13,7 @@ const ANALYTICS_EVENT_NAMES = [
   "idea_purged",
   "idea_starred",
   "idea_unstarred",
+  "idea_super_starred",
   "idea_converted_to_feature",
   "feature_updated",
   "feature_deleted",

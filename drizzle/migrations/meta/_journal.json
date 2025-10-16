@@ -122,6 +122,13 @@
       "when": 1761100000000,
       "tag": "0016_add_feature_detail_label",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "23",
+      "when": 1761200000000,
+      "tag": "0017_add_super_starred_to_ideas",
+      "breakpoints": true
     }
   ]
 }

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { requireUser } from "@/lib/auth/session";
 import { createFeature, listFeatures, setFeatureCompletion, updateFeature, type FeatureRecord } from "@/lib/db/features";
-import { createIdea, listIdeas, updateIdea, updateIdeaStar, type IdeaRecord } from "@/lib/db/ideas";
+import { createIdea, listIdeas, setIdeaStarState, updateIdea, type IdeaRecord } from "@/lib/db/ideas";
 import { trackEvent } from "@/lib/utils/analytics";
 import { buildImportAnalysis, type ImportPlanEntry } from "@/lib/utils/import-diff";
 import {
@@ -268,7 +268,7 @@ async function createIdeaFromBundle(userId: string, bundle: IdeaImportBundle) {
   });
 
   if (bundle.idea.starred) {
-    await updateIdeaStar(userId, idea.id, true);
+    await setIdeaStarState(userId, idea.id, "star");
   }
 
   let createdFeatures = 0;
@@ -312,7 +312,7 @@ async function applyIdeaUpdate(userId: string, entry: ImportPlanEntry) {
   }
 
   if (entry.starredChange !== undefined) {
-    await updateIdeaStar(userId, entry.existingIdea.id, entry.starredChange);
+    await setIdeaStarState(userId, entry.existingIdea.id, entry.starredChange ? "star" : "none");
     result.updated = true;
   }
 

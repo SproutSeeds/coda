@@ -3,7 +3,22 @@
 import { redirect } from "next/navigation";
 
 import { createFeature, deleteFeature, getFeatureById, listDeletedFeatures, listFeatures, reorderFeatures, restoreFeature, setFeatureCompletion, updateFeature, updateFeatureStar } from "@/lib/db/features";
-import { createIdea, getIdea, listDeletedIdeas, listIdeas, purgeIdea, reorderIdeas, restoreIdea, searchIdeas, softDeleteIdea, updateIdea, updateIdeaStar, type IdeaRecord, type IdeaSort } from "@/lib/db/ideas";
+import {
+  createIdea,
+  cycleIdeaStarState,
+  getIdea,
+  listDeletedIdeas,
+  listIdeas,
+  reorderIdeas,
+  purgeIdea,
+  restoreIdea,
+  searchIdeas,
+  setIdeaStarState,
+  softDeleteIdea,
+  type IdeaRecord,
+  type IdeaSort,
+} from "@/lib/db/ideas";
+import { SuperStarLimitError } from "@/lib/errors/super-star-limit";
 import { trackEvent } from "@/lib/utils/analytics";
 import { consumeRateLimit } from "@/lib/utils/rate-limit";
 import { consumeUndoToken, createUndoToken } from "@/lib/utils/undo";
@@ -172,11 +187,26 @@ export async function reorderIdeasAction(ids: string[]) {
   await trackEvent({ name: "idea_reordered", properties: { count: ids.length } });
 }
 
-export async function toggleIdeaStarAction(id: string, starred: boolean) {
+export async function cycleIdeaStarAction(id: string) {
   const user = await requireUser();
-  const idea = await updateIdeaStar(user.id, id, starred);
-  await trackEvent({ name: starred ? "idea_starred" : "idea_unstarred", properties: { ideaId: id } });
-  return idea;
+  try {
+    const idea = await cycleIdeaStarState(user.id, id);
+    const eventName = idea.superStarred
+      ? "idea_super_starred"
+      : idea.starred
+        ? "idea_starred"
+        : "idea_unstarred";
+    await trackEvent({
+      name: eventName,
+      properties: { ideaId: id },
+    });
+    return idea;
+  } catch (error) {
+    if (error instanceof SuperStarLimitError) {
+      throw error;
+    }
+    throw error instanceof Error ? error : new Error("Unable to update star state");
+  }
 }
 
 export async function restoreDeletedIdeaAction(id: string) {

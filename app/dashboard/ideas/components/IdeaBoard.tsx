@@ -125,6 +125,7 @@ export function IdeaBoard({
   const canReorder = currentSort === "priority" && !(query && query.trim().length > 0);
   const totalIdeas = ideas.length;
   const starredIdeas = useMemo(() => ideas.filter((idea) => idea.starred).length, [ideas]);
+  const superStarCount = useMemo(() => ideas.filter((idea) => idea.superStarred).length, [ideas]);
   const unstarredIdeas = totalIdeas - starredIdeas;
   const filteredIdeas = useMemo(() => {
     switch (ideaFilter) {
@@ -166,6 +167,7 @@ export function IdeaBoard({
         <div className="space-y-1">
           <h2 className="text-lg font-semibold">Ideas</h2>
           <p className="text-sm text-muted-foreground">Keep ’em coming!</p>
+          <p className="text-xs text-muted-foreground">Super stars {superStarCount}/3</p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
           <SearchBar className="w-full sm:max-w-sm lg:max-w-md" />

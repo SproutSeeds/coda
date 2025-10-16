@@ -11,14 +11,14 @@ import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter } from "next/navigation";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Copy, Star, StarOff, Trash2, X } from "lucide-react";
+import { Copy, Sparkles, Star, StarOff, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
-import { deleteIdeaAction, restoreIdeaAction, toggleIdeaStarAction } from "../actions";
+import { cycleIdeaStarAction, deleteIdeaAction, restoreIdeaAction } from "../actions";
 import { showUndoToast } from "./UndoSnackbar";
 import type { Idea } from "./types";
 import { cn } from "@/lib/utils";
@@ -94,6 +94,8 @@ export function IdeaCard({
   }, [blurActiveElement, isConfirmingDelete, resetDeleteConfirmation]);
 
   const updatedLabel = formatUpdated(idea.updatedAt ?? idea.createdAt);
+  const starState = idea.superStarred ? "super" : idea.starred ? "star" : "none";
+  const starLabel = starState === "super" ? "Remove super star" : starState === "star" ? "Promote to super star" : "Star idea";
   const handleNavigate = () => {
     router.push(`/dashboard/ideas/${idea.id}`);
   };
@@ -155,13 +157,13 @@ export function IdeaCard({
 
   const handleStar: MouseEventHandler<HTMLButtonElement> = (event) => {
     event.stopPropagation();
-    const nextValue = !idea.starred;
     startTransition(async () => {
       try {
-        await toggleIdeaStarAction(idea.id, nextValue);
+        await cycleIdeaStarAction(idea.id);
         router.refresh();
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Unable to update star status");
+        const message = err instanceof Error ? err.message : "Unable to update star status";
+        toast.error(message);
       }
     });
   };
@@ -249,14 +251,26 @@ export function IdeaCard({
                     variant="ghost"
                     size="icon"
                     className={cn(
-                      "interactive-btn h-8 w-8 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-muted-foreground focus-visible:ring-0",
-                      idea.starred && "text-yellow-400",
+                      "interactive-btn h-8 w-8 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-foreground focus-visible:ring-0",
+                      starState === "star" && "text-yellow-400 hover:text-yellow-300",
+                      starState === "super" && "text-amber-300 drop-shadow-[0_0_8px_rgba(251,191,36,0.55)] hover:text-amber-200",
                     )}
                     onClick={handleStar}
-                    aria-label={idea.starred ? "Unstar idea" : "Star idea"}
+                    aria-label={starLabel}
+                    aria-pressed={idea.starred}
                     data-testid="idea-star-button"
+                    data-star-state={starState}
                   >
-                    {idea.starred ? <Star className="size-4 fill-current" /> : <StarOff className="size-4" />}
+                    {starState === "super" ? (
+                      <span className="relative inline-flex items-center justify-center">
+                        <Star className="size-4 fill-current" />
+                        <Sparkles className="absolute -top-2 -right-2 size-3 text-amber-200" aria-hidden="true" />
+                      </span>
+                    ) : starState === "star" ? (
+                      <Star className="size-4 fill-current" />
+                    ) : (
+                      <StarOff className="size-4" />
+                    )}
                   </Button>
                   <Button
                     type="button"

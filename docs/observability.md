@@ -10,7 +10,7 @@
 | `idea_restored` | Undo flow or recently deleted restore | `ideaId`, optional `source` |
 | `idea_searched` | Search action in dashboard | `query` |
 | `idea_reordered` | Drag reordering completes | `count` |
-| `idea_starred` / `idea_unstarred` | Star toggle | `ideaId` |
+| `idea_starred` / `idea_super_starred` / `idea_unstarred` | Star toggle + super star promotion | `ideaId` |
 | `feature_updated` | Feature edits via server action | `ideaId`, `featureId` |
 | `feature_deleted` | Feature deletion | `featureId` |
 | `feature_reordered` | Feature drag-and-drop reorder | `ideaId`, `count` |

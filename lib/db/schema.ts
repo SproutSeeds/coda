@@ -14,6 +14,8 @@ export const ideas = pgTable("ideas", {
     .defaultNow()
     .notNull(),
   starred: boolean("starred").notNull().default(false),
+  superStarred: boolean("super_starred").notNull().default(false),
+  superStarredAt: timestamp("super_starred_at", { withTimezone: true }),
   githubUrl: text("github_url"),
   linkLabel: text("link_label").notNull().default("GitHub Repository"),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
@@ -22,6 +24,7 @@ export const ideas = pgTable("ideas", {
 }, (table) => ({
   userPositionIdx: index("idx_ideas_user_position").on(table.userId, table.position),
   userStarIdx: index("idx_ideas_user_star").on(table.userId, table.starred),
+  userSuperStarIdx: index("idx_ideas_user_super_star").on(table.userId, table.superStarred),
 }));
 
 export const ideaFeatures = pgTable("idea_features", {
