@@ -241,7 +241,7 @@ export async function reorderIdeas(userId: string, orderedIds: string[]) {
     );
   });
 
-  revalidatePath("/dashboard/ideas");
+  void revalidatePath("/dashboard/ideas");
 }
 
 export async function listDeletedIdeas(userId: string, limit = 50) {
