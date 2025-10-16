@@ -129,6 +129,13 @@
       "when": 1761200000000,
       "tag": "0017_add_super_starred_to_ideas",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "24",
+      "when": 1761300000000,
+      "tag": "0018_add_feature_detail_sections",
+      "breakpoints": true
     }
   ]
 }

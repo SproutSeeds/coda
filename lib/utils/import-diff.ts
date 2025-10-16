@@ -1,4 +1,4 @@
-import { normalizeIdeaTitle, partitionFeatureMergeCandidates, type FeatureImportItem, type IdeaImportBundle, type IdeaImportMetadata, type ImportEnvelope } from "@/lib/validations/import";
+import { normalizeIdeaTitle, partitionFeatureMergeCandidates, type FeatureDetailImportItem, type FeatureImportItem, type IdeaImportBundle, type IdeaImportMetadata, type ImportEnvelope } from "@/lib/validations/import";
 import type { IdeaRecord } from "@/lib/db/ideas";
 import type { FeatureRecord } from "@/lib/db/features";
 
@@ -31,8 +31,7 @@ export interface FeatureUpdatePlan {
 export interface FeatureChangeSet {
   title?: string;
   notes?: string;
-  detail?: string;
-  detailLabel?: string;
+  detailSections?: FeatureDetailImportItem[];
   starred?: boolean;
   completed?: boolean;
   completedAt?: string | null;
@@ -123,11 +122,9 @@ export function buildImportAnalysis({ envelope, existingIdeas, existingFeaturesB
       if (feature.notes !== undefined && feature.notes !== existingFeature.notes) {
         changes.notes = feature.notes;
       }
-      if (feature.detail !== undefined && feature.detail !== existingFeature.detail) {
-        changes.detail = feature.detail;
-      }
-      if (feature.detailLabel !== undefined && feature.detailLabel !== existingFeature.detailLabel) {
-        changes.detailLabel = feature.detailLabel;
+      const detailSections = computeDetailSectionChanges(existingFeature.detailSections, feature.detailSections);
+      if (detailSections !== undefined) {
+        changes.detailSections = detailSections;
       }
       if (feature.starred !== undefined && feature.starred !== existingFeature.starred) {
         changes.starred = feature.starred;
@@ -205,6 +202,43 @@ export function buildImportAnalysis({ envelope, existingIdeas, existingFeaturesB
     },
     entries,
   };
+}
+
+function computeDetailSectionChanges(
+  existing: FeatureRecord["detailSections"],
+  incoming?: FeatureDetailImportItem[],
+): FeatureDetailImportItem[] | undefined {
+  const normalizedIncoming =
+    incoming?.flatMap((section, index) => {
+      if (!section) return [];
+      const label = typeof section.label === "string" ? section.label.trim() : "";
+      const body = typeof section.body === "string" ? section.body.trim() : "";
+      if (!label && !body) {
+        return [];
+      }
+      return [
+        {
+          id: section.id ?? existing[index]?.id,
+          label: label || "Detail",
+          body,
+          position: section.position ?? existing[index]?.position ?? (index + 1) * 1000,
+        },
+      ];
+    }) ?? [];
+
+  if (normalizedIncoming.length !== existing.length) {
+    return normalizedIncoming;
+  }
+
+  for (let index = 0; index < normalizedIncoming.length; index += 1) {
+    const incomingSection = normalizedIncoming[index]!;
+    const existingSection = existing[index]!;
+    if (incomingSection.label !== existingSection.label || incomingSection.body !== existingSection.body) {
+      return normalizedIncoming;
+    }
+  }
+
+  return undefined;
 }
 
 function calculateIdeaChanges(existing: IdeaRecord, incoming: IdeaImportMetadata): {

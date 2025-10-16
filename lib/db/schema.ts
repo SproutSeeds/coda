@@ -1,4 +1,5 @@
-import { pgTable, text, timestamp, uuid, primaryKey, integer, doublePrecision, index, boolean, date, uniqueIndex, pgEnum } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { pgTable, text, timestamp, uuid, primaryKey, integer, doublePrecision, index, boolean, date, uniqueIndex, pgEnum, jsonb } from "drizzle-orm/pg-core";
 import type { AdapterAccount } from "next-auth/adapters";
 
 export const ideas = pgTable("ideas", {
@@ -36,6 +37,10 @@ export const ideaFeatures = pgTable("idea_features", {
   notes: text("notes").notNull(),
   detail: text("detail").notNull().default(""),
   detailLabel: text("detail_label").notNull().default("Detail"),
+  detailSections: jsonb("detail_sections")
+    .$type<Array<{ id: string; label: string; body: string; position: number }>>()
+    .notNull()
+    .default(sql`'[]'::jsonb`),
   position: doublePrecision("position").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()

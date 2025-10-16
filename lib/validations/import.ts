@@ -28,6 +28,15 @@ const coerceNumber = () =>
     })
     .optional();
 
+const featureDetailSectionSchema = z.object({
+  id: nullableTrimmedString(),
+  label: nullableTrimmedString(),
+  body: z.union([z.string(), z.null(), z.undefined()]).transform((value) =>
+    value === null || value === undefined ? undefined : String(value),
+  ),
+  position: coerceNumber(),
+});
+
 const featureSchema = z.object({
   id: nullableTrimmedString(),
   ideaId: nullableTrimmedString(),
@@ -44,6 +53,7 @@ const featureSchema = z.object({
   completed: z.boolean().optional(),
   completedAt: z.union([z.string(), z.null(), z.undefined()]).transform((value) => (value ?? undefined)),
   deletedAt: z.union([z.string(), z.null(), z.undefined()]).transform((value) => (value ?? undefined)),
+  detailSections: z.array(featureDetailSectionSchema).optional(),
 });
 
 const ideaSchema = z.object({
@@ -118,6 +128,13 @@ const envelopeSchema = z
     }
   });
 
+export interface FeatureDetailImportItem {
+  id?: string;
+  label?: string;
+  body?: string;
+  position?: number;
+}
+
 export interface FeatureImportItem {
   id?: string;
   ideaId?: string;
@@ -125,6 +142,7 @@ export interface FeatureImportItem {
   notes?: string;
   detail?: string;
   detailLabel?: string;
+  detailSections?: FeatureDetailImportItem[];
   position?: number;
   starred?: boolean;
   completed?: boolean;
@@ -220,13 +238,46 @@ function sanitizeFeature(feature: z.infer<typeof featureSchema>): FeatureImportI
     throw new Error("Feature title is required");
   }
 
+  const normalizedDetailSections =
+    feature.detailSections?.flatMap((section, index) => {
+      const label = section.label ?? undefined;
+      const body = section.body ?? undefined;
+      const trimmedBody = typeof body === "string" ? body.trim() : undefined;
+      const trimmedLabel = label?.trim();
+
+      if (!trimmedBody && !trimmedLabel) {
+        return [];
+      }
+
+      return [
+        {
+          id: section.id ?? undefined,
+          label: trimmedLabel && trimmedLabel.length > 0 ? trimmedLabel : "Detail",
+          body: trimmedBody ?? "",
+          position: section.position ?? (index + 1) * 1000,
+        },
+      ];
+    }) ?? [];
+
+  if (normalizedDetailSections.length === 0 && feature.detail && feature.detail.trim().length > 0) {
+    normalizedDetailSections.push({
+      id: undefined,
+      label: feature.detailLabel?.trim?.() ? feature.detailLabel!.trim() : "Detail",
+      body: feature.detail,
+      position: 1000,
+    });
+  }
+
+  const primaryDetail = normalizedDetailSections[0];
+
   return {
     id: feature.id,
     ideaId: feature.ideaId,
     title: normalizedTitle,
     notes: feature.notes?.trim() ?? undefined,
-    detail: feature.detail ?? undefined,
-    detailLabel: feature.detailLabel,
+    detail: primaryDetail?.body ?? feature.detail ?? undefined,
+    detailLabel: primaryDetail?.label ?? feature.detailLabel,
+    detailSections: normalizedDetailSections.length > 0 ? normalizedDetailSections : undefined,
     position: feature.position,
     starred: feature.starred,
     completed: feature.completed,

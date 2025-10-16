@@ -26,8 +26,12 @@
           "ideaId": "coda-aurora-0001",
           "title": "Telemetry Telescope",
           "notes": "Stream usage, trust signals, and friction events into a single viewport for PMs and agents.",
-          "detail": "### Acceptance Criteria\n- Merge existing PostHog dashboards with analytics events into one timeline.\n- Add weighted severity tags so agents can triage without leaving the UI.\n- Support 90 day lookback with daily aggregation under 150ms.",
-          "detailLabel": "Implementation detail",
+          "detailSections": [
+            {
+              "label": "Implementation detail",
+              "body": "### Acceptance Criteria\n- Merge existing PostHog dashboards with analytics events into one timeline.\n- Add weighted severity tags so agents can triage without leaving the UI.\n- Support 90 day lookback with daily aggregation under 150ms."
+            }
+          ],
           "position": 1200,
           "createdAt": "2025-09-25T12:05:00.000Z",
           "updatedAt": "2025-10-11T09:43:00.000Z",
@@ -41,8 +45,12 @@
           "ideaId": "coda-aurora-0001",
           "title": "Field Guide Narratives",
           "notes": "Auto-summarise feature health and next steps so stakeholders can read one page per week.",
-          "detail": "### Narrative Template\n- Key metric pulse (adoption, NPS, latency).\n- Story beats authored by agents (headline + risk + next experiment).\n- Embedded Loom or screenshot for visual context.",
-          "detailLabel": "Narrative spec",
+          "detailSections": [
+            {
+              "label": "Narrative spec",
+              "body": "### Narrative Template\n- Key metric pulse (adoption, NPS, latency).\n- Story beats authored by agents (headline + risk + next experiment).\n- Embedded Loom or screenshot for visual context."
+            }
+          ],
           "position": 1300,
           "createdAt": "2025-09-27T18:12:00.000Z",
           "updatedAt": "2025-10-10T14:22:00.000Z",
@@ -56,8 +64,12 @@
           "ideaId": "coda-aurora-0001",
           "title": "Signal Flare Automations",
           "notes": "Trigger Slack + email nudges when confidence collapses, when an experiment wins, or when adoption crosses milestones.",
-          "detail": "### Rules\n- Confidence < 0.45 for 3 days: open an incident card + ping #aurora-ops.\n- Adoption milestone: send celebratory digest and link to narrative page.\n- Experiment declared winner: send playbook snippet to agents.",
-          "detailLabel": "Automation design",
+          "detailSections": [
+            {
+              "label": "Automation design",
+              "body": "### Rules\n- Confidence < 0.45 for 3 days: open an incident card + ping #aurora-ops.\n- Adoption milestone: send celebratory digest and link to narrative page.\n- Experiment declared winner: send playbook snippet to agents."
+            }
+          ],
           "position": 1400,
           "createdAt": "2025-10-01T09:00:00.000Z",
           "updatedAt": "2025-10-13T21:30:00.000Z",
@@ -71,8 +83,12 @@
           "ideaId": "coda-aurora-0001",
           "title": "Roadmap Compass",
           "notes": "Visualise how Aurora\u2019s insights shift investment per theme, with breadcrumbs back to agent tasks.",
-          "detail": "### Compass Tile\n- Quadrant view: investment vs. confidence.\n- Click-through to backlog filtered by agent or owner.\n- Export to JSON for Specify so automation stays in sync.",
-          "detailLabel": "Compass spec",
+          "detailSections": [
+            {
+              "label": "Compass spec",
+              "body": "### Compass Tile\n- Quadrant view: investment vs. confidence.\n- Click-through to backlog filtered by agent or owner.\n- Export to JSON for Specify so automation stays in sync."
+            }
+          ],
           "position": 1500,
           "createdAt": "2025-10-05T16:45:00.000Z",
           "updatedAt": "2025-10-12T17:18:00.000Z",

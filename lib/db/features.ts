@@ -1,11 +1,19 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
+
 import { and, asc, desc, eq, isNull, isNotNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { getDb } from "@/lib/db";
 import { ideaFeatures, ideas } from "@/lib/db/schema";
-import { validateFeatureInput, validateFeatureUpdate, type FeatureInput, type FeatureUpdateInput } from "@/lib/validations/features";
+import {
+  validateFeatureInput,
+  validateFeatureUpdate,
+  type FeatureDetailPayload,
+  type FeatureInput,
+  type FeatureUpdateInput,
+} from "@/lib/validations/features";
 
 export async function listFeatures(userId: string, ideaId: string) {
   const db = getDb();
@@ -70,6 +78,8 @@ export async function createFeature(userId: string, input: FeatureInput) {
     .limit(1);
 
   const position = top?.position !== undefined ? top.position - 1000 : Date.now();
+  const detailSections = prepareDetailSectionsForStorage(payload.detailSections);
+  const primaryDetail = detailSections[0];
 
   const [created] = await db
     .insert(ideaFeatures)
@@ -77,10 +87,11 @@ export async function createFeature(userId: string, input: FeatureInput) {
       ideaId: payload.ideaId,
       title: payload.title,
       notes: payload.notes,
-      detail: payload.detail ?? "",
-      detailLabel: payload.detailLabel ?? "Detail",
+      detail: primaryDetail?.body ?? "",
+      detailLabel: primaryDetail?.label ?? "Detail",
+      detailSections,
       position,
-      starred: payload.starred ?? false,
+      starred: payload.starred,
     })
     .returning();
 
@@ -114,8 +125,14 @@ export async function updateFeature(userId: string, input: FeatureUpdateInput) {
   const updates: Partial<typeof ideaFeatures.$inferInsert> = { updatedAt: new Date() };
   if (payload.title !== undefined) updates.title = payload.title;
   if (payload.notes !== undefined) updates.notes = payload.notes;
-  if (payload.detail !== undefined) updates.detail = payload.detail;
-  if (payload.detailLabel !== undefined) updates.detailLabel = payload.detailLabel;
+  if (payload.starred !== undefined) updates.starred = payload.starred;
+  if (payload.detailSections !== undefined) {
+    const detailSections = prepareDetailSectionsForStorage(payload.detailSections);
+    const primary = detailSections[0];
+    updates.detailSections = detailSections;
+    updates.detail = primary?.body ?? "";
+    updates.detailLabel = primary?.label ?? "Detail";
+  }
 
   const [updated] = await db
     .update(ideaFeatures)
@@ -313,13 +330,66 @@ export async function reorderFeatures(userId: string, ideaId: string, orderedIds
   revalidatePath("/dashboard/ideas");
 }
 
+type StoredFeatureDetail = {
+  id: string;
+  label: string;
+  body: string;
+  position: number;
+};
+
+export type FeatureDetailRecord = StoredFeatureDetail;
+
+function prepareDetailSectionsForStorage(sections: FeatureDetailPayload[]): StoredFeatureDetail[] {
+  return sections.map((section, index) => ({
+    id: section.id ?? randomUUID(),
+    label: section.label,
+    body: section.body,
+    position: (index + 1) * 1000,
+  }));
+}
+
+function parseStoredDetailSections(value: unknown): StoredFeatureDetail[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const records: StoredFeatureDetail[] = [];
+  value.forEach((item, index) => {
+    if (!item || typeof item !== "object") {
+      return;
+    }
+    const candidate = item as Record<string, unknown>;
+    const id =
+      typeof candidate.id === "string" && candidate.id.trim().length > 0 ? candidate.id : randomUUID();
+    const labelValue =
+      typeof candidate.label === "string" && candidate.label.trim().length > 0 ? candidate.label : "Detail";
+    const bodyValue = typeof candidate.body === "string" ? candidate.body : "";
+    const positionValue =
+      typeof candidate.position === "number" && Number.isFinite(candidate.position)
+        ? (candidate.position as number)
+        : (index + 1) * 1000;
+    records.push({
+      id,
+      label: labelValue,
+      body: bodyValue,
+      position: positionValue,
+    });
+  });
+  records.sort((a, b) => a.position - b.position);
+  return records;
+}
+
 export type FeatureRecord = ReturnType<typeof normalizeFeature>;
 
 function normalizeFeature(row: typeof ideaFeatures.$inferSelect) {
+  const detailSections = parseStoredDetailSections(row.detailSections);
+  const primary = detailSections[0];
+
   return {
     ...row,
-    detail: row.detail ?? "",
-    detailLabel: row.detailLabel ?? "Detail",
+    detail: primary?.body ?? "",
+    detailLabel: primary?.label ?? "Detail",
+    detailSections,
     createdAt: row.createdAt?.toISOString?.() ?? String(row.createdAt),
     updatedAt: row.updatedAt?.toISOString?.() ?? String(row.updatedAt),
     completed: Boolean(row.completed),

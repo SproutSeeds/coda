@@ -277,10 +277,13 @@ async function createIdeaFromBundle(userId: string, bundle: IdeaImportBundle) {
       ideaId: idea.id,
       title: feature.title,
       notes: feature.notes?.length ? feature.notes : "Imported feature",
-      detail: feature.detail ?? "",
-      detailLabel: feature.detailLabel ?? "Detail",
+      details: feature.detailSections,
       starred: feature.starred ?? false,
     };
+    if (!featureInput.details && feature.detail) {
+      featureInput.detail = feature.detail;
+      featureInput.detailLabel = feature.detailLabel;
+    }
     const created = await createFeature(userId, featureInput);
     createdFeatures += 1;
     if (feature.completed) {
@@ -331,12 +334,8 @@ async function applyIdeaUpdate(userId: string, entry: ImportPlanEntry) {
       updatePayload.notes = feature.changes.notes;
       hasFieldUpdates = true;
     }
-    if (feature.changes.detail !== undefined) {
-      updatePayload.detail = feature.changes.detail;
-      hasFieldUpdates = true;
-    }
-    if (feature.changes.detailLabel !== undefined) {
-      updatePayload.detailLabel = feature.changes.detailLabel;
+    if (feature.changes.detailSections !== undefined) {
+      updatePayload.details = feature.changes.detailSections;
       hasFieldUpdates = true;
     }
     if (feature.changes.starred !== undefined) {
@@ -364,10 +363,13 @@ async function applyIdeaUpdate(userId: string, entry: ImportPlanEntry) {
       ideaId: entry.existingIdea.id,
       title: feature.title,
       notes: feature.notes?.length ? feature.notes : "Imported feature",
-      detail: feature.detail ?? "",
-      detailLabel: feature.detailLabel ?? "Detail",
+      details: feature.detailSections,
       starred: feature.starred ?? false,
     };
+    if (!featureInput.details && feature.detail) {
+      featureInput.detail = feature.detail;
+      featureInput.detailLabel = feature.detailLabel;
+    }
     const created = await createFeature(userId, featureInput);
     result.createdFeatures += 1;
     result.updated = true;

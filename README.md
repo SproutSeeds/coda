@@ -21,7 +21,7 @@ We are designing toward a fully agentic product-development assistant: human-fri
 
 - **Ideas dashboard** – minimal cards with search, star filters, and persistent drag-and-drop ordering. Recently deleted ideas stay recoverable for seven days.
 - **Idea detail view** – autosaved title, core plan, and link metadata with collapsible sections and smooth Framer Motion transitions. Includes JSON export, convert-to-feature, and undo flows.
-- **Feature breakdowns** – every feature card supports inline autosave, drag-and-drop reordering, show/hide details, and conversion back into a full idea.
+- **Feature breakdowns** – every feature card supports inline autosave, drag-and-drop reordering, multi-section detail blocks, and conversion back into a full idea.
 - **Authentication** – Auth.js email magic links plus optional password sign-in, with admin capabilities keyed to the `DEVELOPER_EMAIL` constant.
 - **Rate-limited workflows** – Upstash Redis keeps email and mutation flows safe; server actions wrap each critical mutation.
 - **Undo + lifecycle** – Soft deletes issue undo tokens, and a Vercel cron job purges expired items daily.

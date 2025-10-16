@@ -78,6 +78,7 @@ const existingFeature = {
   notes: "Legacy feature notes",
   detail: "",
   detailLabel: "Detail",
+  detailSections: [],
   position: 1000,
   createdAt: "2025-10-01T15:30:00.000Z",
   updatedAt: "2025-10-05T18:00:00.000Z",
@@ -125,27 +126,43 @@ beforeEach(() => {
     updatedAt: new Date().toISOString(),
   }));
 
-  createFeatureMock.mockImplementation(async (_userId: string, input: Record<string, unknown>) => ({
-    id: `feature-${Math.random().toString(36).slice(2, 8)}`,
-    ideaId: input.ideaId,
-    title: input.title,
-    notes: input.notes ?? "",
-    detail: input.detail ?? "",
-    detailLabel: input.detailLabel ?? "Detail",
-    position: input.position ?? Date.now(),
-    starred: input.starred ?? false,
-    completed: input.completed ?? false,
-    updatedAt: new Date().toISOString(),
-    createdAt: new Date().toISOString(),
-    completedAt: null,
-    deletedAt: null,
-  }));
+  createFeatureMock.mockImplementation(async (_userId: string, input: Record<string, unknown>) => {
+    const details = Array.isArray(input.details) ? (input.details as Array<Record<string, unknown>>) : [];
+    const primaryDetail = details[0];
+    return {
+      id: `feature-${Math.random().toString(36).slice(2, 8)}`,
+      ideaId: input.ideaId,
+      title: input.title,
+      notes: (input.notes as string) ?? "",
+      detail: typeof primaryDetail?.body === "string" ? primaryDetail.body : (input.detail as string) ?? "",
+      detailLabel:
+        typeof primaryDetail?.label === "string"
+          ? primaryDetail.label
+          : (input.detailLabel as string) ?? "Detail",
+      detailSections: details.map((section) => ({ ...section })),
+      position: (input.position as number) ?? Date.now(),
+      starred: Boolean(input.starred),
+      completed: Boolean(input.completed),
+      updatedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      completedAt: null,
+      deletedAt: null,
+    };
+  });
 
-  updateFeatureMock.mockImplementation(async (_userId: string, input: Record<string, unknown>) => ({
-    ...existingFeature,
-    ...input,
-    updatedAt: new Date().toISOString(),
-  }));
+  updateFeatureMock.mockImplementation(async (_userId: string, input: Record<string, unknown>) => {
+    const details = Array.isArray(input.details) ? (input.details as Array<Record<string, unknown>>) : existingFeature.detailSections;
+    const primaryDetail = details[0];
+    return {
+      ...existingFeature,
+      ...input,
+      detail: typeof primaryDetail?.body === "string" ? primaryDetail.body : existingFeature.detail,
+      detailLabel:
+        typeof primaryDetail?.label === "string" ? primaryDetail.label : existingFeature.detailLabel,
+      detailSections: details.map((section) => ({ ...section })),
+      updatedAt: new Date().toISOString(),
+    };
+  });
 });
 
 describe("importIdeasAction", () => {

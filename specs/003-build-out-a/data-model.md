@@ -24,8 +24,9 @@
   - `ideaId?: string` — optional; ignored for imports because ownership is derived from parent idea.
   - `title: string` — required, trimmed; ≤ 140 chars.
   - `notes?: string` — optional descriptive text.
-  - `detail?: string` — optional rich detail body.
-  - `detailLabel?: string` — optional label (defaults to "Detail" if missing).
+  - `detailSections?: FeatureDetailSection[]` — optional ordered collection of detailed callouts. Each section includes `id?`, `label?`, `body`, and `position?` metadata.
+  - `detail?: string` — legacy single detail body (still accepted for backwards compatibility).
+  - `detailLabel?: string` — legacy label (defaults to "Detail" if missing).
   - `position?: number` — optional ordering hint relative to sibling features.
   - `starred?: boolean` — optional prioritization flag.
   - `completed?: boolean` — optional completion flag; `completedAt` can accompany when true.
@@ -83,3 +84,8 @@
   - `properties`: `{ reason, validationErrors }`
 
 These events allow analytics dashboards to trace adoption and troubleshoot failures without exposing raw content.
+- **FeatureDetailSection**
+  - `id?: string` — optional stable identifier when updating existing sections.
+  - `label?: string` — short heading shown in the UI (falls back to “Detail”).
+  - `body: string` — rich text/markdown content rendered inside the feature card.
+  - `position?: number` — ordering hint; when omitted, import preserves array order.

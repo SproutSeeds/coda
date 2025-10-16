@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { useRouter } from "next/navigation";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, CheckCircle2, Circle, Copy, MoreHorizontal, Plus, Star, StarOff, Trash2, X } from "lucide-react";
+import { Check, CheckCircle2, ChevronDown, ChevronUp, Circle, Copy, MoreHorizontal, Plus, Star, StarOff, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,45 @@ import {
 import type { Feature } from "./types";
 
 const AUTOSAVE_DELAY = 10_000;
+const FEATURE_DETAIL_SECTION_LIMIT = 25;
+
+type DetailSectionState = {
+  id?: string;
+  label: string;
+  body: string;
+};
+
+function normalizeDetailSectionsState(sections: Feature["detailSections"]): DetailSectionState[] {
+  return sections.map((section) => ({
+    id: section.id,
+    label: section.label || "Detail",
+    body: section.body || "",
+  }));
+}
+
+function collapseDetailState(details: DetailSectionState[]): DetailSectionState[] {
+  return details
+    .map((section) => ({
+      id: section.id,
+      label: section.label.trim(),
+      body: section.body.trim(),
+    }))
+    .filter((section) => section.body.length > 0 || section.label.length > 0);
+}
+
+function detailStatesEqual(a: DetailSectionState[], b: DetailSectionState[]): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+  for (let index = 0; index < a.length; index += 1) {
+    const left = a[index]!;
+    const right = b[index]!;
+    if (left.label !== right.label || left.body !== right.body) {
+      return false;
+    }
+  }
+  return true;
+}
 
 export function FeatureCard({
   feature,
@@ -59,17 +98,14 @@ export function FeatureCard({
   const [isExpanded, setIsExpanded] = useState(false);
   const [draftTitle, setDraftTitle] = useState(feature.title);
   const [draftNotes, setDraftNotes] = useState(feature.notes);
-  const [draftDetail, setDraftDetail] = useState(feature.detail ?? "");
-  const [draftDetailLabel, setDraftDetailLabel] = useState(feature.detailLabel ?? "Detail");
   const [currentTitle, setCurrentTitle] = useState(feature.title);
   const [currentNotes, setCurrentNotes] = useState(feature.notes);
-  const [currentDetail, setCurrentDetail] = useState(feature.detail ?? "");
-  const [currentDetailLabel, setCurrentDetailLabel] = useState(feature.detailLabel ?? "Detail");
+  const [draftDetails, setDraftDetails] = useState<DetailSectionState[]>(normalizeDetailSectionsState(feature.detailSections));
+  const [currentDetails, setCurrentDetails] = useState<DetailSectionState[]>(normalizeDetailSectionsState(feature.detailSections));
   const [syncedFeature, setSyncedFeature] = useState({
     title: feature.title,
     notes: feature.notes,
-    detail: feature.detail ?? "",
-    detailLabel: feature.detailLabel ?? "Detail",
+    detailSections: normalizeDetailSectionsState(feature.detailSections),
     updatedAt: feature.updatedAt,
     completed: feature.completed,
     completedAt: feature.completedAt,
@@ -88,66 +124,74 @@ export function FeatureCard({
   const [isCompleted, setIsCompleted] = useState(Boolean(feature.completed));
   const [completedAt, setCompletedAt] = useState<string | null>(feature.completedAt ?? null);
   const [isDetailEditorVisible, setIsDetailEditorVisible] = useState(
-    Boolean(feature.detail?.trim?.()),
+    normalizeDetailSectionsState(feature.detailSections).length > 0,
   );
-  const [isConfirmingDetailClear, setIsConfirmingDetailClear] = useState(false);
-  const hasRenderedDetail = useMemo(() => Boolean(currentDetail.trim()), [currentDetail]);
+  const [confirmingDetailRemovalIndex, setConfirmingDetailRemovalIndex] = useState<number | null>(null);
+  const hasRenderedDetail = useMemo(
+    () => currentDetails.some((section) => section.body.trim()),
+    [currentDetails],
+  );
   const hasNotes = useMemo(() => Boolean(currentNotes.trim()), [currentNotes]);
   const detailPreviewLabels = useMemo(() => {
     if (!hasRenderedDetail) return [] as string[];
-    const raw = currentDetailLabel || "Detail";
-    const tokens = raw
-      .split(/[,|]/)
-      .map((label) => label.trim())
-      .filter(Boolean);
-    const labels = tokens.length > 0 ? tokens : ["Detail"];
+    const labels = currentDetails
+      .filter((section) => (section.label || "").trim().length > 0)
+      .map((section) => (section.label || "Detail").trim());
+    if (labels.length === 0) {
+      labels.push("Detail");
+    }
     return labels.slice(0, 4);
-  }, [currentDetailLabel, hasRenderedDetail]);
+  }, [currentDetails, hasRenderedDetail]);
   const featureMarkdown = useMemo(() => {
     const normalizedTitle = currentTitle?.trim?.() || feature.title;
     const normalizedNotes = currentNotes?.trim?.() ?? "";
-    const normalizedDetail = currentDetail?.trim?.();
-    const normalizedDetailLabel = currentDetailLabel?.trim?.() || "Detail";
     const header = `## Feature: ${normalizedTitle}`;
     const body = normalizedNotes ? normalizedNotes : "_No notes yet._";
-    const includeDetail = Boolean(normalizedDetail) && isExpanded;
-    const detailSection = includeDetail ? `\n\n**${normalizedDetailLabel}**\n\n${normalizedDetail}` : "";
+    const detailSection =
+      isExpanded && hasRenderedDetail
+        ? `\n\n${currentDetails
+            .filter((section) => section.body.trim())
+            .map((section) => `**${(section.label || "Detail").trim() || "Detail"}**\n\n${section.body.trim()}`)
+            .join("\n\n---\n\n")}`
+        : "";
     return `${header}\n\n${body}${detailSection}`.trim();
-  }, [currentDetail, currentDetailLabel, currentNotes, currentTitle, feature.title, isExpanded]);
+  }, [currentDetails, currentNotes, currentTitle, feature.title, hasRenderedDetail, isExpanded]);
   const featureDetailMarkdown = useMemo(() => {
-    const normalizedDetail = currentDetail?.trim?.();
-    if (!normalizedDetail) return "";
-    const normalizedDetailLabel = currentDetailLabel?.trim?.() || "Detail";
-    return `**${normalizedDetailLabel}**\n\n${normalizedDetail}`.trim();
-  }, [currentDetail, currentDetailLabel]);
+    const sections = currentDetails.filter((section) => section.body.trim());
+    if (sections.length === 0) return "";
+    return sections
+      .map((section) => `**${(section.label || "Detail").trim() || "Detail"}**\n\n${section.body.trim()}`)
+      .join("\n\n---\n\n")
+      .trim();
+  }, [currentDetails]);
 
   useEffect(() => {
+    const normalizedDetails = normalizeDetailSectionsState(feature.detailSections);
+    const currentClone = normalizedDetails.map((section) => ({ ...section }));
+    const draftClone = normalizedDetails.map((section) => ({ ...section }));
     setCurrentTitle(feature.title);
     setCurrentNotes(feature.notes);
-    setCurrentDetail(feature.detail ?? "");
-    setCurrentDetailLabel(feature.detailLabel ?? "Detail");
+    setCurrentDetails(currentClone);
     setDraftTitle(feature.title);
     setDraftNotes(feature.notes);
-    setDraftDetail(feature.detail ?? "");
-    setDraftDetailLabel(feature.detailLabel ?? "Detail");
+    setDraftDetails(draftClone);
     setIsStarred(feature.starred);
     setSyncedFeature({
       title: feature.title,
       notes: feature.notes,
-      detail: feature.detail ?? "",
-      detailLabel: feature.detailLabel ?? "Detail",
+      detailSections: normalizedDetails.map((section) => ({ ...section })),
       updatedAt: feature.updatedAt,
       completed: feature.completed,
       completedAt: feature.completedAt,
     });
     setIsCompleted(Boolean(feature.completed));
     setCompletedAt(feature.completedAt ?? null);
-    setIsDetailEditorVisible(Boolean(feature.detail?.trim?.()));
+    setIsDetailEditorVisible(normalizedDetails.length > 0);
+    setConfirmingDetailRemovalIndex(null);
   }, [
     feature.completed,
     feature.completedAt,
-    feature.detail,
-    feature.detailLabel,
+    feature.detailSections,
     feature.id,
     feature.notes,
     feature.starred,
@@ -157,14 +201,15 @@ export function FeatureCard({
 
   const trimmedDraftTitle = draftTitle.trim();
   const trimmedDraftNotes = draftNotes.trim();
-  const trimmedDraftDetail = draftDetail.trim();
-  const trimmedDraftDetailLabel = draftDetailLabel.trim();
-  const effectiveDetailLabel = trimmedDraftDetailLabel || "Detail";
+  const collapsedDraftDetails = useMemo(() => collapseDetailState(draftDetails), [draftDetails]);
+  const collapsedSyncedDetails = useMemo(
+    () => collapseDetailState(syncedFeature.detailSections),
+    [syncedFeature.detailSections],
+  );
   const featureDirty =
     trimmedDraftTitle !== syncedFeature.title ||
     trimmedDraftNotes !== syncedFeature.notes ||
-    trimmedDraftDetail !== syncedFeature.detail ||
-    (trimmedDraftDetailLabel || "Detail") !== (syncedFeature.detailLabel || "Detail");
+    !detailStatesEqual(collapsedDraftDetails, collapsedSyncedDetails);
   const completionDisplay = isCompleted
     ? completedAt
       ? `Completed ${formatFeatureUpdated(completedAt)}`
@@ -182,14 +227,12 @@ export function FeatureCard({
   const cancelEditing = useCallback(() => {
     setDraftTitle(syncedFeature.title);
     setDraftNotes(syncedFeature.notes);
-    setDraftDetail(syncedFeature.detail);
-    setDraftDetailLabel(syncedFeature.detailLabel ?? "Detail");
-    setIsDetailEditorVisible(Boolean(syncedFeature.detail.trim()));
-    setIsConfirmingDetailClear(false);
+    setDraftDetails(syncedFeature.detailSections.map((section) => ({ ...section })));
+    setIsDetailEditorVisible(syncedFeature.detailSections.length > 0);
     setIsEditing(false);
     setFeatureAutoState("idle");
     setIsConfirmingConvert(false);
-  }, [syncedFeature.detail, syncedFeature.detailLabel, syncedFeature.notes, syncedFeature.title, setIsConfirmingConvert]);
+  }, [syncedFeature.detailSections, syncedFeature.notes, syncedFeature.title, setIsConfirmingConvert]);
 
   const blurActiveElement = useCallback(() => {
     if (typeof document === "undefined") {
@@ -236,39 +279,39 @@ export function FeatureCard({
   }, [blurActiveElement, cancelEditing, isConfirmingConvert, isConfirmingDelete, isEditing, isExpanded, resetDeleteConfirmation, setIsConfirmingConvert]);
 
   const saveFeature = useCallback(
-    async (titleValue: string, notesValue: string, detailValue: string, detailLabelValue: string) => {
+    async (titleValue: string, notesValue: string, detailSectionsValue: DetailSectionState[]) => {
       featureSaveInFlight.current = true;
       try {
+        const collapsedDetails = collapseDetailState(detailSectionsValue);
         const updated = await updateFeatureAction({
           id: feature.id,
           ideaId,
           title: titleValue,
           notes: notesValue,
-          detail: detailValue,
-          detailLabel: detailLabelValue,
+          details: collapsedDetails.map((section) => ({
+            id: section.id,
+            label: section.label || "Detail",
+            body: section.body,
+          })),
         });
-        const normalizedDetail = updated.detail ?? "";
-        const normalizedDetailLabel = updated.detailLabel ?? "Detail";
+        const normalizedDetails = normalizeDetailSectionsState(updated.detailSections);
         setCurrentTitle(updated.title);
         setCurrentNotes(updated.notes);
-        setCurrentDetail(normalizedDetail);
-        setCurrentDetailLabel(normalizedDetailLabel);
+        setCurrentDetails(normalizedDetails.map((section) => ({ ...section })));
         setDraftTitle(updated.title);
         setDraftNotes(updated.notes);
-        setDraftDetail(normalizedDetail);
-        setDraftDetailLabel(normalizedDetailLabel);
+        setDraftDetails(normalizedDetails.map((section) => ({ ...section })));
         setSyncedFeature({
           title: updated.title,
           notes: updated.notes,
-          detail: normalizedDetail,
-          detailLabel: normalizedDetailLabel,
+          detailSections: normalizedDetails.map((section) => ({ ...section })),
           updatedAt: updated.updatedAt,
           completed: updated.completed,
           completedAt: updated.completedAt,
         });
         setIsCompleted(Boolean(updated.completed));
         setCompletedAt(updated.completedAt ?? null);
-        setIsDetailEditorVisible(Boolean(normalizedDetail.trim()));
+        setIsDetailEditorVisible(normalizedDetails.length > 0);
         return updated;
       } finally {
         featureSaveInFlight.current = false;
@@ -306,7 +349,7 @@ export function FeatureCard({
         return;
       }
       setFeatureAutoState("saving");
-      void saveFeature(trimmedDraftTitle, trimmedDraftNotes, trimmedDraftDetail, effectiveDetailLabel)
+      void saveFeature(trimmedDraftTitle, trimmedDraftNotes, draftDetails)
         .then(() => setFeatureAutoState("saved"))
         .catch((error) => {
           setFeatureAutoState("error");
@@ -320,16 +363,7 @@ export function FeatureCard({
         featureAutoTimer.current = null;
       }
     };
-  }, [
-    effectiveDetailLabel,
-    featureAutoState,
-    featureDirty,
-    isEditing,
-    saveFeature,
-    trimmedDraftDetail,
-    trimmedDraftNotes,
-    trimmedDraftTitle,
-  ]);
+  }, [featureAutoState, featureDirty, isEditing, saveFeature, trimmedDraftNotes, trimmedDraftTitle, draftDetails]);
 
   const handleManualSave = () => {
     if (!trimmedDraftTitle || !trimmedDraftNotes) {
@@ -337,7 +371,7 @@ export function FeatureCard({
       return;
     }
     setFeatureAutoState("saving");
-    void saveFeature(trimmedDraftTitle, trimmedDraftNotes, trimmedDraftDetail, effectiveDetailLabel)
+    void saveFeature(trimmedDraftTitle, trimmedDraftNotes, draftDetails)
       .then(() => {
         setFeatureAutoState("saved");
         setIsEditing(false);
@@ -395,26 +429,22 @@ export function FeatureCard({
         const updated = await toggleFeatureCompletionAction(feature.id, next);
         setIsCompleted(Boolean(updated.completed));
         setCompletedAt(updated.completedAt ?? null);
-        const normalizedDetail = updated.detail ?? "";
-        const normalizedDetailLabel = updated.detailLabel ?? "Detail";
+        const normalizedDetails = normalizeDetailSectionsState(updated.detailSections);
         setSyncedFeature({
           title: updated.title,
           notes: updated.notes,
-          detail: normalizedDetail,
-          detailLabel: normalizedDetailLabel,
+          detailSections: normalizedDetails.map((section) => ({ ...section })),
           updatedAt: updated.updatedAt,
           completed: updated.completed,
           completedAt: updated.completedAt,
         });
         setCurrentTitle(updated.title);
         setCurrentNotes(updated.notes);
-        setCurrentDetail(normalizedDetail);
-        setCurrentDetailLabel(normalizedDetailLabel);
+        setCurrentDetails(normalizedDetails.map((section) => ({ ...section })));
         setDraftTitle(updated.title);
         setDraftNotes(updated.notes);
-        setDraftDetail(normalizedDetail);
-        setDraftDetailLabel(normalizedDetailLabel);
-        setIsDetailEditorVisible(Boolean(normalizedDetail.trim()));
+        setDraftDetails(normalizedDetails.map((section) => ({ ...section })));
+        setIsDetailEditorVisible(normalizedDetails.length > 0);
         setIsConfirmingConvert(false);
         setFeatureAutoState("idle");
         if (next) {
@@ -451,6 +481,62 @@ export function FeatureCard({
       }
     });
   };
+
+const addDetailSection = useCallback(() => {
+  setDraftDetails((previous) => {
+    if (previous.length >= FEATURE_DETAIL_SECTION_LIMIT) {
+      toast.error(`You can add up to ${FEATURE_DETAIL_SECTION_LIMIT} detail sections.`);
+      return previous;
+    }
+    return [...previous, { id: undefined, label: "", body: "" }];
+  });
+  setIsDetailEditorVisible(true);
+  setConfirmingDetailRemovalIndex(null);
+}, []);
+
+const updateDetailSection = useCallback((index: number, value: Partial<DetailSectionState>) => {
+  setDraftDetails((previous) => {
+    const next = [...previous];
+    next[index] = { ...next[index], ...value };
+    return next;
+  });
+}, []);
+
+const requestRemoveDetailSection = useCallback((index: number) => {
+  setConfirmingDetailRemovalIndex(index);
+}, []);
+
+const confirmRemoveDetailSection = useCallback(() => {
+  setDraftDetails((previous) => {
+    if (confirmingDetailRemovalIndex == null) {
+      return previous;
+    }
+    const next = previous.filter((_, position) => position !== confirmingDetailRemovalIndex);
+    if (next.length === 0) {
+      setIsDetailEditorVisible(false);
+    }
+    return next;
+  });
+  setConfirmingDetailRemovalIndex(null);
+}, [confirmingDetailRemovalIndex]);
+
+const cancelRemoveDetailSection = useCallback(() => {
+  setConfirmingDetailRemovalIndex(null);
+}, []);
+
+const moveDetailSection = useCallback((index: number, direction: -1 | 1) => {
+  setDraftDetails((previous) => {
+    const target = index + direction;
+    if (target < 0 || target >= previous.length) {
+        return previous;
+      }
+    const next = [...previous];
+    const [item] = next.splice(index, 1);
+    next.splice(target, 0, item);
+    return next;
+  });
+  setConfirmingDetailRemovalIndex(null);
+}, []);
 
 
   const handleCardClick = () => {
@@ -635,41 +721,52 @@ export function FeatureCard({
                           <p className="text-sm text-muted-foreground">No notes yet—open to add details.</p>
                         )}
                         {hasRenderedDetail ? (
-                          <div className="space-y-2 rounded-md border border-border/50 bg-background/70 px-3 py-2">
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/80">
-                                {currentDetailLabel || "Detail"}
-                              </span>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-sm"
-                                className="interactive-btn h-8 w-8 shrink-0 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-foreground focus-visible:ring-0"
-                                onClick={async (event) => {
-                                  event.stopPropagation();
-                                  if (!featureDetailMarkdown) return;
-                                  try {
-                                    await navigator.clipboard.writeText(featureDetailMarkdown);
-                                    toast.success("Copied detail to clipboard");
-                                  } catch (err) {
-                                    toast.error(err instanceof Error ? err.message : "Unable to copy detail");
-                                  }
-                                }}
-                                aria-label="Copy detail"
-                                data-testid="feature-detail-copy-button-expanded"
-                                disabled={!featureDetailMarkdown}
-                              >
-                                <Copy className="size-4" />
-                              </Button>
-                            </div>
-                            <p
-                              className={cn(
-                                "whitespace-pre-wrap text-sm text-muted-foreground",
-                                isCompleted && "line-through opacity-80",
-                              )}
-                            >
-                              {currentDetail}
-                            </p>
+                          <div className="space-y-2">
+                            {currentDetails
+                              .filter((section) => section.body.trim())
+                              .map((section, index) => {
+                                const sectionLabel = (section.label || "Detail").trim() || "Detail";
+                                const sectionMarkdown = `**${sectionLabel}**\n\n${section.body.trim()}`;
+                                return (
+                                  <div
+                                    key={`feature-${feature.id}-detail-expanded-${index}`}
+                                    className="space-y-2 rounded-md border border-border/50 bg-background/70 px-3 py-2"
+                                  >
+                                    <div className="flex items-center justify-between gap-3">
+                                      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/80">
+                                        {sectionLabel}
+                                      </span>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        className="interactive-btn h-8 w-8 shrink-0 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-foreground focus-visible:ring-0"
+                                        onClick={async (event) => {
+                                          event.stopPropagation();
+                                          try {
+                                            await navigator.clipboard.writeText(sectionMarkdown);
+                                            toast.success("Copied detail to clipboard");
+                                          } catch (err) {
+                                            toast.error(err instanceof Error ? err.message : "Unable to copy detail");
+                                          }
+                                        }}
+                                        aria-label="Copy detail section"
+                                        data-testid={`feature-detail-copy-button-expanded-${index}`}
+                                      >
+                                        <Copy className="size-4" />
+                                      </Button>
+                                    </div>
+                                    <p
+                                      className={cn(
+                                        "whitespace-pre-wrap text-sm text-muted-foreground",
+                                        isCompleted && "line-through opacity-80",
+                                      )}
+                                    >
+                                      {section.body}
+                                    </p>
+                                  </div>
+                                );
+                              })}
                           </div>
                         ) : null}
                       </motion.div>
@@ -855,121 +952,210 @@ export function FeatureCard({
             />
             {isDetailEditorVisible ? (
               <div className="rounded-xl border-2 border-dashed border-border/60 bg-card/40 p-3" data-testid="feature-detail-editor">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1">
-                    <Label
-                      htmlFor={`feature-${feature.id}-detail-label`}
-                      className="text-xs font-medium uppercase tracking-wide text-muted-foreground/80"
-                    >
-                      Detail label
-                    </Label>
-                    <Input
-                      id={`feature-${feature.id}-detail-label`}
-                      value={draftDetailLabel}
-                      onChange={(event) => {
-                        const next = event.target.value;
-                        if (next.length <= FEATURE_DETAIL_LABEL_LIMIT) {
-                          setDraftDetailLabel(next);
-                        }
-                      }}
-                      maxLength={FEATURE_DETAIL_LABEL_LIMIT}
-                      disabled={featureAutoState === "saving"}
-                      placeholder="Detail heading"
-                      data-testid="feature-edit-detail-label-input"
-                      className="mt-1"
-                    />
-                  </div>
-                  {isConfirmingDetailClear ? (
-                    <div className="mt-5 flex items-center gap-2" data-testid="feature-detail-clear-confirmation">
-                      <span className="text-xs text-muted-foreground">Ya sure?</span>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="destructive"
-                        className="interactive-btn"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setDraftDetail("");
-                          setDraftDetailLabel("Detail");
-                          setIsDetailEditorVisible(false);
-                          setIsConfirmingDetailClear(false);
-                        }}
-                        disabled={featureAutoState === "saving"}
-                        data-testid="feature-detail-clear-confirm"
-                      >
-                        Yes
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="interactive-btn hover:bg-transparent"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setIsConfirmingDetailClear(false);
-                        }}
-                        disabled={featureAutoState === "saving"}
-                        data-testid="feature-detail-clear-cancel"
-                      >
-                        No
-                      </Button>
-                    </div>
+                <div className="space-y-4">
+                  {draftDetails.length > 0 ? (
+                    draftDetails.map((detail, index) => {
+                      const labelInputId = `feature-${feature.id}-detail-label-${index}`;
+                      const bodyInputId = `feature-${feature.id}-detail-body-${index}`;
+                      return (
+                        <div key={labelInputId} className="rounded-lg border border-border/60 bg-background/60 p-3">
+                          <div className="flex items-start gap-3">
+                            <div className="flex-1">
+                              <Label
+                                htmlFor={labelInputId}
+                                className="text-xs font-medium uppercase tracking-wide text-muted-foreground/80"
+                              >
+                                Detail label
+                              </Label>
+                              <Input
+                                id={labelInputId}
+                                value={detail.label}
+                                onChange={(event) => {
+                                  const next = event.target.value;
+                                  if (next.length <= FEATURE_DETAIL_LABEL_LIMIT) {
+                                    updateDetailSection(index, { label: next });
+                                  }
+                                }}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter" && !(event.nativeEvent as KeyboardEvent).isComposing) {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    handleManualSave();
+                                    return;
+                                  }
+                                  if (event.key === "Escape") {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    cancelEditing();
+                                    blurActiveElement();
+                                  }
+                                }}
+                                maxLength={FEATURE_DETAIL_LABEL_LIMIT}
+                                disabled={featureAutoState === "saving"}
+                                placeholder="Detail heading"
+                                data-testid={`feature-edit-detail-label-input-${index}`}
+                                className="mt-1"
+                              />
+                            </div>
+                            <div className="flex items-center gap-1 pt-6">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                className="interactive-btn text-muted-foreground hover:bg-transparent"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  moveDetailSection(index, -1);
+                                }}
+                                disabled={featureAutoState === "saving" || index === 0}
+                                aria-label="Move detail up"
+                              >
+                                <ChevronUp className="size-4" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                className="interactive-btn text-muted-foreground hover:bg-transparent"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  moveDetailSection(index, 1);
+                                }}
+                                disabled={featureAutoState === "saving" || index === draftDetails.length - 1}
+                                aria-label="Move detail down"
+                              >
+                                <ChevronDown className="size-4" />
+                              </Button>
+                              {confirmingDetailRemovalIndex === index ? (
+                                <div className="flex items-center gap-1" data-testid={`feature-detail-remove-confirm-${index}`}>
+                                  <span className="text-xs text-muted-foreground">Ya sure?</span>
+                                  <Button
+                                    type="button"
+                                    size="icon-sm"
+                                    variant="destructive"
+                                    className="interactive-btn"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      confirmRemoveDetailSection();
+                                    }}
+                                    disabled={featureAutoState === "saving"}
+                                    aria-label="Confirm remove detail section"
+                                  >
+                                    <Check className="size-4" />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="icon-sm"
+                                    variant="outline"
+                                    className="interactive-btn hover:bg-transparent"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      cancelRemoveDetailSection();
+                                    }}
+                                    disabled={featureAutoState === "saving"}
+                                    aria-label="Cancel remove detail section"
+                                  >
+                                    <X className="size-4" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  className="interactive-btn text-destructive hover:bg-transparent"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    requestRemoveDetailSection(index);
+                                  }}
+                                  disabled={featureAutoState === "saving"}
+                                  aria-label="Remove detail section"
+                                  data-testid={`feature-detail-remove-${index}`}
+                                >
+                                  <Trash2 className="size-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                          <Textarea
+                            id={bodyInputId}
+                            value={detail.body}
+                            onChange={(event) => {
+                              const next = event.target.value;
+                              if (next.length <= FEATURE_DETAIL_CHARACTER_LIMIT) {
+                                updateDetailSection(index, { body: next });
+                              }
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" && !event.shiftKey && !(event.nativeEvent as KeyboardEvent).isComposing) {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                handleManualSave();
+                                return;
+                              }
+                              if (event.key === "Escape") {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                cancelEditing();
+                                blurActiveElement();
+                              }
+                            }}
+                            rows={3}
+                            disabled={featureAutoState === "saving"}
+                            placeholder="Add detail body"
+                            data-testid={`feature-edit-detail-input-${index}`}
+                            maxLength={FEATURE_DETAIL_CHARACTER_LIMIT}
+                            className="mt-3"
+                          />
+                        </div>
+                      );
+                    })
                   ) : (
+                    <p className="text-xs text-muted-foreground">No detail sections yet. Add one below.</p>
+                  )}
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="interactive-btn"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      addDetailSection();
+                    }}
+                    disabled={featureAutoState === "saving" || draftDetails.length >= FEATURE_DETAIL_SECTION_LIMIT}
+                    data-testid="feature-detail-add-button"
+                  >
+                    <Plus className="mr-2 size-4" /> Add detail section
+                  </Button>
+                  {draftDetails.length === 0 ? (
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon-sm"
-                      className="interactive-btn mt-6 h-8 w-8 shrink-0 text-muted-foreground hover:bg-transparent"
+                      className="interactive-btn text-muted-foreground hover:bg-transparent"
                       onClick={(event) => {
                         event.stopPropagation();
-                        setIsConfirmingDetailClear(true);
+                        setIsDetailEditorVisible(false);
                       }}
                       disabled={featureAutoState === "saving"}
-                      aria-label="Remove detail"
-                      data-testid="feature-detail-clear-trigger"
+                      aria-label="Close detail editor"
                     >
-                      <Trash2 className="size-4" />
+                      <X className="size-4" />
                     </Button>
-                  )}
+                  ) : null}
                 </div>
-                <Textarea
-                  value={draftDetail}
-                  onChange={(event) => {
-                    const next = event.target.value;
-                    if (next.length <= FEATURE_DETAIL_CHARACTER_LIMIT) {
-                      setDraftDetail(next);
-                    }
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && !event.shiftKey && !(event.nativeEvent as KeyboardEvent).isComposing) {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      handleManualSave();
-                      return;
-                    }
-                if (event.key === "Escape") {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  cancelEditing();
-                  blurActiveElement();
-                }
-              }}
-                  rows={3}
-                  disabled={featureAutoState === "saving"}
-                  placeholder="Add optional detail for quick reference"
-                  data-testid="feature-edit-detail-input"
-                  maxLength={FEATURE_DETAIL_CHARACTER_LIMIT}
-                  className="mt-3"
-                />
               </div>
             ) : (
               <button
                 type="button"
                 onClick={(event) => {
                   event.stopPropagation();
-                  setIsDetailEditorVisible(true);
-                  if (!draftDetailLabel.trim()) {
-                    setDraftDetailLabel("Detail");
+                  if (draftDetails.length === 0) {
+                    addDetailSection();
+                  } else {
+                    setIsDetailEditorVisible(true);
                   }
                 }}
                 className="group flex w-full cursor-pointer items-center justify-between rounded-xl border-2 border-dashed border-border/60 bg-card/40 px-4 py-3 text-left transition hover:border-muted hover:bg-card/60"

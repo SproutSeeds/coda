@@ -229,7 +229,7 @@ export async function loadDeletedIdeas() {
 }
 
 export async function createFeatureAction(
-  formData: FormData | { ideaId: string; title: string; notes: string; detail?: string; detailLabel?: string; starred?: boolean },
+  formData: FormData | { ideaId: string; title: string; notes: string; detail?: string; detailLabel?: string; details?: { id?: string; label?: string; body?: string }[]; starred?: boolean },
 ) {
   const user = await requireUser();
   const payload = formData instanceof FormData
@@ -256,7 +256,7 @@ export async function createFeatureAction(
   return feature;
 }
 
-export async function updateFeatureAction(payload: { id: string; ideaId: string; title?: string; notes?: string; detail?: string; detailLabel?: string }) {
+export async function updateFeatureAction(payload: { id: string; ideaId: string; title?: string; notes?: string; detail?: string; detailLabel?: string; details?: { id?: string; label?: string; body?: string }[] }) {
   const user = await requireUser();
   const feature = await updateFeature(user.id, payload);
   await trackEvent({ name: "feature_updated", properties: { ideaId: payload.ideaId, featureId: feature.id } });
@@ -330,8 +330,6 @@ export async function convertIdeaToFeatureAction(input: { sourceIdeaId: string; 
     ideaId: input.targetIdeaId,
     title: sourceIdea.title,
     notes: sourceIdea.notes,
-    detail: "",
-    detailLabel: "Detail",
   });
 
   const undo = createUndoToken(input.sourceIdeaId);
@@ -355,9 +353,17 @@ export async function convertFeatureToIdeaAction(input: { featureId: string }) {
 
   const idea = await createIdea(user.id, {
     title: feature.title,
-    notes: feature.detail
-      ? `${feature.notes}\n\n---\n\n${feature.detailLabel || "Detail"}\n\n${feature.detail}`
-      : feature.notes,
+    notes: (() => {
+      const detailMarkdown = feature.detailSections
+        .filter((section) => section.body.trim())
+        .map((section) => `**${section.label || "Detail"}**\n\n${section.body}`)
+        .join("\n\n---\n\n");
+      if (!detailMarkdown) {
+        return feature.notes;
+      }
+      const baseNotes = feature.notes?.trim() ?? "";
+      return baseNotes ? `${baseNotes}\n\n---\n\n${detailMarkdown}` : detailMarkdown;
+    })(),
   });
 
   await deleteFeature(user.id, input.featureId);
