@@ -28,6 +28,10 @@ We are designing toward a fully agentic product-development assistant: human-fri
 - **Agent hooks** – Codex/Specify prompts live under `.codex/prompts/*`, making it trivial to feed ideas into automated planning/execution loops.
 - **One-click JSON export** – download a structured idea + features payload to seed downstream services, LLM runs, or connector APIs.
 
+## Legal Documents
+
+Canonical copies of our Terms of Service, Privacy Policy, and Data Processing Addendum live in `legal/`. Update the frontmatter version/date when a change ships and ensure the app prompts users to accept the latest version.
+
 ---
 
 ## User Personas & Stories
