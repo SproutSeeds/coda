@@ -43,6 +43,7 @@ export function IdeaBoard({
   const [ideaFilter, setIdeaFilter] = useState<"all" | "starred" | "unstarred">("all");
   const [isExportingAll, startExportAllTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const userId = ideas[0]?.userId ?? deleted[0]?.userId ?? undefined;
 
   const {
     handleFileChange: handleImportFileChange,
@@ -312,7 +313,7 @@ export function IdeaBoard({
       ) : null}
 
       {view === "active" ? (
-        <IdeaList ideas={filteredIdeas} query={query} canReorder={canReorder} />
+        <IdeaList ideas={filteredIdeas} query={query} canReorder={canReorder} userId={userId} />
       ) : (
         <DeletedIdeaList ideas={deleted} />
       )}
