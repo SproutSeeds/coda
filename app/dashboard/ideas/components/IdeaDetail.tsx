@@ -18,7 +18,6 @@ import {
   Sparkles,
   Star,
   StarOff,
-  Trash2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -123,7 +122,9 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
   const [isConverting, startConvertTransition] = useTransition();
   const [isExporting, startExportTransition] = useTransition();
   const [isConvertDropdownOpen, setIsConvertDropdownOpen] = useState(false);
+  const [isActionsOpen, setIsActionsOpen] = useState(false);
   const convertDropdownRef = useRef<HTMLDivElement | null>(null);
+  const actionsMenuRef = useRef<HTMLDivElement | null>(null);
   const [isCoreExpanded, setIsCoreExpanded] = useState(false);
   const [isIdVisible, setIsIdVisible] = useState(false);
   const [deletedFeaturesState, setDeletedFeaturesState] = useState(deletedFeatures);
@@ -132,6 +133,7 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
   const [restoreTargetId, setRestoreTargetId] = useState<string | null>(null);
   const filterPanelRef = useRef<HTMLDivElement | null>(null);
   const filterTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
   const blurActiveElement = useCallback(() => {
     if (typeof document === "undefined") {
       return;
@@ -545,9 +547,55 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
       });
   };
 
+  const beginEditing = useCallback(() => {
+    if (isEditing) {
+      return;
+    }
+    resetDeleteConfirmation();
+    setIdeaAutoState("idle");
+    setGithubDraft(syncedIdea.githubUrl);
+    setLinkLabelDraft(syncedIdea.linkLabel);
+    setGithubAutoState("idle");
+    setIsEditingGithub(true);
+    setIsEditing(true);
+  }, [
+    isEditing,
+    resetDeleteConfirmation,
+    setGithubAutoState,
+    setIsEditingGithub,
+    setGithubDraft,
+    setLinkLabelDraft,
+    syncedIdea.githubUrl,
+    syncedIdea.linkLabel,
+  ]);
+
   const handleToggleConvert = () => {
     setConvertError(null);
     setIsConvertOpen((previous) => !previous);
+    setIsActionsOpen(false);
+  };
+
+  const handleExportIdea = () => {
+    setIsActionsOpen(false);
+    startExportTransition(async () => {
+      try {
+        const data = await exportIdeaAsJsonAction(idea.id);
+        const blob = new Blob([JSON.stringify(data, null, 2)], {
+          type: "application/json",
+        });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = buildIdeaExportFilename(idea.title, idea.id);
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        URL.revokeObjectURL(url);
+        toast.success("Idea exported");
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Unable to export idea");
+      }
+    });
   };
 
   useEffect(() => {
@@ -590,12 +638,47 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
   }, [isConvertDropdownOpen]);
 
   useEffect(() => {
-    if (!isEditing) {
-      setIsCoreExpanded(false);
+    if (!isActionsOpen) {
+      return;
     }
-  }, [isEditing]);
+    const handleClick = (event: MouseEvent) => {
+      if (!actionsMenuRef.current?.contains(event.target as Node)) {
+        setIsActionsOpen(false);
+      }
+    };
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsActionsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [isActionsOpen]);
 
-  const handleConvert = () => {
+useEffect(() => {
+  if (!isEditing) {
+    setIsCoreExpanded(false);
+  }
+}, [isEditing]);
+
+useEffect(() => {
+  if (!isEditing) {
+    return;
+  }
+  const frame = window.requestAnimationFrame(() => {
+    if (titleInputRef.current) {
+      titleInputRef.current.focus();
+      titleInputRef.current.select();
+    }
+  });
+  return () => window.cancelAnimationFrame(frame);
+}, [isEditing]);
+
+const handleConvert = () => {
     if (!selectedConvertId) {
       setConvertError("Choose a destination idea.");
       return;
@@ -618,6 +701,7 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
   };
 
   const handleDelete = () => {
+    setIsActionsOpen(false);
     setIsConfirmingDelete(true);
     setDeleteInput("");
   };
@@ -742,11 +826,54 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
         </div>
       </div>
 
-      <Card data-testid="idea-card">
+      <Card
+        data-testid="idea-card"
+        className={cn(!isEditing && "cursor-text")}
+        onClick={(event) => {
+          // Ignore clicks originating from controls that manage their own behavior.
+          const target = event.target as HTMLElement;
+          if (target.closest("button, a, input, textarea")) {
+            return;
+          }
+          beginEditing();
+        }}
+        onKeyDown={(event) => {
+          if (isEditing) {
+            return;
+          }
+          if (event.key === "Enter" || event.key === " ") {
+            const target = event.target as HTMLElement;
+            if (target.closest("button, a, input, textarea")) {
+              return;
+            }
+            event.preventDefault();
+            beginEditing();
+          }
+        }}
+        tabIndex={isEditing ? -1 : 0}
+        role="group"
+      >
         <CardHeader className="flex flex-row items-start justify-between gap-4">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-3">
-              <CardTitle className="text-2xl font-semibold">{syncedIdea.title}</CardTitle>
+              <CardTitle
+                role="button"
+                tabIndex={isEditing ? -1 : 0}
+                onClick={beginEditing}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    beginEditing();
+                  }
+                }}
+                className={cn(
+                  "text-2xl font-semibold text-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                  !isEditing && "cursor-text hover:text-primary",
+                  isEditing && "cursor-default",
+                )}
+              >
+                {syncedIdea.title}
+              </CardTitle>
               <button
                 type="button"
                 className="inline-flex cursor-pointer items-center text-xs font-medium text-primary underline-offset-4 transition hover:underline"
@@ -821,110 +948,120 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
                   resetDeleteConfirmation();
                   return;
                 }
-                resetDeleteConfirmation();
-                setIdeaAutoState("idle");
-                setIsEditing(true);
+                beginEditing();
               }}
               aria-label={isEditing ? "Cancel editing" : "Edit idea"}
               data-testid="idea-edit-toggle"
             >
               {isEditing ? <X className="size-4" /> : <Pencil className="size-4" />}
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="interactive-btn cursor-pointer px-3 py-1.5 text-xs font-medium hover:bg-transparent"
-              onClick={() =>
-                startExportTransition(async () => {
-                  try {
-                    const data = await exportIdeaAsJsonAction(idea.id);
-                    const blob = new Blob([JSON.stringify(data, null, 2)], {
-                      type: "application/json",
-                    });
-                    const url = URL.createObjectURL(blob);
-                    const anchor = document.createElement("a");
-                    anchor.href = url;
-                    anchor.download = buildIdeaExportFilename(idea.title, idea.id);
-                    document.body.appendChild(anchor);
-                    anchor.click();
-                    document.body.removeChild(anchor);
-                    URL.revokeObjectURL(url);
-                    toast.success("Idea exported");
-                  } catch (error) {
-                    toast.error(error instanceof Error ? error.message : "Unable to export idea");
-                  }
-                })
-              }
-              disabled={isExporting}
-              data-testid="idea-export-button"
-            >
-            {isExporting ? "Exporting…" : "Export idea"}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="interactive-btn cursor-pointer px-3 py-1.5 text-xs font-medium hover:bg-transparent"
-              onClick={handleToggleConvert}
-              disabled={isConverting}
-              data-testid="idea-convert-toggle"
-            >
-              {isConvertOpen ? "Close convert" : "Convert to feature"}
-            </Button>
-            {isConfirmingDelete ? (
-              <>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="interactive-btn px-3 py-1.5 text-xs font-semibold"
-                  onClick={confirmDelete}
-                  disabled={isPending || !deleteTitleMatches}
-                  data-testid="idea-delete-confirm"
-                >
-                  Delete
-                </Button>
-                <div className="relative">
-                  <Input
-                    value={deleteInput}
-                    onChange={(event) => setDeleteInput(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        confirmDelete();
-                      }
-                    }}
-                    placeholder={deletePrompt}
-                    aria-label={deletePrompt}
-                    data-testid="idea-detail-delete-inline-input"
-                    className="h-9 w-full min-w-[200px] max-w-xs pr-10 placeholder:text-muted-foreground/50 sm:w-64"
-                    autoFocus
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="interactive-btn absolute right-1.5 top-1/2 h-7 w-7 -translate-y-1/2 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-foreground focus-visible:ring-0"
-                    onClick={resetDeleteConfirmation}
-                    aria-label="Cancel delete"
-                  >
-                    <X className="size-4" />
-                  </Button>
-                </div>
-              </>
-            ) : (
+            <div className="relative" ref={actionsMenuRef}>
               <Button
                 type="button"
-                variant="ghost"
-                size="icon-sm"
-              className="interactive-btn text-destructive hover:text-destructive"
-              onClick={handleDelete}
-              disabled={isPending}
-              aria-label="Delete idea"
-              data-testid="idea-delete-button"
-            >
-              {isPending ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
-            </Button>
-            )}
+                variant="outline"
+                size="sm"
+                className={cn(
+                  "interactive-btn flex items-center gap-2 px-3 py-1.5 text-xs font-medium hover:bg-transparent",
+                  isActionsOpen && "bg-muted/30",
+                )}
+                onClick={() => setIsActionsOpen((previous) => !previous)}
+                aria-haspopup="menu"
+                aria-expanded={isActionsOpen}
+                data-testid="idea-actions-button"
+              >
+                Actions
+                <ChevronDown
+                  className={cn(
+                    "size-3 transition-transform text-muted-foreground",
+                    isActionsOpen ? "rotate-180" : "rotate-0",
+                  )}
+                  aria-hidden="true"
+                />
+              </Button>
+              {isActionsOpen ? (
+                <div
+                  className="absolute right-0 z-50 mt-2 w-52 overflow-hidden rounded-lg border border-border/60 bg-card shadow-xl"
+                  role="menu"
+                  aria-label="Idea actions"
+                >
+                  <div className="py-1 text-sm text-muted-foreground">
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between px-3 py-2 transition-colors hover:bg-muted/30 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                      onClick={handleExportIdea}
+                      disabled={isExporting}
+                      data-testid="idea-export-button"
+                    >
+                      <span>Export idea</span>
+                      {isExporting ? <Loader2 className="size-3 animate-spin text-muted-foreground" /> : null}
+                    </button>
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between px-3 py-2 transition-colors hover:bg-muted/30 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                      onClick={handleToggleConvert}
+                      disabled={isConverting}
+                      data-testid="idea-convert-toggle"
+                    >
+                      <span>{isConvertOpen ? "Close convert panel" : "Convert to feature"}</span>
+                      {isConverting ? <Loader2 className="size-3 animate-spin text-muted-foreground" /> : null}
+                    </button>
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between px-3 py-2 text-destructive transition-colors hover:bg-destructive/10 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-60"
+                      onClick={handleDelete}
+                      disabled={isPending}
+                      data-testid="idea-delete-button"
+                    >
+                      <span>Delete idea</span>
+                      {isPending ? <Loader2 className="size-3 animate-spin" /> : null}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
           </div>
+          {isConfirmingDelete ? (
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="relative w-full sm:max-w-xs">
+                <Input
+                  value={deleteInput}
+                  onChange={(event) => setDeleteInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      confirmDelete();
+                    }
+                  }}
+                  placeholder={deletePrompt}
+                  aria-label={deletePrompt}
+                  data-testid="idea-detail-delete-inline-input"
+                  className="h-10 w-full pr-10 placeholder:text-muted-foreground/50"
+                  autoFocus
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="interactive-btn absolute right-1.5 top-1/2 h-7 w-7 -translate-y-1/2 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-foreground focus-visible:ring-0"
+                  onClick={resetDeleteConfirmation}
+                  aria-label="Cancel delete"
+                >
+                  <X className="size-4" />
+                </Button>
+              </div>
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                className="interactive-btn px-3 py-1.5 text-xs font-semibold"
+                onClick={confirmDelete}
+                disabled={isPending || !deleteTitleMatches}
+                data-testid="idea-delete-confirm"
+              >
+                Delete
+              </Button>
+            </div>
+          ) : null}
         </CardHeader>
         <Separator />
         <CardContent className="pt-6 space-y-6">
@@ -1034,6 +1171,7 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
                 </label>
                 <Input
                   id="idea-title"
+                  ref={titleInputRef}
                   data-testid="idea-edit-title-input"
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
