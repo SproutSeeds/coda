@@ -2,8 +2,9 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { cookies } from "next/headers";
 
-import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
+import { Footer } from "@/components/footer";
+import { Toaster } from "@/components/ui/sonner";
 
 import "./globals.css";
 
@@ -80,6 +81,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}>
         <ThemeProvider attribute="class" defaultTheme={initialTheme ?? "dark"} storageKey="coda-theme" enableSystem>
           {children}
+          <Footer />
           <Toaster position="top-right" richColors />
         </ThemeProvider>
       </body>

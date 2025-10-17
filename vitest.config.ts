@@ -3,7 +3,7 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    include: ["tests/**/*.test.ts"],
+    include: ["tests/**/*.test.{ts,tsx}"],
     globals: true,
     environment: "node",
     setupFiles: ["tests/setup/test-env.ts"],
@@ -11,5 +11,8 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./"),
     },
     exclude: ["tests/e2e/**", "tests/perf/**"],
+  },
+  esbuild: {
+    jsx: "automatic",
   },
 });
