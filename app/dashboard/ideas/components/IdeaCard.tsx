@@ -196,9 +196,9 @@ export function IdeaCard({
         onClick={handleNavigate}
         onKeyDown={handleKeyDown}
         className={cn(
-          "group flex flex-col gap-3 rounded-xl border border-border/60 bg-card/80 p-4 text-left",
+          "group flex flex-col gap-3 rounded-xl border border-border/45 bg-card/40 p-4 text-left backdrop-blur-[6px] shadow-[0_22px_65px_-38px_rgba(15,23,42,0.6)]",
           "cursor-pointer transform-gpu transition-transform duration-200 ease-out",
-          "hover:-translate-y-0.5 hover:scale-[1.006] hover:rotate-[0.18deg] hover:border-primary hover:bg-card",
+          "hover:-translate-y-0.5 hover:scale-[1.006] hover:rotate-[0.18deg] hover:border-primary/75 hover:bg-card/55 hover:shadow-[0_28px_75px_-34px_rgba(59,130,246,0.5)]",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:-translate-y-0.5 focus-visible:scale-[1.004] focus-visible:rotate-[0.14deg]",
         )}
       >
