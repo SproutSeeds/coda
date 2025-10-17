@@ -80,8 +80,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en" suppressHydrationWarning className={initialTheme}>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}>
         <ThemeProvider attribute="class" defaultTheme={initialTheme ?? "dark"} storageKey="coda-theme" enableSystem>
-          {children}
-          <Footer />
+          <div className="flex min-h-screen flex-col">
+            <div className="flex-1">{children}</div>
+            <Footer />
+          </div>
           <Toaster position="top-right" richColors />
         </ThemeProvider>
       </body>

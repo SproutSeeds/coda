@@ -158,6 +158,17 @@ body {
     box-shadow: 0 0 0px 999px rgba(15, 23, 42, 0.35) inset;
   }
 
+  html,
+  body {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    display: none;
+  }
+
   h1 {
     font-size: clamp(2rem, 1.5rem + 2.5vw, 3rem);
     line-height: 1.15;

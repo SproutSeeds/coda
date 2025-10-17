@@ -13,18 +13,20 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="border-b bg-card">
-        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:gap-6 sm:px-6">
-          <div className="space-y-1">
-            <Link
-              href="/dashboard/ideas"
-              className="inline-flex cursor-pointer items-center text-lg font-semibold text-foreground transition hover:text-primary"
-            >
-              Coda
+      <header className="border-b border-border/60 bg-transparent">
+        <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-4 px-4 py-4 text-center sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:text-left">
+          <div className="flex flex-col items-center sm:items-start">
+            <Link href="/dashboard/ideas" className="relative inline-flex cursor-pointer items-center">
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-x-0 -top-2 h-6 rounded-full bg-gradient-to-r from-primary/40 via-accent/55 to-primary/40 blur-xl opacity-70"
+              />
+              <span className="relative text-sm font-semibold tracking-wide text-foreground transition-colors hover:text-primary">
+                Coda CLI
+              </span>
             </Link>
-            <p className="text-sm text-muted-foreground">Ideas go live.</p>
           </div>
-          <UserMenu className="ml-auto" />
+          <UserMenu className="sm:ml-auto" />
         </div>
         <PasswordReminder needsPassword={needsPassword} />
       </header>

@@ -163,11 +163,12 @@ export function IdeaBoard({
 
   return (
     <div className="relative space-y-4">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="space-y-1">
-          <h2 className="text-lg font-semibold">Ideas</h2>
-          <p className="text-sm text-muted-foreground">Keep ’em coming!</p>
-          <p className="text-xs text-muted-foreground">Super stars {superStarCount}/3</p>
+      <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
+        <div className="flex flex-col items-center gap-1 sm:items-start">
+          <span className="text-sm font-semibold tracking-wide text-foreground">Ideas</span>
+          <p className="text-xs text-muted-foreground">
+            Keep ’em coming! <span aria-hidden="true">•</span> Super stars {superStarCount}/3
+          </p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
           <SearchBar className="w-full sm:max-w-sm lg:max-w-md" />
