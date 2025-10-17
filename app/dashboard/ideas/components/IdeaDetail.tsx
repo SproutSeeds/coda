@@ -15,6 +15,9 @@ import {
   Link as LinkIcon,
   Loader2,
   Pencil,
+  Sparkles,
+  Star,
+  StarOff,
   Trash2,
   X,
 } from "lucide-react";
@@ -35,6 +38,7 @@ import {
   listIdeaOptionsAction,
   restoreDeletedFeatureAction,
   restoreIdeaAction,
+  cycleIdeaStarAction,
   updateIdeaAction,
 } from "../actions";
 import { FeatureComposer } from "./FeatureComposer";
@@ -103,6 +107,8 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
     githubUrl: idea.githubUrl ?? "",
     linkLabel: idea.linkLabel ?? "GitHub Repository",
     updatedAt: idea.updatedAt,
+    starred: idea.starred,
+    superStarred: idea.superStarred,
   });
   const ideaAutoTimer = useRef<number | null>(null);
   const githubAutoTimer = useRef<number | null>(null);
@@ -122,6 +128,7 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
   const [isIdVisible, setIsIdVisible] = useState(false);
   const [deletedFeaturesState, setDeletedFeaturesState] = useState(deletedFeatures);
   const [isRestoringFeature, startRestoreFeatureTransition] = useTransition();
+  const [isStarPending, startStarTransition] = useTransition();
   const [restoreTargetId, setRestoreTargetId] = useState<string | null>(null);
   const filterPanelRef = useRef<HTMLDivElement | null>(null);
   const filterTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -146,13 +153,15 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
       githubUrl: nextGithub,
       linkLabel: idea.linkLabel ?? "GitHub Repository",
       updatedAt: idea.updatedAt,
+      starred: idea.starred,
+      superStarred: idea.superStarred,
     });
     setLinkLabelDraft(idea.linkLabel ?? "GitHub Repository");
     setIdeaAutoState("idle");
     setGithubAutoState("idle");
     setIsCoreExpanded(false);
     setIsIdVisible(false);
-  }, [idea.id, idea.title, idea.notes, idea.githubUrl, idea.linkLabel, idea.updatedAt]);
+  }, [idea.githubUrl, idea.id, idea.linkLabel, idea.notes, idea.starred, idea.superStarred, idea.title, idea.updatedAt]);
 
   useEffect(() => {
     setDeletedFeaturesState(deletedFeatures);
@@ -232,6 +241,34 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
     }
   }, [syncedIdea.githubUrl]);
 
+  const handleStarToggle = useCallback(() => {
+    startStarTransition(async () => {
+      try {
+        const updated = await cycleIdeaStarAction(idea.id);
+        setSyncedIdea((previous) => ({
+          ...previous,
+          githubUrl: updated.githubUrl ?? previous.githubUrl,
+          linkLabel: updated.linkLabel ?? previous.linkLabel,
+          updatedAt: updated.updatedAt,
+          starred: updated.starred,
+          superStarred: updated.superStarred,
+        }));
+        if (!isEditing) {
+          setTitle((prev) => (prev === updated.title ? prev : updated.title));
+          setNotes((prev) => (prev === updated.notes ? prev : updated.notes));
+        }
+        if (!isEditingGithub) {
+          const nextGithub = updated.githubUrl ?? "";
+          const nextLabel = updated.linkLabel ?? "GitHub Repository";
+          setGithubDraft((prev) => (prev === nextGithub ? prev : nextGithub));
+          setLinkLabelDraft((prev) => (prev === nextLabel ? prev : nextLabel));
+        }
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Unable to update star status");
+      }
+    });
+  }, [idea.id, isEditing, isEditingGithub, startStarTransition]);
+
   const saveIdea = useCallback(
     async (fields: { title?: string; notes?: string; githubUrl?: string | null; linkLabel?: string | null }) => {
       ideaSaveInFlight.current = true;
@@ -249,6 +286,8 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
           githubUrl: nextGithub,
           linkLabel: nextLinkLabel,
           updatedAt: updated.updatedAt,
+          starred: updated.starred,
+          superStarred: updated.superStarred,
         });
         setTitle((previous) => (previous === updated.title ? previous : updated.title));
         setNotes((previous) => (previous === updated.notes ? previous : updated.notes));
@@ -362,6 +401,23 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
       }
     };
   }, [githubAutoState, githubDirty, githubUrlNormalized, isEditingGithub, saveIdea, trimmedLinkLabel]);
+
+  const starState = useMemo(() => {
+    if (syncedIdea.superStarred) {
+      return "super";
+    }
+    if (syncedIdea.starred) {
+      return "star";
+    }
+    return "none";
+  }, [syncedIdea.starred, syncedIdea.superStarred]);
+
+  const starLabel =
+    starState === "super"
+      ? "Remove super star"
+      : starState === "star"
+        ? "Promote to super star"
+        : "Star idea";
 
   const deletePrompt = useMemo(() => `Enter "${syncedIdea.title}" to delete`, [syncedIdea.title]);
   const deleteTitleMatches = deleteInput.trim() === syncedIdea.title;
@@ -729,6 +785,31 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
             </AnimatePresence>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className={cn(
+                "interactive-btn text-muted-foreground hover:text-foreground",
+                starState === "star" && "text-yellow-400 hover:text-yellow-300",
+                starState === "super" && "text-amber-300 drop-shadow-[0_0_8px_rgba(251,191,36,0.55)] hover:text-amber-200",
+              )}
+              onClick={handleStarToggle}
+              aria-label={starLabel}
+              data-testid="idea-star-toggle"
+              disabled={isStarPending}
+            >
+              {starState === "super" ? (
+                <span className="relative inline-flex items-center justify-center">
+                  <Star className="size-4 fill-current" />
+                  <Sparkles className="absolute -top-2 -right-2 size-3 text-amber-200" aria-hidden="true" />
+                </span>
+              ) : starState === "star" ? (
+                <Star className="size-4 fill-current" />
+              ) : (
+                <StarOff className="size-4" />
+              )}
+            </Button>
             <Button
               type="button"
               variant={isEditing ? "secondary" : "ghost"}
