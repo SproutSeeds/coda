@@ -29,8 +29,10 @@ import { toast } from "sonner";
 import { reorderFeaturesAction } from "../actions";
 import type { Feature } from "./types";
 import { FeatureCard } from "./FeatureCard";
-import { useFeatureSectionCollapse, type FeatureSectionKey } from "./hooks/useFeatureSectionCollapse";
+import { useFeatureSectionCollapse } from "./hooks/useFeatureSectionCollapse";
 import { cn } from "@/lib/utils";
+
+type FeatureActiveSectionKey = "superstars" | "stars" | "unstarred";
 
 const SECTION_CONFIG = [
   {
@@ -49,7 +51,7 @@ const SECTION_CONFIG = [
     emptyMessage: "Capture more detail to round out this list.",
   },
 ] as const satisfies ReadonlyArray<{
-  key: FeatureSectionKey;
+  key: FeatureActiveSectionKey;
   label: string;
   emptyMessage: string;
 }>;
@@ -60,7 +62,7 @@ type SectionData = (typeof SECTION_CONFIG)[number] & {
   maxIndex: number;
 };
 
-function getSectionKey(feature: Feature): FeatureSectionKey {
+function getSectionKey(feature: Feature): FeatureActiveSectionKey {
   if (feature.superStarred) {
     return "superstars";
   }
@@ -176,7 +178,7 @@ export function FeatureList({
   const hasMoreActive = visibleActiveCount < activeItems.length;
 
   const sections = useMemo<SectionData[]>(() => {
-    const meta: Record<FeatureSectionKey, { total: number; visible: Feature[]; maxIndex: number }> = {
+    const meta: Record<FeatureActiveSectionKey, { total: number; visible: Feature[]; maxIndex: number }> = {
       superstars: { total: 0, visible: [], maxIndex: -1 },
       stars: { total: 0, visible: [], maxIndex: -1 },
       unstarred: { total: 0, visible: [], maxIndex: -1 },
@@ -267,7 +269,7 @@ export function FeatureList({
   }, [activeItems.length, highestExpandedIndex, showCompletedSection]);
 
   const toggleSection = useCallback(
-    (key: FeatureSectionKey) => {
+    (key: FeatureActiveSectionKey) => {
       const wasCollapsed = collapsedSections[key];
       const section = sections.find((entry) => entry.key === key);
       setCollapsedSections((previous) => ({
@@ -356,6 +358,16 @@ export function FeatureList({
     [collapsedSections, sections, toggleSection],
   );
 
+  const toggleCompletedSection = useCallback(() => {
+    setCollapsedSections((previous) => ({
+      ...previous,
+      completed: !previous.completed,
+    }));
+  }, [setCollapsedSections]);
+
+  const completedContentId = "feature-section-completed";
+  const isCompletedCollapsed = collapsedSections.completed;
+
   if (!hasActive && !hasCompleted) {
     return <p className="text-sm text-muted-foreground">{emptyLabel ?? "No features yet. Add one to start shaping this idea."}</p>;
   }
@@ -372,18 +384,56 @@ export function FeatureList({
   }
 
   const renderCompletedSection = hasCompleted ? (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        <span className="inline-flex size-6 items-center justify-center rounded-full border border-border bg-card text-[0.7rem]">
-          ✓
+    <div className="space-y-2">
+      <button
+        type="button"
+        onClick={toggleCompletedSection}
+        aria-expanded={!isCompletedCollapsed}
+        aria-controls={completedContentId}
+        className="flex w-full cursor-pointer items-center justify-between rounded-xl border border-border/40 bg-muted/5 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground transition hover:bg-muted/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      >
+        <span className="flex items-center gap-2">
+          <span className="inline-flex size-6 items-center justify-center rounded-full border border-border bg-card text-[0.7rem]">
+            ✓
+          </span>
+          Completed
+          <span className="font-normal text-muted-foreground/80">
+            ({completedFeatures.length})
+          </span>
         </span>
-        Completed ({completedFeatures.length})
-      </div>
-      <div className="space-y-3" data-testid="feature-completed-list">
-        {completedFeatures.map((feature) => (
-          <FeatureCard key={feature.id} feature={feature} ideaId={ideaId} isDragging={false} />
-        ))}
-      </div>
+        <ChevronDown
+          className={cn(
+            "size-4 transition-transform duration-200",
+            isCompletedCollapsed ? "-rotate-90" : "rotate-0",
+          )}
+        />
+      </button>
+      <AnimatePresence initial={false}>
+        {!isCompletedCollapsed ? (
+          <motion.div
+            key="completed-content"
+            id={completedContentId}
+            layout
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.18, ease: "easeInOut" }}
+            className="space-y-3"
+            data-testid="feature-completed-list"
+          >
+            {completedFeatures.map((feature) => (
+              <FeatureCard key={feature.id} feature={feature} ideaId={ideaId} isDragging={false} />
+            ))}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+      {isCompletedCollapsed ? (
+        <p className="pl-1 text-xs text-muted-foreground">
+          {completedFeatures.length === 1
+            ? "1 completed feature hidden"
+            : `${completedFeatures.length} completed features hidden`}
+        </p>
+      ) : null}
     </div>
   ) : null;
 

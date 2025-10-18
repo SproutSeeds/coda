@@ -6,6 +6,7 @@ export type FeatureSectionState = {
   superstars: boolean;
   stars: boolean;
   unstarred: boolean;
+  completed: boolean;
 };
 
 export type FeatureSectionKey = keyof FeatureSectionState;
@@ -14,6 +15,7 @@ const DEFAULT_STATE: FeatureSectionState = {
   superstars: false,
   stars: false,
   unstarred: false,
+  completed: false,
 };
 
 export function useFeatureSectionCollapse(ideaId: string) {
