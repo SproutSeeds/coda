@@ -177,6 +177,7 @@ export function IdeaBoard({
             ref={fileInputRef}
             type="file"
             accept="application/json"
+            name="ideas-import"
             className="hidden"
             data-testid="ideas-import-input"
             onChange={(event) => {

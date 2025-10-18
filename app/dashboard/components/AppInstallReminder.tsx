@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Share2, Smartphone } from "lucide-react";
@@ -40,6 +40,7 @@ export function AppInstallReminder() {
   const [visible, setVisible] = useState(false);
   const [platform, setPlatform] = useState<MobilePlatform>("unknown");
   const [dontRemind, setDontRemind] = useState(false);
+  const reminderCheckboxId = useId();
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -148,9 +149,11 @@ export function AppInstallReminder() {
               ))}
             </ol>
             <div className="mt-6 space-y-4">
-              <label className="flex items-center gap-3 text-xs text-white/70">
+              <label className="flex items-center gap-3 text-xs text-white/70" htmlFor={reminderCheckboxId}>
                 <input
                   type="checkbox"
+                  id={reminderCheckboxId}
+                  name="app-install-reminder-dismiss"
                   className="size-4 rounded border border-white/40 bg-transparent text-amber-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/60"
                   checked={dontRemind}
                   onChange={(event) => setDontRemind(event.target.checked)}
