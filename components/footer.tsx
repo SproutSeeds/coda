@@ -8,12 +8,17 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
+const HIDDEN_PATHS = new Set(["/login", "/about", "/check-in"]);
 const FLOATING_PATHS = new Set(["/login", "/about", "/check-in"]);
 const REVEAL_THRESHOLD_PX = 16;
 const FOOTER_OFFSET_PX = 24;
 
 export function Footer() {
   const pathname = usePathname();
+  const isHidden = pathname ? HIDDEN_PATHS.has(pathname) : false;
+  if (isHidden) {
+    return null;
+  }
   const isFloating = pathname ? FLOATING_PATHS.has(pathname) : false;
 
   return isFloating ? <FloatingFooter /> : <StaticFooter />;
