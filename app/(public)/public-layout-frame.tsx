@@ -44,8 +44,12 @@ export function PublicLayoutFrame({ children, isSignedIn }: PublicLayoutFramePro
   const header = isLegal
     ? (
       <header className="border-b border-border/60 bg-transparent">
-        <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-4 px-4 py-4 text-center sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:text-left">
-          <Link href="/dashboard/ideas" className="relative inline-flex cursor-pointer items-center" aria-label="Coda dashboard">
+        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:flex-nowrap sm:px-6">
+          <Link
+            href="/dashboard/ideas"
+            className="relative inline-flex cursor-pointer items-center text-left"
+            aria-label="Coda dashboard"
+          >
             <span
               aria-hidden="true"
               className="pointer-events-none absolute inset-x-0 -top-2 h-6 rounded-full bg-gradient-to-r from-primary/40 via-accent/55 to-primary/40 blur-xl opacity-70"
@@ -55,7 +59,7 @@ export function PublicLayoutFrame({ children, isSignedIn }: PublicLayoutFramePro
             </span>
           </Link>
           {isSignedIn ? (
-            <UserMenu className="sm:ml-auto" />
+            <UserMenu className="ml-auto" />
           ) : (
             <Button
               asChild
