@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 
-import { createFeature, deleteFeature, getFeatureById, listDeletedFeatures, listFeatures, reorderFeatures, restoreFeature, setFeatureCompletion, updateFeature, updateFeatureStar } from "@/lib/db/features";
+import { createFeature, deleteFeature, getFeatureById, listDeletedFeatures, listFeatures, reorderFeatures, restoreFeature, setFeatureCompletion, cycleFeatureStarState, updateFeature } from "@/lib/db/features";
 import {
   createIdea,
   cycleIdeaStarState,
@@ -19,6 +19,7 @@ import {
   type IdeaSort,
 } from "@/lib/db/ideas";
 import { SuperStarLimitError } from "@/lib/errors/super-star-limit";
+import { FeatureSuperStarLimitError } from "@/lib/errors/feature-super-star-limit";
 import { trackEvent } from "@/lib/utils/analytics";
 import { consumeRateLimit } from "@/lib/utils/rate-limit";
 import { consumeUndoToken, createUndoToken } from "@/lib/utils/undo";
@@ -229,7 +230,7 @@ export async function loadDeletedIdeas() {
 }
 
 export async function createFeatureAction(
-  formData: FormData | { ideaId: string; title: string; notes: string; detail?: string; detailLabel?: string; details?: { id?: string; label?: string; body?: string }[]; starred?: boolean },
+  formData: FormData | { ideaId: string; title: string; notes: string; detail?: string; detailLabel?: string; details?: { id?: string; label?: string; body?: string }[]; starred?: boolean; superStarred?: boolean },
 ) {
   const user = await requireUser();
   const payload = formData instanceof FormData
@@ -245,14 +246,36 @@ export async function createFeatureAction(
           const normalized = String(value).toLowerCase();
           return normalized === "true" || normalized === "on" || normalized === "1";
         })(),
+        superStarred: (() => {
+          const value = formData.get("superStarred");
+          if (value == null) return false;
+          const normalized = String(value).toLowerCase();
+          return normalized === "true" || normalized === "on" || normalized === "1";
+        })(),
       }
     : formData;
 
   const feature = await createFeature(user.id, payload);
   await trackEvent({
     name: "feature_created",
-    properties: { ideaId: payload.ideaId, featureId: feature.id, starred: payload.starred ?? false },
+    properties: {
+      ideaId: payload.ideaId,
+      featureId: feature.id,
+      starred: payload.starred ?? false,
+      superStarred: payload.superStarred ?? false,
+    },
   });
+  if (payload.superStarred) {
+    await trackEvent({
+      name: "feature_super_starred",
+      properties: { featureId: feature.id, ideaId: payload.ideaId },
+    });
+  } else if (payload.starred) {
+    await trackEvent({
+      name: "feature_starred",
+      properties: { featureId: feature.id, ideaId: payload.ideaId },
+    });
+  }
   return feature;
 }
 
@@ -285,14 +308,28 @@ export async function reorderFeaturesAction(ideaId: string, ids: string[]) {
   await trackEvent({ name: "feature_reordered", properties: { ideaId, count: ids.length } });
 }
 
-export async function toggleFeatureStarAction(id: string, starred: boolean) {
+export async function cycleFeatureStarAction(id: string) {
   const user = await requireUser();
-  const feature = await updateFeatureStar(user.id, id, starred);
-  await trackEvent({
-    name: starred ? "feature_starred" : "feature_unstarred",
-    properties: { featureId: id, ideaId: feature.ideaId },
-  });
-  return feature;
+  try {
+    const feature = await cycleFeatureStarState(user.id, id);
+    const eventName = feature.superStarred
+      ? "feature_super_starred"
+      : feature.starred
+        ? "feature_starred"
+        : "feature_unstarred";
+
+    await trackEvent({
+      name: eventName,
+      properties: { featureId: id, ideaId: feature.ideaId },
+    });
+
+    return feature;
+  } catch (error) {
+    if (error instanceof FeatureSuperStarLimitError) {
+      throw error;
+    }
+    throw error;
+  }
 }
 
 export async function toggleFeatureCompletionAction(id: string, completed: boolean) {

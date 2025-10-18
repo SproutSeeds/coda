@@ -21,6 +21,7 @@ const ANALYTICS_EVENT_NAMES = [
   "feature_created",
   "feature_restored",
   "feature_starred",
+  "feature_super_starred",
   "feature_unstarred",
   "feature_completed",
   "feature_reopened",

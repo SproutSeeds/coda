@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { useRouter } from "next/navigation";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, CheckCircle2, ChevronDown, ChevronUp, Circle, Copy, MoreHorizontal, Plus, Star, StarOff, Trash2, X } from "lucide-react";
+import { Check, CheckCircle2, ChevronDown, ChevronUp, Circle, Copy, MoreHorizontal, Plus, Sparkles, Star, StarOff, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -32,15 +32,27 @@ function formatFeatureUpdated(value: string) {
 
 import {
   convertFeatureToIdeaAction,
+  cycleFeatureStarAction,
   deleteFeatureAction,
   toggleFeatureCompletionAction,
-  toggleFeatureStarAction,
   updateFeatureAction,
 } from "../actions";
+import type { FeatureStarState } from "@/lib/db/features";
+import { FeatureSuperStarLimitError } from "@/lib/errors/feature-super-star-limit";
 import type { Feature } from "./types";
 
 const AUTOSAVE_DELAY = 10_000;
 const FEATURE_DETAIL_SECTION_LIMIT = 25;
+
+function deriveStarState(source: { starred: boolean; superStarred: boolean }): FeatureStarState {
+  if (source.superStarred) {
+    return "super";
+  }
+  if (source.starred) {
+    return "star";
+  }
+  return "none";
+}
 
 type DetailSectionState = {
   id?: string;
@@ -109,10 +121,18 @@ export function FeatureCard({
     updatedAt: feature.updatedAt,
     completed: feature.completed,
     completedAt: feature.completedAt,
+    starred: feature.starred,
+    superStarred: feature.superStarred,
   });
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [deleteInput, setDeleteInput] = useState("");
-  const [isStarred, setIsStarred] = useState(feature.starred);
+  const [starState, setStarState] = useState<FeatureStarState>(deriveStarState(feature));
+  const starLabel =
+    starState === "super"
+      ? "Remove super star"
+      : starState === "star"
+        ? "Promote to super star"
+        : "Star feature";
   const [featureAutoState, setFeatureAutoState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const featureAutoTimer = useRef<number | null>(null);
   const featureSaveInFlight = useRef(false);
@@ -127,6 +147,7 @@ export function FeatureCard({
     normalizeDetailSectionsState(feature.detailSections).length > 0,
   );
   const [confirmingDetailRemovalIndex, setConfirmingDetailRemovalIndex] = useState<number | null>(null);
+  const pendingRefreshRef = useRef(false);
   const hasRenderedDetail = useMemo(
     () => currentDetails.some((section) => section.body.trim()),
     [currentDetails],
@@ -175,7 +196,7 @@ export function FeatureCard({
     setDraftTitle(feature.title);
     setDraftNotes(feature.notes);
     setDraftDetails(draftClone);
-    setIsStarred(feature.starred);
+    setStarState(deriveStarState(feature));
     setSyncedFeature({
       title: feature.title,
       notes: feature.notes,
@@ -183,21 +204,32 @@ export function FeatureCard({
       updatedAt: feature.updatedAt,
       completed: feature.completed,
       completedAt: feature.completedAt,
+      starred: feature.starred,
+      superStarred: feature.superStarred,
     });
     setIsCompleted(Boolean(feature.completed));
     setCompletedAt(feature.completedAt ?? null);
     setIsDetailEditorVisible(normalizedDetails.length > 0);
     setConfirmingDetailRemovalIndex(null);
   }, [
+    feature,
     feature.completed,
     feature.completedAt,
     feature.detailSections,
     feature.id,
     feature.notes,
     feature.starred,
+    feature.superStarred,
     feature.title,
     feature.updatedAt,
   ]);
+
+  useEffect(() => {
+    if (!isExpanded && pendingRefreshRef.current) {
+      pendingRefreshRef.current = false;
+      router.refresh();
+    }
+  }, [isExpanded, router]);
 
   const trimmedDraftTitle = draftTitle.trim();
   const trimmedDraftNotes = draftNotes.trim();
@@ -308,7 +340,10 @@ export function FeatureCard({
           updatedAt: updated.updatedAt,
           completed: updated.completed,
           completedAt: updated.completedAt,
+          starred: updated.starred,
+          superStarred: updated.superStarred,
         });
+        setStarState(deriveStarState(updated));
         setIsCompleted(Boolean(updated.completed));
         setCompletedAt(updated.completedAt ?? null);
         setIsDetailEditorVisible(normalizedDetails.length > 0);
@@ -408,15 +443,45 @@ export function FeatureCard({
     });
   }, [deleteTitleMatches, feature.id, isMutating, resetDeleteConfirmation, router, startMutate]);
 
-  const handleToggleStar = () => {
-    const next = !isStarred;
-    setIsStarred(next);
+  const handleCycleStar = () => {
+    const previousState = starState;
+    const wasEditing = isEditing;
+    const wasExpanded = isExpanded;
+    const nextState: FeatureStarState =
+      previousState === "none" ? "star" : previousState === "star" ? "super" : "none";
+    setStarState(nextState);
     startStarTransition(async () => {
       try {
-        await toggleFeatureStarAction(feature.id, next);
-        router.refresh();
+        const updated = await cycleFeatureStarAction(feature.id);
+        setStarState(deriveStarState(updated));
+        setSyncedFeature((current) => ({
+          ...current,
+          starred: updated.starred,
+          superStarred: updated.superStarred,
+          updatedAt: updated.updatedAt,
+        }));
+        setIsCompleted(Boolean(updated.completed));
+        setCompletedAt(updated.completedAt ?? null);
+        if (wasEditing) {
+          setIsEditing(true);
+        }
+        if (wasExpanded) {
+          setIsExpanded(true);
+          pendingRefreshRef.current = true;
+        }
+        if (!wasEditing && !wasExpanded) {
+          pendingRefreshRef.current = false;
+          router.refresh();
+        } else if (!wasExpanded) {
+          pendingRefreshRef.current = false;
+        }
       } catch (error) {
-        setIsStarred(!next);
+        setStarState(previousState);
+        pendingRefreshRef.current = false;
+        if (error instanceof FeatureSuperStarLimitError) {
+          toast.error(error.message);
+          return;
+        }
         toast.error(error instanceof Error ? error.message : "Unable to update feature star");
       }
     });
@@ -437,7 +502,10 @@ export function FeatureCard({
           updatedAt: updated.updatedAt,
           completed: updated.completed,
           completedAt: updated.completedAt,
+          starred: updated.starred,
+          superStarred: updated.superStarred,
         });
+        setStarState(deriveStarState(updated));
         setCurrentTitle(updated.title);
         setCurrentNotes(updated.notes);
         setCurrentDetails(normalizedDetails.map((section) => ({ ...section })));
@@ -863,15 +931,30 @@ const moveDetailSection = useCallback((index: number, direction: -1 | 1) => {
                 variant="ghost"
                 size="icon"
                 className={cn(
-                  "interactive-btn h-8 w-8 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-muted-foreground focus-visible:ring-0",
-                  isStarred && "text-yellow-400",
+                  "interactive-btn h-8 w-8 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-foreground focus-visible:ring-0",
+                  starState === "star" && "text-yellow-400 hover:text-yellow-300",
+                  starState === "super" && "text-amber-300 drop-shadow-[0_0_8px_rgba(251,191,36,0.55)] hover:text-amber-200",
                 )}
-                onClick={handleToggleStar}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleCycleStar();
+                }}
                 disabled={isStarPending}
-                aria-label={isStarred ? "Unstar feature" : "Star feature"}
+                aria-label={starLabel}
+                aria-pressed={starState !== "none"}
                 data-testid="feature-star-button"
+                data-star-state={starState}
               >
-                {isStarred ? <Star className="size-4 fill-current" /> : <StarOff className="size-4" />}
+                {starState === "super" ? (
+                  <span className="relative inline-flex items-center justify-center">
+                    <Star className="size-4 fill-current" />
+                    <Sparkles className="absolute -top-2 -right-2 size-3 text-amber-200" aria-hidden="true" />
+                  </span>
+                ) : starState === "star" ? (
+                  <Star className="size-4 fill-current" />
+                ) : (
+                  <StarOff className="size-4" />
+                )}
               </Button>
               <Button
                 type="button"

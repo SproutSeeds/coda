@@ -2,7 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 
-import { and, asc, desc, eq, isNull, isNotNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, isNotNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { getDb } from "@/lib/db";
@@ -14,6 +14,32 @@ import {
   type FeatureInput,
   type FeatureUpdateInput,
 } from "@/lib/validations/features";
+import { FeatureSuperStarLimitError } from "@/lib/errors/feature-super-star-limit";
+import { ensureSuperStarPlacement } from "@/lib/utils/super-star-ordering";
+
+const FEATURE_SUPER_STAR_LIMIT = 3;
+
+export type FeatureStarState = "none" | "star" | "super";
+
+function getFeatureStarState(row: Pick<typeof ideaFeatures.$inferSelect, "starred" | "superStarred">): FeatureStarState {
+  if (row.superStarred) {
+    return "super";
+  }
+  if (row.starred) {
+    return "star";
+  }
+  return "none";
+}
+
+function resolveFeatureStarFlags(state: FeatureStarState) {
+  const starred = state !== "none";
+  const superStarred = state === "super";
+  return {
+    starred,
+    superStarred,
+    superStarredAt: superStarred ? new Date() : null,
+  } satisfies Partial<typeof ideaFeatures.$inferInsert>;
+}
 
 export async function listFeatures(userId: string, ideaId: string) {
   const db = getDb();
@@ -30,7 +56,13 @@ export async function listFeatures(userId: string, ideaId: string) {
         isNull(ideaFeatures.deletedAt),
       ),
     )
-    .orderBy(asc(ideaFeatures.completed), desc(ideaFeatures.starred), asc(ideaFeatures.position), desc(ideaFeatures.createdAt));
+    .orderBy(
+      asc(ideaFeatures.completed),
+      desc(ideaFeatures.superStarred),
+      desc(ideaFeatures.starred),
+      asc(ideaFeatures.position),
+      desc(ideaFeatures.createdAt),
+    );
 
   return rows.map((row) => normalizeFeature(row.feature));
 }
@@ -70,6 +102,23 @@ export async function createFeature(userId: string, input: FeatureInput) {
     throw new Error("Idea not found");
   }
 
+  if (payload.superStarred) {
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(ideaFeatures)
+      .where(
+        and(
+          eq(ideaFeatures.ideaId, payload.ideaId),
+          eq(ideaFeatures.superStarred, true),
+          isNull(ideaFeatures.deletedAt),
+        ),
+      );
+
+    if (Number(count) >= FEATURE_SUPER_STAR_LIMIT) {
+      throw new FeatureSuperStarLimitError();
+    }
+  }
+
   const [top] = await db
     .select({ position: ideaFeatures.position })
     .from(ideaFeatures)
@@ -80,6 +129,8 @@ export async function createFeature(userId: string, input: FeatureInput) {
   const position = top?.position !== undefined ? top.position - 1000 : Date.now();
   const detailSections = prepareDetailSectionsForStorage(payload.detailSections);
   const primaryDetail = detailSections[0];
+  const superStarred = payload.superStarred === true;
+  const starred = superStarred ? true : payload.starred;
 
   const [created] = await db
     .insert(ideaFeatures)
@@ -91,7 +142,9 @@ export async function createFeature(userId: string, input: FeatureInput) {
       detailLabel: primaryDetail?.label ?? "Detail",
       detailSections,
       position,
-      starred: payload.starred,
+      starred,
+      superStarred,
+      superStarredAt: superStarred ? new Date() : null,
     })
     .returning();
 
@@ -112,6 +165,8 @@ export async function updateFeature(userId: string, input: FeatureUpdateInput) {
       id: ideaFeatures.id,
       ideaId: ideaFeatures.ideaId,
       updatedAt: ideaFeatures.updatedAt,
+      starred: ideaFeatures.starred,
+      superStarred: ideaFeatures.superStarred,
     })
     .from(ideaFeatures)
     .innerJoin(ideas, eq(ideas.id, ideaFeatures.ideaId))
@@ -125,7 +180,51 @@ export async function updateFeature(userId: string, input: FeatureUpdateInput) {
   const updates: Partial<typeof ideaFeatures.$inferInsert> = { updatedAt: new Date() };
   if (payload.title !== undefined) updates.title = payload.title;
   if (payload.notes !== undefined) updates.notes = payload.notes;
-  if (payload.starred !== undefined) updates.starred = payload.starred;
+  const currentStarState = getFeatureStarState({
+    starred: existing.starred,
+    superStarred: existing.superStarred,
+  });
+
+  const superFlag = payload.superStarred;
+  const starFlag = payload.starred;
+  let targetState: FeatureStarState | undefined;
+
+  if (superFlag !== undefined) {
+    targetState = superFlag ? "super" : "none";
+  }
+  if (starFlag !== undefined) {
+    targetState = starFlag ? "star" : "none";
+  }
+  if (superFlag === true) {
+    targetState = "super";
+  } else if (superFlag === false && starFlag === true) {
+    targetState = "star";
+  }
+
+  if (targetState !== undefined && targetState !== currentStarState) {
+    if (targetState === "super" && !existing.superStarred) {
+      const [{ count }] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(ideaFeatures)
+        .where(
+          and(
+            eq(ideaFeatures.ideaId, existing.ideaId),
+            eq(ideaFeatures.superStarred, true),
+            isNull(ideaFeatures.deletedAt),
+          ),
+        );
+
+      if (Number(count) >= FEATURE_SUPER_STAR_LIMIT) {
+        throw new FeatureSuperStarLimitError();
+      }
+    }
+
+    const flags = resolveFeatureStarFlags(targetState);
+    updates.starred = flags.starred;
+    updates.superStarred = flags.superStarred;
+    updates.superStarredAt = flags.superStarredAt;
+  }
+
   if (payload.detailSections !== undefined) {
     const detailSections = prepareDetailSectionsForStorage(payload.detailSections);
     const primary = detailSections[0];
@@ -146,6 +245,92 @@ export async function updateFeature(userId: string, input: FeatureUpdateInput) {
   revalidatePath("/dashboard/ideas");
 
   return feature;
+}
+
+export async function setFeatureStarState(userId: string, id: string, state: FeatureStarState) {
+  const db = getDb();
+
+  const updated = await db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select({
+        feature: ideaFeatures,
+        ideaId: ideaFeatures.ideaId,
+      })
+      .from(ideaFeatures)
+      .innerJoin(ideas, eq(ideas.id, ideaFeatures.ideaId))
+      .where(and(eq(ideaFeatures.id, id), eq(ideas.userId, userId), isNull(ideas.deletedAt)))
+      .limit(1);
+
+    if (!existing) {
+      throw new Error("Feature not found");
+    }
+
+    const currentState = getFeatureStarState(existing.feature);
+    if (state === currentState) {
+      return existing.feature;
+    }
+
+    if (state === "super" && !existing.feature.superStarred) {
+      const [{ count }] = await tx
+        .select({ count: sql<number>`count(*)` })
+        .from(ideaFeatures)
+        .where(
+          and(
+            eq(ideaFeatures.ideaId, existing.ideaId),
+            eq(ideaFeatures.superStarred, true),
+            isNull(ideaFeatures.deletedAt),
+          ),
+        );
+
+      if (Number(count) >= FEATURE_SUPER_STAR_LIMIT) {
+        throw new FeatureSuperStarLimitError();
+      }
+    }
+
+    const flags = resolveFeatureStarFlags(state);
+    const [next] = await tx
+      .update(ideaFeatures)
+      .set({
+        starred: flags.starred,
+        superStarred: flags.superStarred,
+        superStarredAt: flags.superStarredAt,
+        updatedAt: new Date(),
+      })
+      .where(eq(ideaFeatures.id, id))
+      .returning();
+
+    return next;
+  });
+
+  const feature = normalizeFeature(updated);
+
+  revalidatePath(`/dashboard/ideas/${feature.ideaId}`);
+  revalidatePath("/dashboard/ideas");
+
+  return feature;
+}
+
+export async function cycleFeatureStarState(userId: string, id: string) {
+  const db = getDb();
+  const [existing] = await db
+    .select({
+      feature: ideaFeatures,
+      ideaId: ideaFeatures.ideaId,
+    })
+    .from(ideaFeatures)
+    .innerJoin(ideas, eq(ideas.id, ideaFeatures.ideaId))
+    .where(and(eq(ideaFeatures.id, id), eq(ideas.userId, userId), isNull(ideas.deletedAt)))
+    .limit(1);
+
+  if (!existing) {
+    throw new Error("Feature not found");
+  }
+
+  const currentState = getFeatureStarState(existing.feature);
+  const nextState: FeatureStarState =
+    currentState === "none" ? "star" : currentState === "star" ? "super" : "none";
+
+  return setFeatureStarState(userId, id, nextState);
 }
 
 export async function deleteFeature(userId: string, id: string) {
@@ -188,37 +373,6 @@ export async function restoreFeature(userId: string, id: string) {
   const [updated] = await db
     .update(ideaFeatures)
     .set({ deletedAt: null, updatedAt: new Date() })
-    .where(eq(ideaFeatures.id, id))
-    .returning();
-
-  const feature = normalizeFeature(updated);
-
-  revalidatePath(`/dashboard/ideas/${existing.ideaId}`);
-  revalidatePath("/dashboard/ideas");
-
-  return feature;
-}
-
-export async function updateFeatureStar(userId: string, id: string, starred: boolean) {
-  const db = getDb();
-
-  const [existing] = await db
-    .select({
-      id: ideaFeatures.id,
-      ideaId: ideaFeatures.ideaId,
-    })
-    .from(ideaFeatures)
-    .innerJoin(ideas, eq(ideas.id, ideaFeatures.ideaId))
-    .where(and(eq(ideaFeatures.id, id), eq(ideas.userId, userId), isNull(ideas.deletedAt)))
-    .limit(1);
-
-  if (!existing) {
-    throw new Error("Feature not found");
-  }
-
-  const [updated] = await db
-    .update(ideaFeatures)
-    .set({ starred, updatedAt: new Date() })
     .where(eq(ideaFeatures.id, id))
     .returning();
 
@@ -295,7 +449,7 @@ export async function reorderFeatures(userId: string, ideaId: string, orderedIds
 
   await db.transaction(async (tx) => {
     const rows = await tx
-      .select({ id: ideaFeatures.id })
+      .select({ id: ideaFeatures.id, superStarred: ideaFeatures.superStarred })
       .from(ideaFeatures)
       .innerJoin(ideas, eq(ideas.id, ideaFeatures.ideaId))
       .where(
@@ -318,6 +472,9 @@ export async function reorderFeatures(userId: string, ideaId: string, orderedIds
         throw new Error("Cannot reorder features you do not own");
       }
     }
+
+    const superStarIds = rows.filter((row) => row.superStarred).map((row) => row.id);
+    ensureSuperStarPlacement(orderedIds, superStarIds);
 
     await Promise.all(
       orderedIds.map((id, index) =>
@@ -395,5 +552,8 @@ function normalizeFeature(row: typeof ideaFeatures.$inferSelect) {
     completed: Boolean(row.completed),
     completedAt: row.completedAt ? row.completedAt.toISOString() : null,
     deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
+    starred: Boolean(row.starred),
+    superStarred: Boolean(row.superStarred),
+    superStarredAt: row.superStarredAt ? row.superStarredAt.toISOString() : null,
   };
 }

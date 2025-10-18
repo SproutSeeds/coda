@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { loadIdeaWithFeatures } from "../actions";
 import { IdeaDetail } from "../components/IdeaDetail";
 
-function isMissingDetailSectionsColumn(error: unknown): boolean {
+function isMissingFeatureColumns(error: unknown): boolean {
   if (!error || typeof error !== "object") {
     return false;
   }
@@ -16,7 +16,11 @@ function isMissingDetailSectionsColumn(error: unknown): boolean {
       ? (error as { code: string }).code
       : undefined;
 
-  return code === "42703" && message.includes("detail_sections");
+  if (code !== "42703") {
+    return false;
+  }
+
+  return message.includes("detail_sections") || message.includes("super_starred");
 }
 
 export default async function IdeaDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -26,15 +30,16 @@ export default async function IdeaDetailPage({ params }: { params: Promise<{ id:
   try {
     data = await loadIdeaWithFeatures(id);
   } catch (error) {
-    if (isMissingDetailSectionsColumn(error)) {
+    if (isMissingFeatureColumns(error)) {
       return (
         <section className="space-y-4 rounded-xl border border-amber-500/40 bg-amber-500/10 p-6 text-sm text-amber-900">
           <header>
             <h1 className="text-base font-semibold text-amber-900">Run the latest database migration</h1>
           </header>
           <p>
-            The current database doesn&apos;t include the new <code className="rounded bg-amber-900/10 px-1">detail_sections</code>{" "}
-            column introduced for feature detail blocks. Apply the newest Drizzle migration and reload this page.
+            The current database is missing the latest feature metadata columns (such as the
+            <code className="rounded bg-amber-900/10 px-1">detail_sections</code> or
+            <code className="rounded bg-amber-900/10 px-1">super_starred</code> columns). Apply the newest Drizzle migration and reload this page.
           </p>
           <ol className="list-decimal space-y-2 pl-5">
             <li>

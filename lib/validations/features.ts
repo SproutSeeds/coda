@@ -17,6 +17,7 @@ export type FeatureInput = {
   title: string;
   notes: string;
   starred?: boolean;
+  superStarred?: boolean;
   detail?: string;
   detailLabel?: string;
   details?: FeatureDetailInput[];
@@ -29,6 +30,7 @@ export type FeatureInputPayload = {
   title: string;
   notes: string;
   starred: boolean;
+  superStarred: boolean;
   detailSections: FeatureDetailPayload[];
 };
 
@@ -38,6 +40,7 @@ export type FeatureUpdatePayload = {
   title?: string;
   notes?: string;
   starred?: boolean;
+  superStarred?: boolean;
   detailSections?: FeatureDetailPayload[];
 };
 
@@ -59,6 +62,7 @@ const featureInputSchema = z.object({
     .min(1, "Notes are required")
     .max(MAX_NOTES, `Notes must be ≤ ${MAX_NOTES} characters`),
   starred: z.boolean(),
+  superStarred: z.boolean(),
   detail: z.string().max(MAX_DETAIL, `Detail must be ≤ ${MAX_DETAIL} characters`).optional(),
   detailLabel: z.string().max(MAX_DETAIL_LABEL, `Detail label must be ≤ ${MAX_DETAIL_LABEL} characters`).optional(),
 });
@@ -74,6 +78,7 @@ const featureUpdateSchema = z.object({
     .optional(),
   notes: z.string().max(MAX_NOTES, `Notes must be ≤ ${MAX_NOTES} characters`).optional(),
   starred: z.boolean().optional(),
+  superStarred: z.boolean().optional(),
   detail: z.string().max(MAX_DETAIL, `Detail must be ≤ ${MAX_DETAIL} characters`).optional(),
   detailLabel: z.string().max(MAX_DETAIL_LABEL, `Detail label must be ≤ ${MAX_DETAIL_LABEL} characters`).optional(),
 });
@@ -156,6 +161,7 @@ export function validateFeatureInput(input: FeatureInput): FeatureInputPayload {
     title: input.title.trim(),
     notes: sanitizeFeatureNotes(input.notes),
     starred: input.starred === true,
+    superStarred: input.superStarred === true,
     detail: input.detail !== undefined ? sanitizeFeatureNotes(input.detail) : undefined,
     detailLabel:
       input.detailLabel !== undefined ? sanitizeFeatureDetailLabel(input.detailLabel) || "Detail" : undefined,
@@ -163,12 +169,15 @@ export function validateFeatureInput(input: FeatureInput): FeatureInputPayload {
 
   const parsed = featureInputSchema.parse(sanitized);
   const detailSections = normalizeDetailSections(input.details, parsed.detail, parsed.detailLabel);
+  const superStarred = parsed.superStarred === true;
+  const starred = superStarred ? true : parsed.starred;
 
   return {
     ideaId: parsed.ideaId,
     title: parsed.title,
     notes: parsed.notes,
-    starred: parsed.starred,
+    starred,
+    superStarred,
     detailSections,
   };
 }
@@ -180,6 +189,7 @@ export function validateFeatureUpdate(input: FeatureUpdateInput): FeatureUpdateP
     title: input.title?.trim(),
     notes: input.notes !== undefined ? sanitizeFeatureNotes(input.notes) : undefined,
     starred: input.starred === undefined ? undefined : input.starred === true,
+    superStarred: input.superStarred === undefined ? undefined : input.superStarred === true,
     detail: input.detail !== undefined ? sanitizeFeatureNotes(input.detail) : undefined,
     detailLabel:
       input.detailLabel !== undefined ? sanitizeFeatureDetailLabel(input.detailLabel) || "Detail" : undefined,
@@ -200,6 +210,7 @@ export function validateFeatureUpdate(input: FeatureUpdateInput): FeatureUpdateP
     parsed.detail !== undefined ||
     parsed.detailLabel !== undefined ||
     parsed.starred !== undefined ||
+    parsed.superStarred !== undefined ||
     detailSections !== undefined;
 
   if (!hasUpdates) {
@@ -212,6 +223,7 @@ export function validateFeatureUpdate(input: FeatureUpdateInput): FeatureUpdateP
     title: parsed.title,
     notes: parsed.notes,
     starred: parsed.starred,
+    superStarred: parsed.superStarred,
     detailSections,
   };
 }

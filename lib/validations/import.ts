@@ -50,6 +50,7 @@ const featureSchema = z.object({
   detailLabel: nullableTrimmedString(),
   position: coerceNumber(),
   starred: z.boolean().optional(),
+  superStarred: z.boolean().optional(),
   completed: z.boolean().optional(),
   completedAt: z.union([z.string(), z.null(), z.undefined()]).transform((value) => (value ?? undefined)),
   deletedAt: z.union([z.string(), z.null(), z.undefined()]).transform((value) => (value ?? undefined)),
@@ -145,6 +146,7 @@ export interface FeatureImportItem {
   detailSections?: FeatureDetailImportItem[];
   position?: number;
   starred?: boolean;
+  superStarred?: boolean;
   completed?: boolean;
   completedAt?: string;
   deletedAt?: string;
@@ -280,6 +282,7 @@ function sanitizeFeature(feature: z.infer<typeof featureSchema>): FeatureImportI
     detailSections: normalizedDetailSections.length > 0 ? normalizedDetailSections : undefined,
     position: feature.position,
     starred: feature.starred,
+    superStarred: feature.superStarred,
     completed: feature.completed,
     completedAt: feature.completedAt ?? undefined,
     deletedAt: feature.deletedAt ?? undefined,

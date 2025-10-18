@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
-import type { CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import {
   DndContext,
@@ -22,13 +22,53 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useReducedMotion } from "framer-motion";
-import { GripVertical } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { ChevronDown, GripVertical } from "lucide-react";
 import { toast } from "sonner";
 
 import { reorderFeaturesAction } from "../actions";
 import type { Feature } from "./types";
 import { FeatureCard } from "./FeatureCard";
+import { useFeatureSectionCollapse, type FeatureSectionKey } from "./hooks/useFeatureSectionCollapse";
+import { cn } from "@/lib/utils";
+
+const SECTION_CONFIG = [
+  {
+    key: "superstars",
+    label: "Superstars",
+    emptyMessage: "No superstar features yet—promote your favorites.",
+  },
+  {
+    key: "stars",
+    label: "Stars",
+    emptyMessage: "No starred features yet.",
+  },
+  {
+    key: "unstarred",
+    label: "Unstarred",
+    emptyMessage: "Capture more detail to round out this list.",
+  },
+] as const satisfies ReadonlyArray<{
+  key: FeatureSectionKey;
+  label: string;
+  emptyMessage: string;
+}>;
+
+type SectionData = (typeof SECTION_CONFIG)[number] & {
+  totalCount: number;
+  visibleItems: Feature[];
+  maxIndex: number;
+};
+
+function getSectionKey(feature: Feature): FeatureSectionKey {
+  if (feature.superStarred) {
+    return "superstars";
+  }
+  if (feature.starred) {
+    return "stars";
+  }
+  return "unstarred";
+}
 
 export function FeatureList({
   ideaId,
@@ -53,6 +93,7 @@ export function FeatureList({
   const pageSize = 5;
   const [visibleActiveCount, setVisibleActiveCount] = useState(pageSize);
   const activeSentinelRef = useRef<HTMLDivElement | null>(null);
+  const [collapsedSections, setCollapsedSections] = useFeatureSectionCollapse(ideaId);
 
   const completedFeatures = showCompletedSection
     ? features
@@ -67,14 +108,9 @@ export function FeatureList({
     : [];
 
   useEffect(() => {
-    if (showCompletedSection) {
-      const nextActive = features.filter((feature) => !feature.completed);
-      setActiveItems(nextActive);
-      previousItemsRef.current = nextActive;
-    } else {
-      setActiveItems(features);
-      previousItemsRef.current = features;
-    }
+    const nextActive = showCompletedSection ? features.filter((feature) => !feature.completed) : features;
+    setActiveItems(nextActive);
+    previousItemsRef.current = nextActive;
     setVisibleActiveCount(pageSize);
   }, [features, showCompletedSection, pageSize]);
 
@@ -139,6 +175,56 @@ export function FeatureList({
   const visibleActiveItems = activeItems.slice(0, visibleActiveCount);
   const hasMoreActive = visibleActiveCount < activeItems.length;
 
+  const sections = useMemo<SectionData[]>(() => {
+    const meta: Record<FeatureSectionKey, { total: number; visible: Feature[]; maxIndex: number }> = {
+      superstars: { total: 0, visible: [], maxIndex: -1 },
+      stars: { total: 0, visible: [], maxIndex: -1 },
+      unstarred: { total: 0, visible: [], maxIndex: -1 },
+    };
+
+    activeItems.forEach((feature, index) => {
+      const key = getSectionKey(feature);
+      meta[key].total += 1;
+      meta[key].maxIndex = index;
+    });
+
+    visibleActiveItems.forEach((feature) => {
+      const key = getSectionKey(feature);
+      meta[key].visible.push(feature);
+    });
+
+    return SECTION_CONFIG.map((config) => ({
+      ...config,
+      totalCount: meta[config.key].total,
+      visibleItems: meta[config.key].visible,
+      maxIndex: meta[config.key].maxIndex,
+    }));
+  }, [activeItems, visibleActiveItems]);
+
+  const renderedActiveFeatures = useMemo(() => {
+    const rendered: Feature[] = [];
+    for (const section of sections) {
+      if (collapsedSections[section.key]) {
+        continue;
+      }
+      rendered.push(...section.visibleItems);
+    }
+    return rendered;
+  }, [collapsedSections, sections]);
+
+  const highestExpandedIndex = useMemo(() => {
+    let maxIndex = -1;
+    for (const section of sections) {
+      if (collapsedSections[section.key]) {
+        continue;
+      }
+      if (section.maxIndex > maxIndex) {
+        maxIndex = section.maxIndex;
+      }
+    }
+    return maxIndex;
+  }, [collapsedSections, sections]);
+
   useEffect(() => {
     if (!isMounted) {
       return;
@@ -164,6 +250,112 @@ export function FeatureList({
     };
   }, [hasMoreActive, loadMoreActive, isMounted]);
 
+  useEffect(() => {
+    if (!showCompletedSection) {
+      return;
+    }
+    if (highestExpandedIndex < 0) {
+      return;
+    }
+    setVisibleActiveCount((previous) => {
+      if (previous > highestExpandedIndex) {
+        return previous;
+      }
+      const next = Math.min(activeItems.length, highestExpandedIndex + 1);
+      return next > previous ? next : previous;
+    });
+  }, [activeItems.length, highestExpandedIndex, showCompletedSection]);
+
+  const toggleSection = useCallback(
+    (key: FeatureSectionKey) => {
+      const wasCollapsed = collapsedSections[key];
+      const section = sections.find((entry) => entry.key === key);
+      setCollapsedSections((previous) => ({
+        ...previous,
+        [key]: !previous[key],
+      }));
+      if (!showCompletedSection) {
+        return;
+      }
+      if (wasCollapsed && section && section.maxIndex >= 0) {
+        const requiredCount = section.maxIndex + 1;
+        setVisibleActiveCount((previous) =>
+          Math.max(previous, Math.min(activeItems.length, requiredCount)),
+        );
+      }
+    },
+    [activeItems.length, collapsedSections, sections, setCollapsedSections, showCompletedSection],
+  );
+
+  const renderSections = useCallback(
+    (renderFeature: (feature: Feature) => ReactNode) =>
+      sections.map((section) => {
+        const contentId = `feature-section-${section.key}`;
+        const isCollapsed = collapsedSections[section.key];
+        const hasVisibleFeatures = section.visibleItems.length > 0;
+        const isEmptySection = section.totalCount === 0;
+
+        return (
+          <div key={section.key} className="space-y-2">
+            <button
+              type="button"
+              onClick={() => toggleSection(section.key)}
+              aria-expanded={!isCollapsed}
+              aria-controls={contentId}
+              className="flex w-full cursor-pointer items-center justify-between rounded-xl border border-border/40 bg-muted/5 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground transition hover:bg-muted/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
+              <span className="flex items-center gap-2">
+                {section.label}
+                <span className="font-normal text-muted-foreground/80">
+                  ({section.totalCount})
+                </span>
+              </span>
+              <ChevronDown
+                className={cn(
+                  "size-4 transition-transform duration-200",
+                  isCollapsed ? "-rotate-90" : "rotate-0",
+                )}
+              />
+            </button>
+            <AnimatePresence initial={false}>
+              {!isCollapsed ? (
+                <motion.div
+                  key="content"
+                  id={contentId}
+                  layout
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.18, ease: "easeInOut" }}
+                  className="space-y-3"
+                >
+                  {hasVisibleFeatures
+                    ? section.visibleItems.map((feature) => renderFeature(feature))
+                    : isEmptySection
+                      ? (
+                        <p className="text-sm text-muted-foreground">{section.emptyMessage}</p>
+                      )
+                      : (
+                        <p className="text-xs text-muted-foreground">
+                          Scroll to reveal more features in this section.
+                        </p>
+                      )}
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+            {isCollapsed && section.totalCount > 0 ? (
+              <p className="pl-1 text-xs text-muted-foreground">
+                {section.totalCount === 1
+                  ? "1 feature hidden"
+                  : `${section.totalCount} features hidden`}
+              </p>
+            ) : null}
+          </div>
+        );
+      }),
+    [collapsedSections, sections, toggleSection],
+  );
+
   if (!hasActive && !hasCompleted) {
     return <p className="text-sm text-muted-foreground">{emptyLabel ?? "No features yet. Add one to start shaping this idea."}</p>;
   }
@@ -179,85 +371,69 @@ export function FeatureList({
     );
   }
 
-  if (!isMounted) {
+  const renderCompletedSection = hasCompleted ? (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <span className="inline-flex size-6 items-center justify-center rounded-full border border-border bg-card text-[0.7rem]">
+          ✓
+        </span>
+        Completed ({completedFeatures.length})
+      </div>
+      <div className="space-y-3" data-testid="feature-completed-list">
+        {completedFeatures.map((feature) => (
+          <FeatureCard key={feature.id} feature={feature} ideaId={ideaId} isDragging={false} />
+        ))}
+      </div>
+    </div>
+  ) : null;
+
+  const renderStaticFeature = (feature: Feature) => (
+    <FeatureCard key={feature.id} feature={feature} ideaId={ideaId} isDragging={false} />
+  );
+
+  if (!isMounted || !allowReorder) {
     return (
       <div className="space-y-6" data-testid="feature-list">
         {hasActive ? (
-          <div className="space-y-3">
-            {activeItems.map((feature) => (
-              <FeatureCard key={feature.id} feature={feature} ideaId={ideaId} isDragging={false} />
-            ))}
+          <div className="space-y-5">
+            {renderSections(renderStaticFeature)}
+            {hasMoreActive ? <div ref={activeSentinelRef} className="h-6" aria-hidden /> : null}
           </div>
         ) : null}
-        {hasCompleted ? (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              <span className="inline-flex size-6 items-center justify-center rounded-full border border-border bg-card text-[0.7rem]">✓</span>
-              Completed ({completedFeatures.length})
-            </div>
-            <div className="space-y-3" data-testid="feature-completed-list">
-              {completedFeatures.map((feature) => (
-                <FeatureCard key={feature.id} feature={feature} ideaId={ideaId} isDragging={false} />
-              ))}
-            </div>
-          </div>
-        ) : null}
+        {renderCompletedSection}
       </div>
     );
   }
 
-  const activeIds = visibleActiveItems.map((item) => item.id);
+  const renderSortableFeature = (feature: Feature) => (
+    <SortableFeatureCard
+      key={feature.id}
+      feature={feature}
+      ideaId={ideaId}
+      isSaving={isPending}
+      prefersReducedMotion={prefersReducedMotion}
+    />
+  );
+  const sortableIds = renderedActiveFeatures.map((item) => item.id);
 
   return (
     <div className="space-y-6" data-testid="feature-list">
       {hasActive ? (
-        allowReorder ? (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            modifiers={[restrictToVerticalAxis]}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-            onDragCancel={handleDragCancel}
-          >
-            <SortableContext items={activeIds} strategy={verticalListSortingStrategy}>
-              <div className="space-y-3">
-                {visibleActiveItems.map((feature) => (
-                  <SortableFeatureCard
-                    key={feature.id}
-                    feature={feature}
-                    ideaId={ideaId}
-                    isSaving={isPending}
-                    prefersReducedMotion={prefersReducedMotion}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
-        ) : (
-          <div className="space-y-3">
-            {visibleActiveItems.map((feature) => (
-              <FeatureCard key={feature.id} feature={feature} ideaId={ideaId} isDragging={false} />
-            ))}
-          </div>
-        )
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          modifiers={[restrictToVerticalAxis]}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
+        >
+          <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+            <div className="space-y-5">{renderSections(renderSortableFeature)}</div>
+          </SortableContext>
+          {hasMoreActive ? <div ref={activeSentinelRef} className="h-6" aria-hidden /> : null}
+        </DndContext>
       ) : null}
-
-      {hasMoreActive ? <div ref={activeSentinelRef} className="h-6" aria-hidden /> : null}
-
-      {hasCompleted ? (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            <span className="inline-flex size-6 items-center justify-center rounded-full border border-border bg-card text-[0.7rem]">✓</span>
-            Completed ({completedFeatures.length})
-          </div>
-          <div className="space-y-3" data-testid="feature-completed-list">
-            {completedFeatures.map((feature) => (
-              <FeatureCard key={feature.id} feature={feature} ideaId={ideaId} isDragging={false} />
-            ))}
-          </div>
-        </div>
-      ) : null}
+      {renderCompletedSection}
     </div>
   );
 }
@@ -295,7 +471,12 @@ function SortableFeatureCard({
 
   return (
     <div ref={setNodeRef} style={style}>
-      <FeatureCard feature={feature} ideaId={ideaId} dragHandle={handle} isDragging={isDragging} />
+      <FeatureCard
+        feature={feature}
+        ideaId={ideaId}
+        dragHandle={handle}
+        isDragging={isDragging}
+      />
     </div>
   );
 }

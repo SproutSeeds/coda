@@ -49,12 +49,15 @@ export const ideaFeatures = pgTable("idea_features", {
     .defaultNow()
     .notNull(),
   starred: boolean("starred").notNull().default(false),
+  superStarred: boolean("super_starred").notNull().default(false),
+  superStarredAt: timestamp("super_starred_at", { withTimezone: true }),
   completed: boolean("completed").notNull().default(false),
   completedAt: timestamp("completed_at", { withTimezone: true }),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
 }, (table) => ({
   ideaPositionIdx: index("idx_feature_idea_position").on(table.ideaId, table.position),
   ideaStarIdx: index("idx_feature_idea_star").on(table.ideaId, table.starred),
+  ideaSuperStarIdx: index("idx_feature_idea_super_star").on(table.ideaId, table.superStarred),
 }));
 
 export const users = pgTable("auth_user", {

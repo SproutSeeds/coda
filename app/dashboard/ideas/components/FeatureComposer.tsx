@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { Plus, Star, StarOff, X } from "lucide-react";
+import { Plus, Sparkles, Star, StarOff, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 import { createFeatureAction } from "../actions";
+import type { FeatureStarState } from "@/lib/db/features";
 import { IdeaCelebration } from "./IdeaCelebration";
 
 const MAX_NOTES = 10_000;
@@ -21,6 +22,8 @@ type FeatureDraft = {
   title?: string;
   notes?: string;
   expanded?: boolean;
+  starState?: FeatureStarState;
+  // Deprecated: retained for backward compatibility with cached drafts prior to super-star support.
   starred?: boolean;
 };
 
@@ -31,9 +34,15 @@ export function FeatureComposer({ ideaId }: { ideaId: string }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
-  const [starred, setStarred] = useState(false);
+  const [starState, setStarState] = useState<FeatureStarState>("none");
   const [isPending, startTransition] = useTransition();
   const [celebrate, setCelebrate] = useState(false);
+  const starLabel =
+    starState === "super"
+      ? "Remove super star"
+      : starState === "star"
+        ? "Promote to super star"
+        : "Star feature";
   const celebrationTimeout = useRef<number | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
@@ -59,7 +68,11 @@ export function FeatureComposer({ ideaId }: { ideaId: string }) {
       const parsed = JSON.parse(stored) as FeatureDraft;
       setTitle(parsed.title ?? "");
       setNotes(parsed.notes ?? "");
-      setStarred(Boolean(parsed.starred));
+      if (parsed.starState === "star" || parsed.starState === "super" || parsed.starState === "none") {
+        setStarState(parsed.starState);
+      } else if (parsed.starred !== undefined) {
+        setStarState(parsed.starred ? "star" : "none");
+      }
       if (parsed.expanded !== undefined) {
         setIsExpanded(Boolean(parsed.expanded));
       } else if (parsed.title || parsed.notes) {
@@ -84,10 +97,10 @@ export function FeatureComposer({ ideaId }: { ideaId: string }) {
       title: title || undefined,
       notes: notes || undefined,
       expanded: isExpanded,
-      starred,
+      starState: starState !== "none" ? starState : undefined,
     };
     window.localStorage.setItem(storageKey, JSON.stringify(payload));
-  }, [hydrated, isExpanded, notes, starred, storageKey, title]);
+  }, [hydrated, isExpanded, notes, starState, storageKey, title]);
 
   const resetCelebration = useCallback(() => {
     if (celebrationTimeout.current && typeof window !== "undefined") {
@@ -112,11 +125,17 @@ export function FeatureComposer({ ideaId }: { ideaId: string }) {
 
     startTransition(async () => {
       try {
-        await createFeatureAction({ ideaId, title: nextTitle, notes: nextNotes, starred });
+        await createFeatureAction({
+          ideaId,
+          title: nextTitle,
+          notes: nextNotes,
+          starred: starState !== "none",
+          superStarred: starState === "super",
+        });
         toast.success("Feature added");
         setTitle("");
         setNotes("");
-        setStarred(false);
+        setStarState("none");
         setIsExpanded(false);
         setCelebrate(true);
         if (typeof window !== "undefined") {
@@ -136,11 +155,11 @@ export function FeatureComposer({ ideaId }: { ideaId: string }) {
         toast.error(error instanceof Error ? error.message : "Unable to add feature");
       }
     });
-  }, [ideaId, notes, router, startTransition, starred, storageKey, title]);
+  }, [ideaId, notes, router, starState, startTransition, storageKey, title]);
 
   const handleCancel = useCallback(() => {
     setIsExpanded(false);
-    setStarred(false);
+    setStarState("none");
     blurActiveElement();
   }, [blurActiveElement]);
 
@@ -233,16 +252,31 @@ export function FeatureComposer({ ideaId }: { ideaId: string }) {
             variant="ghost"
             size="icon"
             className={cn(
-              "interactive-btn h-8 w-8 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-muted-foreground focus-visible:ring-0",
-              starred && "text-yellow-400",
+              "interactive-btn h-8 w-8 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-foreground focus-visible:ring-0",
+              starState === "star" && "text-yellow-400 hover:text-yellow-300",
+              starState === "super" && "text-amber-300 drop-shadow-[0_0_8px_rgba(251,191,36,0.55)] hover:text-amber-200",
             )}
-            onClick={() => setStarred((previous) => !previous)}
-            aria-label={starred ? "Remove star" : "Star feature"}
-            aria-pressed={starred}
+            onClick={() => {
+              const nextState: FeatureStarState =
+                starState === "none" ? "star" : starState === "star" ? "super" : "none";
+              setStarState(nextState);
+            }}
+            aria-label={starLabel}
+            aria-pressed={starState !== "none"}
             data-testid="feature-star-toggle"
+            data-star-state={starState}
             disabled={isPending}
           >
-            {starred ? <Star className="size-4 fill-current" /> : <StarOff className="size-4" />}
+            {starState === "super" ? (
+              <span className="relative inline-flex items-center justify-center">
+                <Star className="size-4 fill-current" />
+                <Sparkles className="absolute -top-2 -right-2 size-3 text-amber-200" aria-hidden="true" />
+              </span>
+            ) : starState === "star" ? (
+              <Star className="size-4 fill-current" />
+            ) : (
+              <StarOff className="size-4" />
+            )}
           </Button>
           <Button
             type="button"

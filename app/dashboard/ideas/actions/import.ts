@@ -279,6 +279,7 @@ async function createIdeaFromBundle(userId: string, bundle: IdeaImportBundle) {
       notes: feature.notes?.length ? feature.notes : "Imported feature",
       details: feature.detailSections,
       starred: feature.starred ?? false,
+      superStarred: feature.superStarred ?? false,
     };
     if (!featureInput.details && feature.detail) {
       featureInput.detail = feature.detail;
@@ -342,6 +343,10 @@ async function applyIdeaUpdate(userId: string, entry: ImportPlanEntry) {
       updatePayload.starred = feature.changes.starred;
       hasFieldUpdates = true;
     }
+    if (feature.changes.superStarred !== undefined) {
+      updatePayload.superStarred = feature.changes.superStarred;
+      hasFieldUpdates = true;
+    }
 
     if (hasFieldUpdates) {
       await updateFeature(userId, updatePayload);
@@ -365,6 +370,7 @@ async function applyIdeaUpdate(userId: string, entry: ImportPlanEntry) {
       notes: feature.notes?.length ? feature.notes : "Imported feature",
       details: feature.detailSections,
       starred: feature.starred ?? false,
+      superStarred: feature.superStarred ?? false,
     };
     if (!featureInput.details && feature.detail) {
       featureInput.detail = feature.detail;

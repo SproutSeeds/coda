@@ -33,6 +33,7 @@ export interface FeatureChangeSet {
   notes?: string;
   detailSections?: FeatureDetailImportItem[];
   starred?: boolean;
+  superStarred?: boolean;
   completed?: boolean;
   completedAt?: string | null;
 }
@@ -128,6 +129,9 @@ export function buildImportAnalysis({ envelope, existingIdeas, existingFeaturesB
       }
       if (feature.starred !== undefined && feature.starred !== existingFeature.starred) {
         changes.starred = feature.starred;
+      }
+      if (feature.superStarred !== undefined && feature.superStarred !== existingFeature.superStarred) {
+        changes.superStarred = feature.superStarred;
       }
       if (feature.completed !== undefined && feature.completed !== existingFeature.completed) {
         changes.completed = feature.completed;
