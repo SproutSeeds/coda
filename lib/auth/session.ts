@@ -12,8 +12,30 @@ export type SessionUser = {
   theme?: "light" | "dark";
 };
 
+function isJwtSessionError(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+  const withCode = error as { code?: string; message?: string };
+  if (withCode.code === "JWT_SESSION_ERROR") {
+    return true;
+  }
+  if (typeof withCode.message === "string") {
+    return withCode.message.toLowerCase().includes("decryption");
+  }
+  return false;
+}
+
 export async function getCurrentUser(): Promise<SessionUser | null> {
-  const session = await auth();
+  let session;
+  try {
+    session = await auth();
+  } catch (error) {
+    if (isJwtSessionError(error)) {
+      return null;
+    }
+    throw error;
+  }
   const user = session?.user;
   if (!user?.id) {
     return null;
