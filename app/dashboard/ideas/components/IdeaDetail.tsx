@@ -38,7 +38,6 @@ import {
   restoreDeletedFeatureAction,
   restoreIdeaAction,
   cycleIdeaStarAction,
-  cycleIdeaStarAction,
   updateIdeaAction,
 } from "../actions";
 import { FeatureComposer } from "./FeatureComposer";
@@ -109,8 +108,6 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
     updatedAt: idea.updatedAt,
     starred: idea.starred,
     superStarred: idea.superStarred,
-    starred: idea.starred,
-    superStarred: idea.superStarred,
   });
   const ideaAutoTimer = useRef<number | null>(null);
   const githubAutoTimer = useRef<number | null>(null);
@@ -126,18 +123,7 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
   const [isExporting, startExportTransition] = useTransition();
   const [isConvertDropdownOpen, setIsConvertDropdownOpen] = useState(false);
   const [isActionsOpen, setIsActionsOpen] = useState(false);
-  const [isActionsOpen, setIsActionsOpen] = useState(false);
   const convertDropdownRef = useRef<HTMLDivElement | null>(null);
-  const actionsMenuRef = useRef<HTMLDivElement | null>(null);
-  const [isCoreExpanded, setIsCoreExpanded] = useState(false);
-  const [isIdVisible, setIsIdVisible] = useState(false);
-  const [deletedFeaturesState, setDeletedFeaturesState] = useState(deletedFeatures);
-  const [isRestoringFeature, startRestoreFeatureTransition] = useTransition();
-  const [isStarPending, startStarTransition] = useTransition();
-  const [restoreTargetId, setRestoreTargetId] = useState<string | null>(null);
-  const filterPanelRef = useRef<HTMLDivElement | null>(null);
-  const filterTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const titleInputRef = useRef<HTMLInputElement | null>(null);
 const actionsMenuRef = useRef<HTMLDivElement | null>(null);
 const [isCoreExpanded, setIsCoreExpanded] = useState(false);
 const [isIdVisible, setIsIdVisible] = useState(false);
@@ -171,15 +157,12 @@ const titleInputRef = useRef<HTMLInputElement | null>(null);
       updatedAt: idea.updatedAt,
       starred: idea.starred,
       superStarred: idea.superStarred,
-      starred: idea.starred,
-      superStarred: idea.superStarred,
     });
     setLinkLabelDraft(idea.linkLabel ?? "GitHub Repository");
     setIdeaAutoState("idle");
     setGithubAutoState("idle");
     setIsCoreExpanded(false);
     setIsIdVisible(false);
-  }, [idea.githubUrl, idea.id, idea.linkLabel, idea.notes, idea.starred, idea.superStarred, idea.title, idea.updatedAt]);
   }, [idea.githubUrl, idea.id, idea.linkLabel, idea.notes, idea.starred, idea.superStarred, idea.title, idea.updatedAt]);
 
   useEffect(() => {
@@ -288,34 +271,6 @@ const titleInputRef = useRef<HTMLInputElement | null>(null);
     });
   }, [idea.id, isEditing, isEditingGithub, startStarTransition]);
 
-  const handleStarToggle = useCallback(() => {
-    startStarTransition(async () => {
-      try {
-        const updated = await cycleIdeaStarAction(idea.id);
-        setSyncedIdea((previous) => ({
-          ...previous,
-          githubUrl: updated.githubUrl ?? previous.githubUrl,
-          linkLabel: updated.linkLabel ?? previous.linkLabel,
-          updatedAt: updated.updatedAt,
-          starred: updated.starred,
-          superStarred: updated.superStarred,
-        }));
-        if (!isEditing) {
-          setTitle((prev) => (prev === updated.title ? prev : updated.title));
-          setNotes((prev) => (prev === updated.notes ? prev : updated.notes));
-        }
-        if (!isEditingGithub) {
-          const nextGithub = updated.githubUrl ?? "";
-          const nextLabel = updated.linkLabel ?? "GitHub Repository";
-          setGithubDraft((prev) => (prev === nextGithub ? prev : nextGithub));
-          setLinkLabelDraft((prev) => (prev === nextLabel ? prev : nextLabel));
-        }
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Unable to update star status");
-      }
-    });
-  }, [idea.id, isEditing, isEditingGithub, startStarTransition]);
-
   const saveIdea = useCallback(
     async (fields: { title?: string; notes?: string; githubUrl?: string | null; linkLabel?: string | null }) => {
       ideaSaveInFlight.current = true;
@@ -333,8 +288,6 @@ const titleInputRef = useRef<HTMLInputElement | null>(null);
           githubUrl: nextGithub,
           linkLabel: nextLinkLabel,
           updatedAt: updated.updatedAt,
-          starred: updated.starred,
-          superStarred: updated.superStarred,
           starred: updated.starred,
           superStarred: updated.superStarred,
         });
@@ -450,23 +403,6 @@ const titleInputRef = useRef<HTMLInputElement | null>(null);
       }
     };
   }, [githubAutoState, githubDirty, githubUrlNormalized, isEditingGithub, saveIdea, trimmedLinkLabel]);
-
-  const starState = useMemo(() => {
-    if (syncedIdea.superStarred) {
-      return "super";
-    }
-    if (syncedIdea.starred) {
-      return "star";
-    }
-    return "none";
-  }, [syncedIdea.starred, syncedIdea.superStarred]);
-
-  const starLabel =
-    starState === "super"
-      ? "Remove super star"
-      : starState === "star"
-        ? "Promote to super star"
-        : "Star idea";
 
   const starState = useMemo(() => {
     if (syncedIdea.superStarred) {
@@ -633,55 +569,9 @@ const titleInputRef = useRef<HTMLInputElement | null>(null);
     syncedIdea.linkLabel,
   ]);
 
-  const beginEditing = useCallback(() => {
-    if (isEditing) {
-      return;
-    }
-    resetDeleteConfirmation();
-    setIdeaAutoState("idle");
-    setGithubDraft(syncedIdea.githubUrl);
-    setLinkLabelDraft(syncedIdea.linkLabel);
-    setGithubAutoState("idle");
-    setIsEditingGithub(true);
-    setIsEditing(true);
-  }, [
-    isEditing,
-    resetDeleteConfirmation,
-    setGithubAutoState,
-    setIsEditingGithub,
-    setGithubDraft,
-    setLinkLabelDraft,
-    syncedIdea.githubUrl,
-    syncedIdea.linkLabel,
-  ]);
-
   const handleToggleConvert = () => {
     setConvertError(null);
     setIsConvertOpen((previous) => !previous);
-    setIsActionsOpen(false);
-  };
-
-  const handleExportIdea = () => {
-    setIsActionsOpen(false);
-    startExportTransition(async () => {
-      try {
-        const data = await exportIdeaAsJsonAction(idea.id);
-        const blob = new Blob([JSON.stringify(data, null, 2)], {
-          type: "application/json",
-        });
-        const url = URL.createObjectURL(blob);
-        const anchor = document.createElement("a");
-        anchor.href = url;
-        anchor.download = buildIdeaExportFilename(idea.title, idea.id);
-        document.body.appendChild(anchor);
-        anchor.click();
-        document.body.removeChild(anchor);
-        URL.revokeObjectURL(url);
-        toast.success("Idea exported");
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Unable to export idea");
-      }
-    });
     setIsActionsOpen(false);
   };
 
@@ -787,48 +677,7 @@ useEffect(() => {
   });
   return () => window.cancelAnimationFrame(frame);
 }, [isEditing]);
-  useEffect(() => {
-    if (!isActionsOpen) {
-      return;
-    }
-    const handleClick = (event: MouseEvent) => {
-      if (!actionsMenuRef.current?.contains(event.target as Node)) {
-        setIsActionsOpen(false);
-      }
-    };
-    const handleKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsActionsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClick);
-    document.addEventListener("keydown", handleKey);
-    return () => {
-      document.removeEventListener("mousedown", handleClick);
-      document.removeEventListener("keydown", handleKey);
-    };
-  }, [isActionsOpen]);
 
-useEffect(() => {
-  if (!isEditing) {
-    setIsCoreExpanded(false);
-  }
-}, [isEditing]);
-
-useEffect(() => {
-  if (!isEditing) {
-    return;
-  }
-  const frame = window.requestAnimationFrame(() => {
-    if (titleInputRef.current) {
-      titleInputRef.current.focus();
-      titleInputRef.current.select();
-    }
-  });
-  return () => window.cancelAnimationFrame(frame);
-}, [isEditing]);
-
-const handleConvert = () => {
 const handleConvert = () => {
     if (!selectedConvertId) {
       setConvertError("Choose a destination idea.");
@@ -852,7 +701,6 @@ const handleConvert = () => {
   };
 
   const handleDelete = () => {
-    setIsActionsOpen(false);
     setIsActionsOpen(false);
     setIsConfirmingDelete(true);
     setDeleteInput("");
@@ -1005,54 +853,9 @@ const handleConvert = () => {
         tabIndex={isEditing ? -1 : 0}
         role="group"
       >
-      <Card
-        data-testid="idea-card"
-        className={cn(!isEditing && "cursor-text")}
-        onClick={(event) => {
-          // Ignore clicks originating from controls that manage their own behavior.
-          const target = event.target as HTMLElement;
-          if (target.closest("button, a, input, textarea")) {
-            return;
-          }
-          beginEditing();
-        }}
-        onKeyDown={(event) => {
-          if (isEditing) {
-            return;
-          }
-          if (event.key === "Enter" || event.key === " ") {
-            const target = event.target as HTMLElement;
-            if (target.closest("button, a, input, textarea")) {
-              return;
-            }
-            event.preventDefault();
-            beginEditing();
-          }
-        }}
-        tabIndex={isEditing ? -1 : 0}
-        role="group"
-      >
         <CardHeader className="flex flex-row items-start justify-between gap-4">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-3">
-              <CardTitle
-                role="button"
-                tabIndex={isEditing ? -1 : 0}
-                onClick={beginEditing}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    beginEditing();
-                  }
-                }}
-                className={cn(
-                  "text-2xl font-semibold text-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                  !isEditing && "cursor-text hover:text-primary",
-                  isEditing && "cursor-default",
-                )}
-              >
-                {syncedIdea.title}
-              </CardTitle>
               <CardTitle
                 role="button"
                 tabIndex={isEditing ? -1 : 0}
@@ -1136,31 +939,6 @@ const handleConvert = () => {
             </Button>
             <Button
               type="button"
-              variant="ghost"
-              size="icon-sm"
-              className={cn(
-                "interactive-btn text-muted-foreground hover:text-foreground",
-                starState === "star" && "text-yellow-400 hover:text-yellow-300",
-                starState === "super" && "text-amber-300 drop-shadow-[0_0_8px_rgba(251,191,36,0.55)] hover:text-amber-200",
-              )}
-              onClick={handleStarToggle}
-              aria-label={starLabel}
-              data-testid="idea-star-toggle"
-              disabled={isStarPending}
-            >
-              {starState === "super" ? (
-                <span className="relative inline-flex items-center justify-center">
-                  <Star className="size-4 fill-current" />
-                  <Sparkles className="absolute -top-2 -right-2 size-3 text-amber-200" aria-hidden="true" />
-                </span>
-              ) : starState === "star" ? (
-                <Star className="size-4 fill-current" />
-              ) : (
-                <StarOff className="size-4" />
-              )}
-            </Button>
-            <Button
-              type="button"
               variant={isEditing ? "secondary" : "ghost"}
               size="icon-sm"
               className="interactive-btn text-muted-foreground hover:text-foreground"
@@ -1170,7 +948,6 @@ const handleConvert = () => {
                   resetDeleteConfirmation();
                   return;
                 }
-                beginEditing();
                 beginEditing();
               }}
               aria-label={isEditing ? "Cancel editing" : "Edit idea"}
@@ -1272,113 +1049,8 @@ const handleConvert = () => {
                   <X className="size-4" />
                 </Button>
               </div>
-            <div className="relative" ref={actionsMenuRef}>
               <Button
                 type="button"
-                variant="outline"
-                size="sm"
-                className={cn(
-                  "interactive-btn flex items-center gap-2 px-3 py-1.5 text-xs font-medium hover:bg-transparent",
-                  isActionsOpen && "bg-muted/30",
-                )}
-                onClick={() => setIsActionsOpen((previous) => !previous)}
-                aria-haspopup="menu"
-                aria-expanded={isActionsOpen}
-                data-testid="idea-actions-button"
-              >
-                Actions
-                <ChevronDown
-                  className={cn(
-                    "size-3 transition-transform text-muted-foreground",
-                    isActionsOpen ? "rotate-180" : "rotate-0",
-                  )}
-                  aria-hidden="true"
-                />
-              </Button>
-              {isActionsOpen ? (
-                <div
-                  className="absolute right-0 z-50 mt-2 w-52 overflow-hidden rounded-lg border border-border/60 bg-card shadow-xl"
-                  role="menu"
-                  aria-label="Idea actions"
-                >
-                  <div className="py-1 text-sm text-muted-foreground">
-                    <button
-                      type="button"
-                      className="flex w-full items-center justify-between px-3 py-2 transition-colors hover:bg-muted/30 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-                      onClick={handleExportIdea}
-                      disabled={isExporting}
-                      data-testid="idea-export-button"
-                    >
-                      <span>Export idea</span>
-                      {isExporting ? <Loader2 className="size-3 animate-spin text-muted-foreground" /> : null}
-                    </button>
-                    <button
-                      type="button"
-                      className="flex w-full items-center justify-between px-3 py-2 transition-colors hover:bg-muted/30 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-                      onClick={handleToggleConvert}
-                      disabled={isConverting}
-                      data-testid="idea-convert-toggle"
-                    >
-                      <span>{isConvertOpen ? "Close convert panel" : "Convert to feature"}</span>
-                      {isConverting ? <Loader2 className="size-3 animate-spin text-muted-foreground" /> : null}
-                    </button>
-                    <button
-                      type="button"
-                      className="flex w-full items-center justify-between px-3 py-2 text-destructive transition-colors hover:bg-destructive/10 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-60"
-                      onClick={handleDelete}
-                      disabled={isPending}
-                      data-testid="idea-delete-button"
-                    >
-                      <span>Delete idea</span>
-                      {isPending ? <Loader2 className="size-3 animate-spin" /> : null}
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          </div>
-          {isConfirmingDelete ? (
-            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <div className="relative w-full sm:max-w-xs">
-                <Input
-                  value={deleteInput}
-                  onChange={(event) => setDeleteInput(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      confirmDelete();
-                    }
-                  }}
-                  placeholder={deletePrompt}
-                  aria-label={deletePrompt}
-                  data-testid="idea-detail-delete-inline-input"
-                  className="h-10 w-full pr-10 placeholder:text-muted-foreground/50"
-                  autoFocus
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="interactive-btn absolute right-1.5 top-1/2 h-7 w-7 -translate-y-1/2 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-foreground focus-visible:ring-0"
-                  onClick={resetDeleteConfirmation}
-                  aria-label="Cancel delete"
-                >
-                  <X className="size-4" />
-                </Button>
-              </div>
-              <Button
-                type="button"
-                variant="destructive"
-                size="sm"
-                className="interactive-btn px-3 py-1.5 text-xs font-semibold"
-                onClick={confirmDelete}
-                disabled={isPending || !deleteTitleMatches}
-                data-testid="idea-delete-confirm"
-              >
-                Delete
-              </Button>
-            </div>
-          ) : null}
                 variant="destructive"
                 size="sm"
                 className="interactive-btn px-3 py-1.5 text-xs font-semibold"
@@ -1499,7 +1171,6 @@ const handleConvert = () => {
                 </label>
                 <Input
                   id="idea-title"
-                  ref={titleInputRef}
                   ref={titleInputRef}
                   data-testid="idea-edit-title-input"
                   value={title}
