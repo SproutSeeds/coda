@@ -6,6 +6,7 @@ import { ArrowRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { UserMenu } from "@/app/dashboard/components/UserMenu";
 
 const IMMERSIVE_ROUTES = new Set(["/login", "/about", "/check-in"]);
 
@@ -17,6 +18,7 @@ type PublicLayoutFrameProps = {
 export function PublicLayoutFrame({ children, isSignedIn }: PublicLayoutFrameProps) {
   const pathname = usePathname();
   const isImmersive = IMMERSIVE_ROUTES.has(pathname);
+  const isLegal = pathname.startsWith("/legal");
 
   if (isImmersive) {
     return <div className="min-h-screen bg-background text-foreground">{children}</div>;
@@ -39,8 +41,34 @@ export function PublicLayoutFrame({ children, isSignedIn }: PublicLayoutFramePro
     "whitespace-nowrap"
   );
 
-  return (
-    <div className="min-h-screen bg-background text-foreground">
+  const header = isLegal
+    ? (
+      <header className="border-b border-border/60 bg-transparent">
+        <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-4 px-4 py-4 text-center sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:text-left">
+          <Link href="/dashboard/ideas" className="relative inline-flex cursor-pointer items-center" aria-label="Coda dashboard">
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 -top-2 h-6 rounded-full bg-gradient-to-r from-primary/40 via-accent/55 to-primary/40 blur-xl opacity-70"
+            />
+            <span className="relative text-sm font-semibold tracking-wide text-foreground transition-colors hover:text-primary">
+              Coda CLI
+            </span>
+          </Link>
+          {isSignedIn ? (
+            <UserMenu className="sm:ml-auto" />
+          ) : (
+            <Button
+              asChild
+              size="sm"
+              className="interactive-btn border-none bg-gradient-to-r from-amber-300 via-amber-400 to-yellow-300 text-slate-950 shadow-[0_0_14px_rgba(250,204,21,0.55)] transition-[transform,box-shadow] duration-300 hover:shadow-[0_0_20px_rgba(251,191,36,0.8)] focus-visible:ring-2 focus-visible:ring-yellow-400/70 focus-visible:ring-offset-0"
+            >
+              <Link href="/login">Sign in</Link>
+            </Button>
+          )}
+        </div>
+      </header>
+    )
+    : (
       <header className="border-b border-border/60 bg-card/90 backdrop-blur">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-4 px-4 py-4 sm:flex-nowrap sm:px-6">
           <Link
@@ -89,6 +117,11 @@ export function PublicLayoutFrame({ children, isSignedIn }: PublicLayoutFramePro
           </nav>
         </div>
       </header>
+    );
+
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      {header}
       <main className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 lg:px-8">{children}</main>
     </div>
   );

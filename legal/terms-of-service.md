@@ -23,7 +23,7 @@ You agree not to:
 We may throttle, suspend, or terminate access if you violate this section or if your use threatens the Service.
 
 ## 4. Accounts, Access & Security
-You are responsible for safeguarding passwords, magic-link access, and CLI tokens, and for all actions taken under your account. Notify us immediately at security@codacli.com if you suspect unauthorized use so we can revoke tokens or disable accounts.
+You are responsible for safeguarding passwords, magic-link access, and CLI tokens, and for all actions taken under your account. Notify us immediately at cody@codacli.com if you suspect unauthorized use so we can revoke tokens or disable accounts.
 
 ## 5. Feedback
 If you provide feedback, feature ideas, code snippets, or sample prompts, you grant Coda CLI, Inc. (“Coda”) a perpetual, irrevocable, worldwide license to use, modify, and incorporate that feedback without compensation.
@@ -61,5 +61,4 @@ These Terms are governed by California law, excluding conflict of law rules. The
 We may update these Terms. For material changes we will notify you via email or in-app notice. Continued use after the effective date constitutes acceptance. We may require re-acceptance for significant updates.
 
 ## 16. Contact
-- Legal inquiries: legal@codacli.com
-- Mailing address: Coda CLI, Inc., 123 Market Street, San Francisco, CA 94105 USA
+- Email: cody@codacli.com

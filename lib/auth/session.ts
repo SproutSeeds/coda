@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth/auth";
 import { getThemePreference } from "@/lib/db/theme-preferences";
+import { ensureRequiredDocumentAcceptances } from "@/lib/legal/acceptance";
 
 export type SessionUser = {
   id: string;
@@ -17,6 +18,7 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   if (!user?.id) {
     return null;
   }
+  await ensureRequiredDocumentAcceptances(user.id);
   const cookieTheme = (await cookies()).get("coda-theme")?.value;
   let theme: "light" | "dark" | undefined = cookieTheme === "light" || cookieTheme === "dark" ? cookieTheme : undefined;
   if (!theme) {

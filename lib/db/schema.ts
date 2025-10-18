@@ -191,3 +191,26 @@ export const themePreferences = pgTable(
     userUnique: uniqueIndex("uniq_theme_preferences_user").on(table.userId),
   }),
 );
+
+export const documentAcceptances = pgTable(
+  "document_acceptances",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    documentSlug: text("document_slug").notNull(),
+    version: text("version").notNull(),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }).defaultNow().notNull(),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+  },
+  (table) => ({
+    userDocumentVersionUnique: uniqueIndex("uniq_document_acceptance_user_doc_version").on(
+      table.userId,
+      table.documentSlug,
+      table.version,
+    ),
+    documentLookupIdx: index("idx_document_acceptances_document").on(table.documentSlug, table.version),
+  }),
+);

@@ -141,6 +141,13 @@
       "when": 1761400000000,
       "tag": "0019_add_feature_super_starred",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "26",
+      "when": 1761500000000,
+      "tag": "0020_add_document_acceptances",
+      "breakpoints": true
     }
   ]
 }

@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 import { AUTH_INPUT_STYLE, AUTH_PRIMARY_BUTTON_STYLE } from "./EmailSignInForm";
+import { ConsentNotice } from "./ConsentNotice";
 
 export function PasswordSignInForm() {
   const router = useRouter();
@@ -16,6 +17,7 @@ export function PasswordSignInForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [hasConsented, setHasConsented] = useState(false);
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -85,6 +87,7 @@ export function PasswordSignInForm() {
           className={AUTH_INPUT_STYLE}
         />
       </div>
+      <ConsentNotice checked={hasConsented} onChange={setHasConsented} />
       {error ? (
         <p className="text-xs text-white" data-testid="password-error">
           {error}
@@ -93,7 +96,7 @@ export function PasswordSignInForm() {
       <Button
         type="submit"
         className={cn(AUTH_PRIMARY_BUTTON_STYLE, "w-full")}
-        disabled={isPending}
+        disabled={isPending || !hasConsented}
       >
         {isPending ? "Signing in…" : "Sign in with password"}
       </Button>

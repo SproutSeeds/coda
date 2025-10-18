@@ -135,21 +135,36 @@ function FooterContent({ className }: { className?: string }) {
         <span className="text-sm font-semibold tracking-wide text-foreground">Coda CLI</span>
         <span className="text-xs italic text-muted-foreground">“Can&apos;t stop won&apos;t stop.”</span>
       </div>
-
-      <Link
-        href="https://github.com/SproutSeeds/coda"
-        target="_blank"
-        rel="noreferrer noopener"
-        className={cn(
-          "inline-flex items-center justify-center rounded-full border border-border/40 p-2 text-muted-foreground transition-colors",
-          "hover:border-border hover:text-foreground",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-          "motion-safe:transition-transform motion-safe:hover:scale-105 motion-reduce:transition-none motion-reduce:hover:scale-100",
-        )}
-      >
-        <span className="sr-only">Coda on GitHub</span>
-        <Github className="h-5 w-5" aria-hidden="true" />
-      </Link>
+      <div className="flex flex-col items-center gap-3 sm:flex-row sm:gap-6">
+        <nav className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground sm:justify-end">
+          <Link className="transition hover:text-foreground" href="/legal/terms-of-service">
+            Terms
+          </Link>
+          <Link className="transition hover:text-foreground" href="/legal/privacy-policy">
+            Privacy
+          </Link>
+          <Link className="transition hover:text-foreground" href="/legal/cookie-policy">
+            Cookies
+          </Link>
+          <Link className="transition hover:text-foreground" href="/legal">
+            Legal center
+          </Link>
+        </nav>
+        <Link
+          href="https://github.com/SproutSeeds/coda"
+          target="_blank"
+          rel="noreferrer noopener"
+          className={cn(
+            "inline-flex items-center justify-center rounded-full border border-border/40 p-2 text-muted-foreground transition-colors",
+            "hover:border-border hover:text-foreground",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+            "motion-safe:transition-transform motion-safe:hover:scale-105 motion-reduce:transition-none motion-reduce:hover:scale-100",
+          )}
+        >
+          <span className="sr-only">Coda on GitHub</span>
+          <Github className="h-5 w-5" aria-hidden="true" />
+        </Link>
+      </div>
     </div>
   );
 }

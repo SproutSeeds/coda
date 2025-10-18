@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
+import { ConsentNotice } from "./ConsentNotice";
+
 type Status = "idle" | "pending" | "sent" | "error";
 const RATE_LIMIT_WINDOW_MS = 30_000;
 
@@ -22,6 +24,7 @@ export function EmailSignInForm() {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [lastRequest, setLastRequest] = useState<{ email: string; at: number } | null>(null);
+  const [hasConsented, setHasConsented] = useState(false);
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -88,12 +91,13 @@ export function EmailSignInForm() {
           <Button
             type="submit"
             className={cn(AUTH_PRIMARY_BUTTON_STYLE, "w-full sm:w-auto sm:min-w-[220px]")}
-            disabled={isPending}
+            disabled={isPending || !hasConsented}
           >
             {isPending ? "Sending…" : "Email me a sign-in link"}
           </Button>
         </div>
       </div>
+      <ConsentNotice checked={hasConsented} onChange={setHasConsented} />
       {error ? (
         <p data-testid="magic-link-error" className="text-xs text-white">
           {error}

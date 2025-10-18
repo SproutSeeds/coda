@@ -12,6 +12,7 @@ import { getDb } from "@/lib/db";
 import { getThemePreference } from "@/lib/db/theme-preferences";
 import { users } from "@/lib/db/schema";
 import { trackEvent } from "@/lib/utils/analytics";
+import { ensureRequiredDocumentAcceptances } from "@/lib/legal/acceptance";
 import { consumeRateLimit } from "@/lib/utils/rate-limit";
 
 const providers: NextAuthOptions["providers"] = [];
@@ -113,6 +114,9 @@ export const authOptions: NextAuthOptions = {
           name: "auth_magic_link_verified",
           properties: { userId: user.id },
         });
+      }
+      if (user?.id) {
+        await ensureRequiredDocumentAcceptances(user.id);
       }
     },
   },
