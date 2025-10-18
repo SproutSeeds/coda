@@ -260,7 +260,7 @@ export function LoginCard({ initialTab = "sign-in", isAuthenticated = false, sca
                 {activeMeta.blurb ? <p className="max-w-xl text-sm text-white/75">{activeMeta.blurb}</p> : null}
               </div>
             </div>
-            <div className="max-h-[60vh] overflow-y-auto pr-2 sm:pr-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            <div className="max-h-[46vh] sm:max-h-[52vh] lg:max-h-[58vh] overflow-y-auto pr-3 sm:pr-2 pb-12 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               {renderContent()}
             </div>
           </motion.header>

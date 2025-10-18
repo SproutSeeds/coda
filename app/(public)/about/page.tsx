@@ -15,7 +15,11 @@ export default async function AboutPage() {
   return (
     <div className="relative min-h-screen overflow-hidden">
       <LoginHero />
-      <LoginExperience initialTab="about" isAuthenticated={Boolean(user)} />
+      <LoginExperience
+        initialTab="about"
+        isAuthenticated={Boolean(user)}
+        cardContainerClassName="pb-20 sm:pb-28"
+      />
     </div>
   );
 }
