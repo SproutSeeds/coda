@@ -23,7 +23,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ChevronDown, GripVertical } from "lucide-react";
+import { ChevronDown, GripVertical, Star as StarIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { reorderFeaturesAction } from "../actions";
@@ -31,6 +31,7 @@ import type { Feature } from "./types";
 import { FeatureCard } from "./FeatureCard";
 import { useFeatureSectionCollapse } from "./hooks/useFeatureSectionCollapse";
 import { cn } from "@/lib/utils";
+import { FEATURE_SUPER_STAR_LIMIT } from "@/lib/constants/features";
 
 type FeatureActiveSectionKey = "superstars" | "stars" | "unstarred";
 
@@ -88,6 +89,10 @@ export function FeatureList({
   const [activeItems, setActiveItems] = useState(() =>
     showCompletedSection ? features.filter((feature) => !feature.completed) : features,
   );
+  const superStarTotal = useMemo(
+    () => features.filter((feature) => feature.superStarred).length,
+    [features],
+  );
   const previousItemsRef = useRef(activeItems);
   const [isPending, startTransition] = useTransition();
   const prefersReducedMotion = useReducedMotion() ?? false;
@@ -97,17 +102,23 @@ export function FeatureList({
   const activeSentinelRef = useRef<HTMLDivElement | null>(null);
   const [collapsedSections, setCollapsedSections] = useFeatureSectionCollapse(ideaId);
 
-  const completedFeatures = showCompletedSection
-    ? features
-        .filter((feature) => feature.completed)
-        .slice()
-        .sort((a, b) => {
-          if (!a.completedAt && !b.completedAt) return 0;
-          if (!a.completedAt) return 1;
-          if (!b.completedAt) return -1;
-          return new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime();
-        })
-    : [];
+  const completedFeatures = useMemo(() => {
+    if (!showCompletedSection) {
+      return [] as Feature[];
+    }
+    const items = features.filter((feature) => feature.completed);
+    const ordered = items.slice().sort((a, b) => {
+      if (!a.completedAt && !b.completedAt) return 0;
+      if (!a.completedAt) return 1;
+      if (!b.completedAt) return -1;
+      return new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime();
+    });
+    return ordered;
+  }, [features, showCompletedSection]);
+  const completedSuperStarCount = useMemo(
+    () => completedFeatures.filter((feature) => feature.superStarred).length,
+    [completedFeatures],
+  );
 
   useEffect(() => {
     const nextActive = showCompletedSection ? features.filter((feature) => !feature.completed) : features;
@@ -368,17 +379,49 @@ export function FeatureList({
   const completedContentId = "feature-section-completed";
   const isCompletedCollapsed = collapsedSections.completed;
 
+  const header = (
+    <div className="space-y-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-semibold tracking-tight text-foreground">Features</h2>
+          <span className="inline-flex items-center gap-1 rounded-full border border-border/50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <span>Super stars</span>
+            <span className={cn(superStarTotal >= FEATURE_SUPER_STAR_LIMIT ? "text-primary" : "text-foreground")}>
+              {superStarTotal}
+            </span>
+            <span className="text-muted-foreground">/ {FEATURE_SUPER_STAR_LIMIT}</span>
+          </span>
+        </div>
+      </div>
+      {completedSuperStarCount > 0 ? (
+        <p className="text-xs text-muted-foreground">
+          {completedSuperStarCount === 1
+            ? "1 super star lives in Completed. Expand that section to manage it."
+            : `${completedSuperStarCount} super stars live in Completed. Expand that section to manage them.`}
+        </p>
+      ) : null}
+    </div>
+  );
+
   if (!hasActive && !hasCompleted) {
-    return <p className="text-sm text-muted-foreground">{emptyLabel ?? "No features yet. Add one to start shaping this idea."}</p>;
+    return (
+      <div className="space-y-4">
+        {header}
+        <p className="text-sm text-muted-foreground">{emptyLabel ?? "No features yet. Add one to start shaping this idea."}</p>
+      </div>
+    );
   }
 
   if (!showCompletedSection) {
     return (
-      <div className="space-y-3" data-testid="feature-list">
-        {visibleActiveItems.map((feature) => (
-          <FeatureCard key={feature.id} feature={feature} ideaId={ideaId} isDragging={false} />
-        ))}
-        {hasMoreActive ? <div ref={activeSentinelRef} className="h-6" aria-hidden /> : null}
+      <div className="space-y-4" data-testid="feature-list">
+        {header}
+        <div className="space-y-3">
+          {visibleActiveItems.map((feature) => (
+            <FeatureCard key={feature.id} feature={feature} ideaId={ideaId} isDragging={false} />
+          ))}
+          {hasMoreActive ? <div ref={activeSentinelRef} className="h-6" aria-hidden /> : null}
+        </div>
       </div>
     );
   }
@@ -400,6 +443,12 @@ export function FeatureList({
           <span className="font-normal text-muted-foreground/80">
             ({completedFeatures.length})
           </span>
+          {completedSuperStarCount > 0 ? (
+            <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-muted/30 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-amber-300/90">
+              <StarIcon className="size-3" aria-hidden />
+              {completedSuperStarCount}
+            </span>
+          ) : null}
         </span>
         <ChevronDown
           className={cn(
@@ -468,6 +517,7 @@ export function FeatureList({
 
   return (
     <div className="space-y-6" data-testid="feature-list">
+      {header}
       {hasActive ? (
         <DndContext
           sensors={sensors}

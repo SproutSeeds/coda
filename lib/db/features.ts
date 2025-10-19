@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 
 import { getDb } from "@/lib/db";
 import { ideaFeatures, ideas } from "@/lib/db/schema";
+import { FEATURE_SUPER_STAR_LIMIT } from "@/lib/constants/features";
 import {
   validateFeatureInput,
   validateFeatureUpdate,
@@ -16,8 +17,6 @@ import {
 } from "@/lib/validations/features";
 import { FeatureSuperStarLimitError } from "@/lib/errors/feature-super-star-limit";
 import { ensureSuperStarPlacement } from "@/lib/utils/super-star-ordering";
-
-const FEATURE_SUPER_STAR_LIMIT = 3;
 
 export type FeatureStarState = "none" | "star" | "super";
 
@@ -102,17 +101,18 @@ export async function createFeature(userId: string, input: FeatureInput) {
     throw new Error("Idea not found");
   }
 
-  if (payload.superStarred) {
-    const [{ count }] = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(ideaFeatures)
-      .where(
-        and(
-          eq(ideaFeatures.ideaId, payload.ideaId),
-          eq(ideaFeatures.superStarred, true),
-          isNull(ideaFeatures.deletedAt),
-        ),
-      );
+    if (payload.superStarred) {
+      const [{ count }] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(ideaFeatures)
+        .where(
+          and(
+            eq(ideaFeatures.ideaId, payload.ideaId),
+            eq(ideaFeatures.superStarred, true),
+            eq(ideaFeatures.completed, false),
+            isNull(ideaFeatures.deletedAt),
+          ),
+        );
 
     if (Number(count) >= FEATURE_SUPER_STAR_LIMIT) {
       throw new FeatureSuperStarLimitError();
@@ -210,6 +210,7 @@ export async function updateFeature(userId: string, input: FeatureUpdateInput) {
           and(
             eq(ideaFeatures.ideaId, existing.ideaId),
             eq(ideaFeatures.superStarred, true),
+            eq(ideaFeatures.completed, false),
             isNull(ideaFeatures.deletedAt),
           ),
         );
@@ -278,6 +279,7 @@ export async function setFeatureStarState(userId: string, id: string, state: Fea
           and(
             eq(ideaFeatures.ideaId, existing.ideaId),
             eq(ideaFeatures.superStarred, true),
+            eq(ideaFeatures.completed, false),
             isNull(ideaFeatures.deletedAt),
           ),
         );
@@ -391,6 +393,8 @@ export async function setFeatureCompletion(userId: string, id: string, completed
     .select({
       id: ideaFeatures.id,
       ideaId: ideaFeatures.ideaId,
+      starred: ideaFeatures.starred,
+      superStarred: ideaFeatures.superStarred,
     })
     .from(ideaFeatures)
     .innerJoin(ideas, eq(ideas.id, ideaFeatures.ideaId))
@@ -401,12 +405,21 @@ export async function setFeatureCompletion(userId: string, id: string, completed
     throw new Error("Feature not found");
   }
 
+  const nextFlags: Partial<typeof ideaFeatures.$inferInsert> = completed
+    ? {
+        starred: false,
+        superStarred: false,
+        superStarredAt: null,
+      }
+    : {};
+
   const [updated] = await db
     .update(ideaFeatures)
     .set({
       completed,
       completedAt: completed ? new Date() : null,
       updatedAt: new Date(),
+      ...nextFlags,
     })
     .where(eq(ideaFeatures.id, id))
     .returning();

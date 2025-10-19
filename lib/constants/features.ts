@@ -1,0 +1,1 @@
+export const FEATURE_SUPER_STAR_LIMIT = 3;
