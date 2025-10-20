@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { FEATURE_SUPER_STAR_LIMIT } from "@/lib/constants/features";
 
 const FEATURE_NOTES_CHARACTER_LIMIT = 10_000;
 const FEATURE_DETAIL_CHARACTER_LIMIT = 10_000;
@@ -95,12 +96,16 @@ function detailStatesEqual(a: DetailSectionState[], b: DetailSectionState[]): bo
 export function FeatureCard({
   feature,
   ideaId,
+  superStarTotal,
+  onSuperStarCountChange,
   dragHandle,
   isDragging = false,
   style,
 }: {
   feature: Feature;
   ideaId: string;
+  superStarTotal: number;
+  onSuperStarCountChange: (delta: number) => void;
   dragHandle?: ReactNode;
   isDragging?: boolean;
   style?: CSSProperties;
@@ -431,9 +436,13 @@ export function FeatureCard({
       return;
     }
 
+    const wasSuperStar = starState === "super";
     startMutate(async () => {
       try {
         await deleteFeatureAction({ id: feature.id });
+        if (wasSuperStar) {
+          onSuperStarCountChange(-1);
+        }
         toast.success("Feature removed");
         resetDeleteConfirmation();
         router.refresh();
@@ -441,7 +450,16 @@ export function FeatureCard({
         toast.error(error instanceof Error ? error.message : "Unable to delete feature");
       }
     });
-  }, [deleteTitleMatches, feature.id, isMutating, resetDeleteConfirmation, router, startMutate]);
+  }, [
+    deleteTitleMatches,
+    feature.id,
+    isMutating,
+    onSuperStarCountChange,
+    resetDeleteConfirmation,
+    router,
+    starState,
+    startMutate,
+  ]);
 
   const handleCycleStar = () => {
     const previousState = starState;
@@ -449,17 +467,38 @@ export function FeatureCard({
     const wasExpanded = isExpanded;
     const nextState: FeatureStarState =
       previousState === "none" ? "star" : previousState === "star" ? "super" : "none";
-    setStarState(nextState);
+
+    if (
+      nextState === "super" &&
+      previousState !== "super" &&
+      superStarTotal >= FEATURE_SUPER_STAR_LIMIT
+    ) {
+      toast.error(new FeatureSuperStarLimitError().message);
+      return;
+    }
+
     startStarTransition(async () => {
       try {
-        const updated = await cycleFeatureStarAction(feature.id);
-        setStarState(deriveStarState(updated));
+        const result = await cycleFeatureStarAction(feature.id);
+        if (!result.success) {
+          pendingRefreshRef.current = false;
+          toast.error(result.error);
+          return;
+        }
+        const updated = result.feature;
+        const resolvedState = deriveStarState(updated);
+        setStarState(resolvedState);
         setSyncedFeature((current) => ({
           ...current,
           starred: updated.starred,
           superStarred: updated.superStarred,
           updatedAt: updated.updatedAt,
         }));
+        if (previousState !== "super" && resolvedState === "super") {
+          onSuperStarCountChange(1);
+        } else if (previousState === "super" && resolvedState !== "super") {
+          onSuperStarCountChange(-1);
+        }
         setIsCompleted(Boolean(updated.completed));
         setCompletedAt(updated.completedAt ?? null);
         if (wasEditing) {
@@ -489,6 +528,7 @@ export function FeatureCard({
 
   const handleToggleCompleted = () => {
     const next = !isCompleted;
+    const wasSuperBeforeToggle = starState === "super";
     startCompletionTransition(async () => {
       try {
         const updated = await toggleFeatureCompletionAction(feature.id, next);
@@ -505,7 +545,11 @@ export function FeatureCard({
           starred: updated.starred,
           superStarred: updated.superStarred,
         });
-        setStarState(deriveStarState(updated));
+        const resolvedState = deriveStarState(updated);
+        setStarState(resolvedState);
+        if (wasSuperBeforeToggle && resolvedState !== "super") {
+          onSuperStarCountChange(-1);
+        }
         setCurrentTitle(updated.title);
         setCurrentNotes(updated.notes);
         setCurrentDetails(normalizedDetails.map((section) => ({ ...section })));
@@ -538,9 +582,13 @@ export function FeatureCard({
 
   const handleConvertToIdea = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
+    const wasSuperStar = starState === "super";
     startConvertTransition(async () => {
       try {
         const result = await convertFeatureToIdeaAction({ featureId: feature.id });
+        if (wasSuperStar) {
+          onSuperStarCountChange(-1);
+        }
         toast.success("Feature converted to idea");
         setIsConfirmingConvert(false);
         router.push(`/dashboard/ideas/${result.newIdeaId}`);
@@ -550,61 +598,61 @@ export function FeatureCard({
     });
   };
 
-const addDetailSection = useCallback(() => {
-  setDraftDetails((previous) => {
-    if (previous.length >= FEATURE_DETAIL_SECTION_LIMIT) {
-      toast.error(`You can add up to ${FEATURE_DETAIL_SECTION_LIMIT} detail sections.`);
-      return previous;
-    }
-    return [...previous, { id: undefined, label: "", body: "" }];
-  });
-  setIsDetailEditorVisible(true);
-  setConfirmingDetailRemovalIndex(null);
-}, []);
-
-const updateDetailSection = useCallback((index: number, value: Partial<DetailSectionState>) => {
-  setDraftDetails((previous) => {
-    const next = [...previous];
-    next[index] = { ...next[index], ...value };
-    return next;
-  });
-}, []);
-
-const requestRemoveDetailSection = useCallback((index: number) => {
-  setConfirmingDetailRemovalIndex(index);
-}, []);
-
-const confirmRemoveDetailSection = useCallback(() => {
-  setDraftDetails((previous) => {
-    if (confirmingDetailRemovalIndex == null) {
-      return previous;
-    }
-    const next = previous.filter((_, position) => position !== confirmingDetailRemovalIndex);
-    if (next.length === 0) {
-      setIsDetailEditorVisible(false);
-    }
-    return next;
-  });
-  setConfirmingDetailRemovalIndex(null);
-}, [confirmingDetailRemovalIndex]);
-
-const cancelRemoveDetailSection = useCallback(() => {
-  setConfirmingDetailRemovalIndex(null);
-}, []);
-
-const moveDetailSection = useCallback((index: number, direction: -1 | 1) => {
-  setDraftDetails((previous) => {
-    const target = index + direction;
-    if (target < 0 || target >= previous.length) {
+  const addDetailSection = useCallback(() => {
+    setDraftDetails((previous) => {
+      if (previous.length >= FEATURE_DETAIL_SECTION_LIMIT) {
+        toast.error(`You can add up to ${FEATURE_DETAIL_SECTION_LIMIT} detail sections.`);
         return previous;
       }
-    const next = [...previous];
-    const [item] = next.splice(index, 1);
-    next.splice(target, 0, item);
-    return next;
-  });
-  setConfirmingDetailRemovalIndex(null);
-}, []);
+      return [...previous, { id: undefined, label: "", body: "" }];
+    });
+    setIsDetailEditorVisible(true);
+    setConfirmingDetailRemovalIndex(null);
+  }, []);
+
+  const updateDetailSection = useCallback((index: number, value: Partial<DetailSectionState>) => {
+    setDraftDetails((previous) => {
+      const next = [...previous];
+      next[index] = { ...next[index], ...value };
+      return next;
+    });
+  }, []);
+
+  const requestRemoveDetailSection = useCallback((index: number) => {
+    setConfirmingDetailRemovalIndex(index);
+  }, []);
+
+  const confirmRemoveDetailSection = useCallback(() => {
+    setDraftDetails((previous) => {
+      if (confirmingDetailRemovalIndex == null) {
+        return previous;
+      }
+      const next = previous.filter((_, position) => position !== confirmingDetailRemovalIndex);
+      if (next.length === 0) {
+        setIsDetailEditorVisible(false);
+      }
+      return next;
+    });
+    setConfirmingDetailRemovalIndex(null);
+  }, [confirmingDetailRemovalIndex]);
+
+  const cancelRemoveDetailSection = useCallback(() => {
+    setConfirmingDetailRemovalIndex(null);
+  }, []);
+
+  const moveDetailSection = useCallback((index: number, direction: -1 | 1) => {
+    setDraftDetails((previous) => {
+      const target = index + direction;
+      if (target < 0 || target >= previous.length) {
+        return previous;
+      }
+      const next = [...previous];
+      const [item] = next.splice(index, 1);
+      next.splice(target, 0, item);
+      return next;
+    });
+    setConfirmingDetailRemovalIndex(null);
+  }, []);
 
 
   const handleCardClick = () => {

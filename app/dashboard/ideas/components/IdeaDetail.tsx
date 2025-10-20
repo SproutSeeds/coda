@@ -246,7 +246,12 @@ const titleInputRef = useRef<HTMLInputElement | null>(null);
   const handleStarToggle = useCallback(() => {
     startStarTransition(async () => {
       try {
-        const updated = await cycleIdeaStarAction(idea.id);
+        const result = await cycleIdeaStarAction(idea.id);
+        if (!result.success) {
+          toast.error(result.error);
+          return;
+        }
+        const updated = result.idea;
         setSyncedIdea((previous) => ({
           ...previous,
           githubUrl: updated.githubUrl ?? previous.githubUrl,

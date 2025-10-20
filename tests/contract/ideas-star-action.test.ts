@@ -37,7 +37,10 @@ describe("cycleIdeaStarAction", () => {
 
     const result = await cycleIdeaStarAction("idea-1");
 
-    expect(result).toMatchObject({ id: "idea-1", starred: true, superStarred: false });
+    expect(result).toMatchObject({
+      success: true,
+      idea: { id: "idea-1", starred: true, superStarred: false },
+    });
     expect(trackEvent).toHaveBeenCalledWith({
       name: "idea_starred",
       properties: { ideaId: "idea-1" },
@@ -51,7 +54,12 @@ describe("cycleIdeaStarAction", () => {
       superStarred: true,
     } as any);
 
-    await cycleIdeaStarAction("idea-2");
+    const result = await cycleIdeaStarAction("idea-2");
+
+    expect(result).toMatchObject({
+      success: true,
+      idea: { id: "idea-2", superStarred: true },
+    });
 
     expect(trackEvent).toHaveBeenCalledWith({
       name: "idea_super_starred",
@@ -66,7 +74,12 @@ describe("cycleIdeaStarAction", () => {
       superStarred: false,
     } as any);
 
-    await cycleIdeaStarAction("idea-3");
+    const result = await cycleIdeaStarAction("idea-3");
+
+    expect(result).toMatchObject({
+      success: true,
+      idea: { id: "idea-3", starred: false, superStarred: false },
+    });
 
     expect(trackEvent).toHaveBeenCalledWith({
       name: "idea_unstarred",
@@ -77,7 +90,9 @@ describe("cycleIdeaStarAction", () => {
   it("surfaces a helpful error when the super star limit is hit", async () => {
     vi.mocked(cycleIdeaStarState).mockRejectedValue(new SuperStarLimitError());
 
-    await expect(cycleIdeaStarAction("idea-4")).rejects.toThrow("super star up to three ideas");
+    const result = await cycleIdeaStarAction("idea-4");
+
+    expect(result).toMatchObject({ success: false, code: "idea-super-star-limit" });
     expect(trackEvent).not.toHaveBeenCalled();
   });
 });

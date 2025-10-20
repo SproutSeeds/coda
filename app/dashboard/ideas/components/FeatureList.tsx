@@ -89,10 +89,11 @@ export function FeatureList({
   const [activeItems, setActiveItems] = useState(() =>
     showCompletedSection ? features.filter((feature) => !feature.completed) : features,
   );
-  const superStarTotal = useMemo(
-    () => features.filter((feature) => feature.superStarred).length,
+  const serverSuperStarTotal = useMemo(
+    () => features.filter((feature) => feature.superStarred && !feature.completed).length,
     [features],
   );
+  const [superStarTotal, setSuperStarTotal] = useState(serverSuperStarTotal);
   const previousItemsRef = useRef(activeItems);
   const [isPending, startTransition] = useTransition();
   const prefersReducedMotion = useReducedMotion() ?? false;
@@ -119,6 +120,24 @@ export function FeatureList({
     () => completedFeatures.filter((feature) => feature.superStarred).length,
     [completedFeatures],
   );
+
+  useEffect(() => {
+    setSuperStarTotal(serverSuperStarTotal);
+  }, [serverSuperStarTotal]);
+
+  const adjustSuperStarTotal = useCallback((delta: number) => {
+    if (delta === 0) return;
+    setSuperStarTotal((previous) => {
+      const next = previous + delta;
+      if (next < 0) {
+        return 0;
+      }
+      if (next > FEATURE_SUPER_STAR_LIMIT) {
+        return FEATURE_SUPER_STAR_LIMIT;
+      }
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     const nextActive = showCompletedSection ? features.filter((feature) => !feature.completed) : features;
@@ -418,7 +437,14 @@ export function FeatureList({
         {header}
         <div className="space-y-3">
           {visibleActiveItems.map((feature) => (
-            <FeatureCard key={feature.id} feature={feature} ideaId={ideaId} isDragging={false} />
+            <FeatureCard
+              key={feature.id}
+              feature={feature}
+              ideaId={ideaId}
+              superStarTotal={superStarTotal}
+              onSuperStarCountChange={adjustSuperStarTotal}
+              isDragging={false}
+            />
           ))}
           {hasMoreActive ? <div ref={activeSentinelRef} className="h-6" aria-hidden /> : null}
         </div>
@@ -471,7 +497,14 @@ export function FeatureList({
             data-testid="feature-completed-list"
           >
             {completedFeatures.map((feature) => (
-              <FeatureCard key={feature.id} feature={feature} ideaId={ideaId} isDragging={false} />
+              <FeatureCard
+                key={feature.id}
+                feature={feature}
+                ideaId={ideaId}
+                superStarTotal={superStarTotal}
+                onSuperStarCountChange={adjustSuperStarTotal}
+                isDragging={false}
+              />
             ))}
           </motion.div>
         ) : null}
@@ -487,7 +520,14 @@ export function FeatureList({
   ) : null;
 
   const renderStaticFeature = (feature: Feature) => (
-    <FeatureCard key={feature.id} feature={feature} ideaId={ideaId} isDragging={false} />
+    <FeatureCard
+      key={feature.id}
+      feature={feature}
+      ideaId={ideaId}
+      superStarTotal={superStarTotal}
+      onSuperStarCountChange={adjustSuperStarTotal}
+      isDragging={false}
+    />
   );
 
   if (!isMounted || !allowReorder) {
@@ -509,6 +549,8 @@ export function FeatureList({
       key={feature.id}
       feature={feature}
       ideaId={ideaId}
+      superStarTotal={superStarTotal}
+      onSuperStarCountChange={adjustSuperStarTotal}
       isSaving={isPending}
       prefersReducedMotion={prefersReducedMotion}
     />
@@ -541,11 +583,15 @@ export function FeatureList({
 function SortableFeatureCard({
   feature,
   ideaId,
+  superStarTotal,
+  onSuperStarCountChange,
   isSaving,
   prefersReducedMotion,
 }: {
   feature: Feature;
   ideaId: string;
+  superStarTotal: number;
+  onSuperStarCountChange: (delta: number) => void;
   isSaving: boolean;
   prefersReducedMotion: boolean;
 }) {
@@ -574,6 +620,8 @@ function SortableFeatureCard({
       <FeatureCard
         feature={feature}
         ideaId={ideaId}
+        superStarTotal={superStarTotal}
+        onSuperStarCountChange={onSuperStarCountChange}
         dragHandle={handle}
         isDragging={isDragging}
       />

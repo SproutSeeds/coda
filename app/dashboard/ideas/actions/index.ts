@@ -2,7 +2,19 @@
 
 import { redirect } from "next/navigation";
 
-import { createFeature, deleteFeature, getFeatureById, listDeletedFeatures, listFeatures, reorderFeatures, restoreFeature, setFeatureCompletion, cycleFeatureStarState, updateFeature } from "@/lib/db/features";
+import {
+  createFeature,
+  deleteFeature,
+  getFeatureById,
+  listDeletedFeatures,
+  listFeatures,
+  reorderFeatures,
+  restoreFeature,
+  setFeatureCompletion,
+  cycleFeatureStarState,
+  updateFeature,
+} from "@/lib/db/features";
+import type { FeatureRecord } from "@/lib/db/features";
 import {
   createIdea,
   cycleIdeaStarState,
@@ -188,7 +200,11 @@ export async function reorderIdeasAction(ids: string[]) {
   await trackEvent({ name: "idea_reordered", properties: { count: ids.length } });
 }
 
-export async function cycleIdeaStarAction(id: string) {
+type CycleIdeaStarActionResult =
+  | { success: true; idea: IdeaRecord }
+  | { success: false; error: string; code: "idea-super-star-limit" };
+
+export async function cycleIdeaStarAction(id: string): Promise<CycleIdeaStarActionResult> {
   const user = await requireUser();
   try {
     const idea = await cycleIdeaStarState(user.id, id);
@@ -201,10 +217,14 @@ export async function cycleIdeaStarAction(id: string) {
       name: eventName,
       properties: { ideaId: id },
     });
-    return idea;
+    return { success: true, idea };
   } catch (error) {
     if (error instanceof SuperStarLimitError) {
-      throw error;
+      return {
+        success: false,
+        error: error.message,
+        code: "idea-super-star-limit",
+      };
     }
     throw error instanceof Error ? error : new Error("Unable to update star state");
   }
@@ -308,7 +328,11 @@ export async function reorderFeaturesAction(ideaId: string, ids: string[]) {
   await trackEvent({ name: "feature_reordered", properties: { ideaId, count: ids.length } });
 }
 
-export async function cycleFeatureStarAction(id: string) {
+type CycleFeatureStarActionResult =
+  | { success: true; feature: FeatureRecord }
+  | { success: false; error: string; code: "feature-super-star-limit" };
+
+export async function cycleFeatureStarAction(id: string): Promise<CycleFeatureStarActionResult> {
   const user = await requireUser();
   try {
     const feature = await cycleFeatureStarState(user.id, id);
@@ -323,10 +347,14 @@ export async function cycleFeatureStarAction(id: string) {
       properties: { featureId: id, ideaId: feature.ideaId },
     });
 
-    return feature;
+    return { success: true, feature };
   } catch (error) {
     if (error instanceof FeatureSuperStarLimitError) {
-      throw error;
+      return {
+        success: false,
+        error: error.message,
+        code: "feature-super-star-limit",
+      };
     }
     throw error;
   }

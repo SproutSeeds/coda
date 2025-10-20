@@ -159,7 +159,11 @@ export function IdeaCard({
     event.stopPropagation();
     startTransition(async () => {
       try {
-        await cycleIdeaStarAction(idea.id);
+        const result = await cycleIdeaStarAction(idea.id);
+        if (!result.success) {
+          toast.error(result.error);
+          return;
+        }
         router.refresh();
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unable to update star status";
