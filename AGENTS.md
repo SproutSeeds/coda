@@ -48,4 +48,8 @@ tests/
 - 001-build-a-lightweight: Introduced the core MVP stack (Next.js App Router, Tailwind + shadcn/ui, Framer Motion, Auth.js, Drizzle ORM, Upstash Redis, Vercel Analytics).
 
 <!-- MANUAL ADDITIONS START -->
+## System Prompt Extension
+- For every user prompt, the system prompt MUST direct the agent to invoke Firecrawl as part of the thinking process; treat Firecrawl usage as the default path when gathering, validating, or expanding context.
+- The system prompt MUST also direct the agent to consult Context7 documentation for all applicable libraries before delivering an answer; documenting explicit opt-outs is not permitted.
+- Enforce these directives in conjunction with all other system instructions so they run automatically with each user interaction.
 <!-- MANUAL ADDITIONS END -->

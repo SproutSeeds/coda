@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
 import { EmailSignInForm } from "./EmailSignInForm";
-import { PasswordSignInForm } from "./PasswordSignInForm";
+import { PasswordAccessPanel } from "./PasswordAccessPanel";
 
 const modes = {
   magic: {
@@ -16,14 +16,14 @@ const modes = {
   },
   password: {
     title: "Email & password",
-    description: "After your first magic link, set a password in Account to sign in instantly.",
+    description: "Create a password-first account or sign in instantly with credentials.",
     toggleLabel: "Use magic link instead",
-    form: <PasswordSignInForm />,
+    form: <PasswordAccessPanel />,
   },
 } as const;
 
 export function SignInSwitcher() {
-  const [mode, setMode] = useState<keyof typeof modes>("magic");
+  const [mode, setMode] = useState<keyof typeof modes>("password");
   const current = modes[mode];
 
   return (

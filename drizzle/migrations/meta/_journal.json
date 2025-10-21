@@ -148,6 +148,13 @@
       "when": 1761500000000,
       "tag": "0020_add_document_acceptances",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "27",
+      "when": 1760995332315,
+      "tag": "0021_add_auth_password_verification",
+      "breakpoints": true
     }
   ]
 }

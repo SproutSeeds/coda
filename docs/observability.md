@@ -23,6 +23,7 @@
 | `ideas_import_complete` | Import commit succeeds | `created`, `updated`, `skipped`, `duration` |
 | `ideas_import_error` | Import preview/commit throws | `reason`, `validationErrors` |
 | `auth_magic_link_requested` | Magic link request API | `email` |
+| `auth_password_created` | Password sign-up or first-time credential attach | `userId`, `mode` |
 | `auth_password_updated` | Password change | `userId` |
 
 ## Dashboard Recommendations

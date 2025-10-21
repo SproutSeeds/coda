@@ -34,9 +34,12 @@ For both **Production** and **Preview** environments, add:
 | `NEXTAUTH_URL` | `https://<your-project>.vercel.app` (update once the domain is known). |
 | `UPSTASH_REDIS_REST_URL` | REST URL from Upstash (`https://...upstash.io`). |
 | `UPSTASH_REDIS_REST_TOKEN` | REST token from Upstash. |
-| `EMAIL_SERVER` | SMTP connection string or host for magic-link delivery. |
-| `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASSWORD` | SMTP authentication details (omit user/pass for provider tokens). |
+| `EMAIL_SERVER` | SMTP connection string or host for magic-link delivery (Resend). |
+| `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASSWORD` | SMTP authentication details for Resend. |
 | `EMAIL_FROM` | From address shown in the magic-link email (e.g., `Coda <login@your-domain>`). |
+| `PASSWORD_EMAIL_SERVER` | SMTP host for password verification emails (e.g., `smtp.gmail.com`). |
+| `PASSWORD_EMAIL_PORT`, `PASSWORD_EMAIL_USER`, `PASSWORD_EMAIL_PASSWORD` | SMTP credentials for the verification sender (Workspace app password recommended). |
+| `PASSWORD_EMAIL_FROM` | From address for password verification emails (e.g., `Coda <cody@your-domain>`). |
 
 You can use the Vercel dashboard (Settings → Environment Variables) or the CLI (`vercel env add` per variable).
 

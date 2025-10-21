@@ -22,7 +22,7 @@ We are designing toward a fully agentic product-development assistant: human-fri
 - **Ideas dashboard** – minimal cards with search, star filters, and persistent drag-and-drop ordering. Recently deleted ideas stay recoverable for seven days.
 - **Idea detail view** – autosaved title, core plan, and link metadata with collapsible sections and smooth Framer Motion transitions. Includes JSON export, convert-to-feature, and undo flows.
 - **Feature breakdowns** – every feature card supports inline autosave, drag-and-drop reordering, multi-section detail blocks, and conversion back into a full idea.
-- **Authentication** – Auth.js email magic links plus optional password sign-in, with admin capabilities keyed to the `DEVELOPER_EMAIL` constant.
+- **Authentication** – Auth.js email magic links plus password-first sign-up/sign-in fallback, with admin capabilities keyed to the `DEVELOPER_EMAIL` constant.
 - **Rate-limited workflows** – Upstash Redis keeps email and mutation flows safe; server actions wrap each critical mutation.
 - **Undo + lifecycle** – Soft deletes issue undo tokens, and a Vercel cron job purges expired items daily.
 - **Agent hooks** – Codex/Specify prompts live under `.codex/prompts/*`, making it trivial to feed ideas into automated planning/execution loops.
@@ -50,7 +50,7 @@ Canonical copies of our Terms of Service, Privacy Policy, and Data Processing Ad
 ```
 Next.js 15 (App Router, Server Actions)
 │
-├── Authentication: Auth.js + email magic links + optional password
+├── Authentication: Auth.js + email magic links + password-first fallback
 ├── Persistence: PostgreSQL (Neon local / Vercel Postgres prod) via Drizzle ORM
 ├── Queues / Rate limiting: Upstash Redis REST
 ├── UI: Tailwind CSS + shadcn/ui + lucide-react icons + Framer Motion transitions
@@ -211,7 +211,8 @@ Both conversions record analytics events and reuse server actions for consistenc
 ### Required Environment Variables
 - `DATABASE_URL` – Neon (local) or Vercel Postgres (cloud) connection string.
 - `NEXTAUTH_SECRET`, `NEXTAUTH_URL` – Auth.js session secret + base URL.
-- `EMAIL_*` – SMTP configuration for Auth.js magic links.
+- `EMAIL_*` – SMTP configuration for Auth.js magic links (Resend).
+- `PASSWORD_EMAIL_*` – SMTP configuration for password verification emails (Google Workspace fallback).
 - `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` – Redis REST credentials for rate limiting.
 - `CRON_SECRET` – Shared secret for Vercel Cron invocations.
 - `GITHUB_ID`, `GITHUB_SECRET` – Optional GitHub OAuth provider.

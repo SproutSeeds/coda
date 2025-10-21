@@ -214,3 +214,14 @@ export const documentAcceptances = pgTable(
     documentLookupIdx: index("idx_document_acceptances_document").on(table.documentSlug, table.version),
   }),
 );
+
+export const passwordVerifications = pgTable("auth_password_verification", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  email: text("email").notNull(),
+  userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
+  tokenHash: text("token_hash").notNull(),
+  passwordHash: text("password_hash").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  attempts: integer("attempts").notNull().default(0),
+});

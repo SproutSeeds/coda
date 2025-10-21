@@ -2,6 +2,7 @@ import { track } from "@vercel/analytics";
 
 const ANALYTICS_EVENT_NAMES = [
   "auth_magic_link_requested",
+  "auth_password_created",
   "auth_password_updated",
   "auth_magic_link_verified",
   "idea_created",

@@ -11,6 +11,7 @@ const testInbox: MailRecord[] = globalInbox ?? [];
 (globalThis as unknown as { __codaTestInbox?: MailRecord[] }).__codaTestInbox = testInbox;
 
 let cachedTransporter: Transporter | null = null;
+let cachedPasswordTransporter: Transporter | null = null;
 
 function resolveTransporter() {
   if (cachedTransporter) return cachedTransporter;
@@ -45,6 +46,41 @@ function resolveTransporter() {
   });
 
   return cachedTransporter;
+}
+
+function resolvePasswordTransporter() {
+  if (cachedPasswordTransporter) return cachedPasswordTransporter;
+
+  const url = process.env.PASSWORD_EMAIL_SERVER;
+  const port = process.env.PASSWORD_EMAIL_PORT ? Number(process.env.PASSWORD_EMAIL_PORT) : undefined;
+  const user = process.env.PASSWORD_EMAIL_USER;
+  const password = process.env.PASSWORD_EMAIL_PASSWORD;
+
+  if (url === "stream") {
+    cachedPasswordTransporter = nodemailer.createTransport({
+      streamTransport: true,
+      buffer: true,
+    });
+    return cachedPasswordTransporter;
+  }
+
+  if (url && url.includes("smtp://")) {
+    cachedPasswordTransporter = nodemailer.createTransport(url);
+    return cachedPasswordTransporter;
+  }
+
+  if (!url) {
+    throw new Error("PASSWORD_EMAIL_SERVER is not configured. Provide SMTP host or connection string.");
+  }
+
+  cachedPasswordTransporter = nodemailer.createTransport({
+    host: url,
+    port: port ?? 587,
+    secure: (port ?? 587) === 465,
+    auth: user && password ? { user, pass: password } : undefined,
+  });
+
+  return cachedPasswordTransporter;
 }
 
 export async function sendMagicLinkEmail({
@@ -90,6 +126,53 @@ export async function sendMagicLinkEmail({
   const maybeMessage = (result as unknown as { message?: Buffer }).message;
   const raw = maybeMessage ? maybeMessage.toString("utf8") : "";
   testInbox.push({ email: email.toLowerCase(), url, raw });
+}
+
+export async function sendPasswordVerificationEmail({
+  email,
+  url,
+}: {
+  email: string;
+  url: string;
+}) {
+  const from = process.env.PASSWORD_EMAIL_FROM;
+  if (!from) {
+    throw new Error("PASSWORD_EMAIL_FROM is not set.");
+  }
+
+  const transporter = resolvePasswordTransporter();
+  let result;
+  try {
+    result = await transporter.sendMail({
+      to: email,
+      from,
+      subject: "Confirm your Coda password",
+      text: `Finish setting up your password to access Coda: ${url}\n\nThis link expires in 24 hours. If you didn't request it, you can ignore this message.`,
+      html: `
+        <p><strong>One quick step left.</strong> Confirm your email to finish creating your password for Coda.</p>
+        <p><a href="${url}" style="display:inline-block;padding:12px 16px;background:#111827;color:#ffffff;border-radius:8px;text-decoration:none;">Confirm email &amp; continue</a></p>
+        <p>This link expires in 24 hours. If you didn't request it, you can safely ignore this email.</p>
+        <p><a href="${url}">${url}</a></p>
+      `,
+    });
+  } catch (error) {
+    console.error("Password verification email send failed", error);
+    throw new Error("EmailVerification");
+  }
+
+  const rejected = Array.isArray(result.rejected) ? result.rejected : [];
+  const pending = Array.isArray(result.pending) ? result.pending : [];
+
+  if (rejected.length > 0 || pending.length > 0) {
+    console.error("Password verification email rejected", { email, rejected, pending });
+    throw new Error("EmailVerification");
+  }
+
+  if (process.env.PASSWORD_EMAIL_SERVER === "stream") {
+    const maybeMessage = (result as unknown as { message?: Buffer }).message;
+    const raw = maybeMessage ? maybeMessage.toString("utf8") : "";
+    testInbox.push({ email: email.toLowerCase(), url, raw });
+  }
 }
 
 export function getTestInbox() {
