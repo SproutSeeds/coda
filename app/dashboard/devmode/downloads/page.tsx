@@ -25,8 +25,10 @@ const DETECTORS: Array<{ test: (ua: string) => boolean; key: PlatformKey }> = [
   { test: (ua) => /Macintosh;.*Apple M/.test(ua), key: "mac-arm64" },
 ];
 
+const FALLBACK_BASE = "https://github.com/SproutSeeds/coda/releases/download/V2.0_dmg_helper_app/";
+
 export default function DownloadsPage() {
-  const base = process.env.NEXT_PUBLIC_RUNNER_DOWNLOAD_BASE || "";
+  const base = process.env.NEXT_PUBLIC_RUNNER_DOWNLOAD_BASE || FALLBACK_BASE;
   const relayUrl = process.env.NEXT_PUBLIC_DEVMODE_RELAY_URL || "";
   const appBase = process.env.NEXT_PUBLIC_SITE_URL || "";
 

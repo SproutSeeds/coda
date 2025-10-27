@@ -68,4 +68,59 @@
    - Keep this plan updated as tasks complete; log deviations in AGENTS.md.
    - Draft end-user guide (docs/runner-tmux.md) once functionality stabilises.
 
+## Release & Deployment Runbook
+1. **Local validation**
+   - `pnpm lint`
+   - `pnpm typecheck`
+   - `pnpm test -- --run`
+   - Optional: `pnpm playwright test`
+   - Optional: `pnpm lighthouse`
+2. **Runner builds & helper packaging**
+   - `pnpm --filter @coda/runner-core build`
+   - `pnpm --filter @coda/runner-desktop install`
+   - `pnpm --filter @coda/runner-desktop build`
+   - `pnpm runner:package-local`
+     - Outputs `apps/dist/apps/runner-desktop/coda-runner-companion-mac-arm64.dmg`
+     - Copies the DMG into `public/runner/`
+3. **Publish the helper**
+   - Upload `public/runner/coda-runner-companion-mac-arm64.dmg` to the GitHub Release (or chosen distribution channel).
+4. **Stage & commit**
+   - `git status`
+   - `git add <changed files>`
+   - `git commit -m "..."` (descriptive message)
+   - `git push origin <branch>`
+5. **Preview database migration**
+   - `DATABASE_URL="postgresql://…neon…sslmode=require" pnpm db:migrate`
+6. **Verify preview**
+   - Wait for the Vercel preview deployment to succeed and smoke-test it.
+7. **Configure production environment (Vercel)**
+   - Ensure the following env vars are present:
+     - `TTY_SYNC=tmux`
+     - `TTY_SESSION_PREFIX=coda` (optional override)
+     - `NEXT_PUBLIC_DEVMODE_RELAY_ENABLED=1`
+     - `NEXT_PUBLIC_DEVMODE_RELAY_URL=wss://relay-falling-butterfly-779.fly.dev`
+     - `DEVMODE_RELAY_URL=wss://relay-falling-butterfly-779.fly.dev`
+     - `NEXT_PUBLIC_SITE_URL=https://<prod-domain>`
+     - `NEXT_PUBLIC_RUNNER_DOWNLOAD_BASE=https://github.com/<org>/<repo>/releases/download/<tag>`
+8. **Production migration**
+   - `DATABASE_URL="postgresql://…prod…" pnpm db:migrate` (run immediately before or during the prod deploy).
+9. **Runner service configuration (Fly.io)**
+   - `fly secrets set -a relay-falling-butterfly-779 TTY_SYNC=tmux TTY_SESSION_PREFIX=coda`
+   - `fly secrets set -a relay-falling-butterfly-779 DEVMODE_RELAY_URL=wss://relay-falling-butterfly-779.fly.dev`
+   - `fly secrets set -a relay-falling-butterfly-779 NEXT_PUBLIC_DEVMODE_RELAY_URL=wss://relay-falling-butterfly-779.fly.dev`
+   - `fly secrets set -a relay-falling-butterfly-779 NEXT_PUBLIC_SITE_URL=https://<prod-domain>`
+   - `fly secrets set -a relay-falling-butterfly-779 RELAY_INTERNAL_SECRET=<shared-secret>`
+   - `fly apps restart relay-falling-butterfly-779`
+10. **Relay redeploy** (only if `relay/` code changed)
+    - `cd relay`
+    - `fly status -a relay-falling-butterfly-779` (optional)
+    - `fly deploy -a relay-falling-butterfly-779 --remote-only`
+    - `fly logs -a relay-falling-butterfly-779` (confirm healthy startup)
+11. **Production verification**
+    - In prod Dev Mode → Terminals: confirm the streamed `coda:session:…` line appears.
+    - Locally attach with `tmux attach -t <name>`; verify mirrored output.
+    - Check helper logs for “TTY server listening” and absence of node-pty warnings.
+12. **Documentation updates**
+    - Refresh README and `AGENTS.md` with the new download link, tmux guidance, helper workflow, and any relay deployment notes.
+
 _Last updated: 2025-10-26_

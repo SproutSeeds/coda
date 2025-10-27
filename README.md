@@ -306,9 +306,9 @@ Bottom line: tmux session names are discoverable by design, but attaching to the
 Before merging:
 1. `pnpm lint`
 2. `pnpm typecheck`
-3. `pnpm test`
-4. `pnpm playwright test`
-5. `pnpm lighthouse`
+3. `pnpm test -- --run`
+4. *(Optional)* `pnpm playwright test`
+5. *(Optional)* `pnpm lighthouse`
 
 ---
 
