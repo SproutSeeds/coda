@@ -2,12 +2,15 @@ import { NextResponse } from "next/server";
 import { getDevDb as getDb } from "@/lib/db";
 import { devPairings, devRunners } from "@/lib/db/schema";
 import { and, eq, gt, inArray, sql } from "drizzle-orm";
-import { requireUser } from "@/lib/auth/session";
+import { getCurrentUser } from "@/lib/auth/session";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  const user = await requireUser();
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ online: false }, { status: 401 });
+  }
   const db = getDb();
   // Get runnerIds paired to this user and approved/not consumed
   const pairRows = await db
@@ -24,4 +27,3 @@ export async function GET() {
     .limit(1);
   return NextResponse.json({ online: runnerRows.length > 0 });
 }
-
