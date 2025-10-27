@@ -31,7 +31,23 @@ export default function DownloadsPage() {
   const appBase = process.env.NEXT_PUBLIC_SITE_URL || "";
 
   const installers: Installer[] = useMemo(() => {
-    const safe = (path: string) => (base ? `${base}/${path}` : null);
+    const safe = (path: string) => {
+      if (!base) return null;
+      try {
+        const baseUrl = new URL(base);
+        const segments = baseUrl.pathname.split("/").filter(Boolean);
+        if (segments.length) {
+          const last = segments[segments.length - 1];
+          if (last.includes(".")) {
+            segments.pop();
+          }
+        }
+        baseUrl.pathname = segments.length ? `/${segments.join("/")}/` : "/";
+        return new URL(path, baseUrl).toString();
+      } catch {
+        return null;
+      }
+    };
     return [
       {
         key: "mac-arm64",

@@ -34,8 +34,14 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
   const [picking, setPicking] = useState(false);
   const [noRunner, setNoRunner] = useState(false);
   const [online, setOnline] = useState<boolean | null>(null);
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isClient) return;
     let timer: any;
     const poll = async () => {
       try {
@@ -49,10 +55,11 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
     };
     void poll();
     return () => { try { clearTimeout(timer); } catch {} };
-  }, []);
+  }, [isClient]);
 
   // Load any saved sessions (titles/urls) — note: connections are not auto-restored.
   useEffect(() => {
+    if (!isClient) return;
     try {
       const raw = localStorage.getItem(storageKey);
       if (raw) {
@@ -65,7 +72,7 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
       const cs = localStorage.getItem(codexSessionKey) || "";
       setCodexSession(cs);
     } catch {}
-  }, [storageKey, projectRootKey, codexSessionKey]);
+  }, [storageKey, projectRootKey, codexSessionKey, isClient]);
 
   const persist = (next: Session[]) => {
     setSessions(next);
@@ -206,6 +213,21 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
       try { el.scrollTop = el.scrollHeight; } catch {}
     });
   }, [combined, follow, combinedRef]);
+
+  if (!isClient) {
+    return (
+      <Card className="border-blue-500/30 bg-blue-500/5">
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>Terminals</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 pt-2 text-sm text-muted-foreground">
+          <p>Loading terminal controls…</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="border-blue-500/30 bg-blue-500/5">

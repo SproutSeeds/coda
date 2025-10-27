@@ -277,6 +277,24 @@ Create `.env.local` from `.env.example`, populate the values above, and mirror t
   - `scripts/devmode-runner.ts` now imports from `@coda/runner-core`. Keep it around for automation scripts and CI.
   - Refer to the downloads page for the latest commands and binary names.
 
+### Relay Security & tmux Session Access
+
+Security is a first-class feature of the relay architecture. Share these notes with anyone reviewing the system or operating the helper:
+
+- **Pairing is the trust boundary.** Every runner must present an approved pairing token. Unless a device is paired through the helper UI (or `/api/devmode/pair/approve`), the relay rejects connections outright—even if someone guesses an idea ID or tmux session name.
+- **Session names are public; credentials are not.** We intentionally stream lines such as `coda:session:coda-<idea>-primary` so the browser client can display the attach command. Knowing that name alone does not grant access; a valid runner token and the relay URL are still required.
+- **Tokens are short-lived and revocable.** The helper stores runner tokens in its local keychain (`electron-store`). Removing a pairing from the helper or hitting the `/api/devmode/pair/devices/:id` DELETE endpoint revokes the token instantly and forces a fresh approval.
+- **All transport is encrypted.** The relay uses `wss://` with TLS, and the local PTY server binds to `127.0.0.1`. If you expose the PTY through a tunnel (Cloudflare, etc.), enforce TLS + Access at that layer as well.
+- **Operational best practices:**
+  - Pair only machines you control; rotate pairings if a laptop is lost or repurposed.
+  - Set strong secrets (`DEVMODE_JWT_SECRET`, relay internal secret) so runner tokens cannot be forged.
+  - Enable `TTY_SYNC=tmux` so the session state lives inside tmux; detach instantly with `Ctrl+B, D` if you suspect an issue.
+  - Monitor the helper’s “Runner Activity” panel or `/api/devmode/runners/online` to confirm which devices are connected.
+
+- **Disconnect cleanly when finished.** Detach with `Ctrl+B`, `D` or run `tmux detach` to leave the session running without streaming to your browser. To terminate it completely, use `tmux kill-session -t coda-<idea>-primary`. Closing inactive sessions prevents stale attachments from lingering.
+
+Bottom line: tmux session names are discoverable by design, but attaching to them still requires the paired runner token. Treat the pairing flow like SSH key management—keep the helper token store private and revoke pairings you no longer need.
+
 ---
 
 ## Testing Strategy
