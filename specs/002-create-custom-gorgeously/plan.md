@@ -17,7 +17,7 @@
    → Update Progress Tracking: Initial Constitution Check
 5. Execute Phase 0 → research.md
    → If NEEDS CLARIFICATION remain: ERROR "Resolve unknowns"
-6. Execute Phase 1 → contracts, data-model.md, quickstart.md, agent-specific template file (run `.specify/scripts/bash/update-agent-context.sh codex`)
+6. Execute Phase 1 → contracts, data-model.md, quickstart.md, and update any agent context files as needed
 7. Re-evaluate Constitution Check section
    → If new violations: Refactor design, return to Phase 1
    → Update Progress Tracking: Post-Design Constitution Check
@@ -99,7 +99,7 @@ Artifacts produced:
 - **Data Model**: [data-model.md](./data-model.md) describing `theme_preferences` schema and relationships.
 - **Contract**: [contracts/theme-preference.md](./contracts/theme-preference.md) for the `updateThemePreference` Server Action.
 - **Quickstart**: [quickstart.md](./quickstart.md) outlining validation workflow.
-- **Agent Context Update**: `.specify/scripts/bash/update-agent-context.sh codex` executed to sync decisions.
+*Agent Context Note*: update any agent context files to sync decisions (optional).
 
 Design highlights:
 - Upsert Server Action writes to `theme_preferences` with validation via drizzle-zod.

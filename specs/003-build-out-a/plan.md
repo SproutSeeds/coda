@@ -17,7 +17,7 @@
    → Update Progress Tracking: Initial Constitution Check
 5. Execute Phase 0 → research.md
    → If NEEDS CLARIFICATION remain: ERROR "Resolve unknowns"
-6. Execute Phase 1 → contracts, data-model.md, quickstart.md, agent-specific template file (run `.specify/scripts/bash/update-agent-context.sh codex`)
+6. Execute Phase 1 → contracts, data-model.md, quickstart.md; update any agent context file as needed
 7. Re-evaluate Constitution Check section
    → If new violations: Refactor design, return to Phase 1
    → Update Progress Tracking: Post-Design Constitution Check
@@ -99,7 +99,7 @@ scripts/
 - Modelled import entities and telemetry in [`data-model.md`](specs/003-build-out-a/data-model.md), covering IdeaImportBundle, FeatureImportItem, ImportEnvelope, DiffSummary, ConflictDecision, and analytics events.
 - Authored Server Action contract in [`contracts/import-ideas.md`](specs/003-build-out-a/contracts/import-ideas.md) describing preview/commit responses and failure codes.
 - Curated the developer flow in [`quickstart.md`](specs/003-build-out-a/quickstart.md) with smoke steps, negative case, and command checklist.
-- Ran `.specify/scripts/bash/update-agent-context.sh codex` to sync AGENTS.md with new context.
+*Agent Context Note*: Sync AGENTS.md or other context files with new decisions (optional).
 - Upcoming tests to author in Phase 2: Vitest contract suite for `importIdeasAction` and Playwright scenario covering preview, conflict resolution, and commit.
 
 **Status**: ✅ Design artefacts generated; ready for task decomposition.
@@ -108,7 +108,7 @@ scripts/
 *This section describes what the /tasks command will do - DO NOT execute during /plan*
 
 **Task Generation Strategy**:
-- Use `.specify/templates/tasks-template.md` to enumerate work from research/design artefacts.
+  Derive tasks directly from research/design artefacts (no external template).
 - Derive contract tests for `importIdeasAction` (preview + commit) and validation helpers.
 - Add Drizzle/zod schema tasks for import envelope and diff mapping.
 - Sequence UI tasks for new button, modal, and toasts after server-side pieces; mark independent client/UI updates as `[P]` when safe.

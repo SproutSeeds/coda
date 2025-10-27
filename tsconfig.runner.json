@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist/runner",
+    "module": "commonjs",
+    "target": "ES2022",
+    "esModuleInterop": true,
+    "moduleResolution": "node",
+    "baseUrl": ".",
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "noEmit": false,
+    "allowJs": false,
+    "declaration": false
+  },
+  "include": ["scripts/devmode-runner.ts", "types/**/*.d.ts"],
+  "exclude": ["node_modules", "dist"]
+}

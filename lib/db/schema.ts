@@ -225,3 +225,145 @@ export const passwordVerifications = pgTable("auth_password_verification", {
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   attempts: integer("attempts").notNull().default(0),
 });
+
+// Dev Mode tables
+export const devRunnerStatusEnum = pgEnum("dev_runner_status", ["online", "offline", "stale"]);
+
+export const devRunners = pgTable(
+  "dev_runners",
+  {
+    id: text("id").primaryKey(), // cuid
+    name: text("name").notNull(),
+    capabilities: jsonb("capabilities").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    status: devRunnerStatusEnum("status").notNull().default("offline"),
+    lastHeartbeat: timestamp("last_heartbeat", { withTimezone: true }),
+    attestation: jsonb("attestation"),
+    tokenKid: text("token_kid"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    statusIdx: index("idx_dev_runners_status").on(table.status),
+  }),
+);
+
+export const devJobStateEnum = pgEnum("dev_job_state", [
+  "queued",
+  "dispatched",
+  "running",
+  "uploading",
+  "succeeded",
+  "failed",
+  "canceled",
+  "timed_out",
+]);
+
+export const devPreviewModeEnum = pgEnum("dev_preview_mode", ["direct", "proxied"]);
+
+export const devJobs = pgTable(
+  "dev_jobs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ideaId: text("idea_id").notNull(),
+    intent: text("intent").notNull(),
+    command: text("command"),
+    args: jsonb("args").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    env: jsonb("env"),
+    timeoutMs: integer("timeout_ms").notNull().default(900000),
+    repoProvider: text("repo_provider"),
+    repo: text("repo"),
+    branch: text("branch"),
+    sha: text("sha"),
+    state: devJobStateEnum("state").notNull().default("queued"),
+    attempt: integer("attempt").notNull().default(0),
+    idempotencyKey: text("idempotency_key").notNull(),
+    runnerId: text("runner_id").references(() => devRunners.id, { onDelete: "set null" }),
+    previewMode: devPreviewModeEnum("preview_mode"),
+    previewUrl: text("preview_url"),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+  },
+  (table) => ({
+    ideaIdx: index("idx_dev_jobs_idea_created").on(table.ideaId, table.createdAt),
+    runnerStateIdx: index("idx_dev_jobs_runner_state").on(table.runnerId, table.state),
+    idempotencyUnique: uniqueIndex("uniq_dev_jobs_idempotency").on(table.idempotencyKey),
+  }),
+);
+
+export const devArtifacts = pgTable(
+  "dev_artifacts",
+  {
+    id: text("id").primaryKey(), // cuid
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => devJobs.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    path: text("path").notNull(),
+    size: integer("size").notNull(),
+    mime: text("mime").notNull(),
+    sha256: text("sha256").notNull(),
+    url: text("url").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    jobIdx: index("idx_dev_artifacts_job").on(table.jobId),
+  }),
+);
+
+export const devMessages = pgTable(
+  "dev_messages",
+  {
+    id: text("id").primaryKey(), // cuid
+    ideaId: text("idea_id").notNull(),
+    jobId: uuid("job_id").notNull().references(() => devJobs.id, { onDelete: "cascade" }),
+    runnerId: text("runner_id").references(() => devRunners.id, { onDelete: "set null" }),
+    sender: text("sender").notNull(), // user|codex|system
+    content: text("content").notNull(),
+    meta: jsonb("meta"),
+    seq: integer("seq").notNull(),
+    ts: timestamp("ts", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    jobSeqIdx: index("idx_dev_messages_job_seq").on(table.jobId, table.seq),
+    ideaTsIdx: index("idx_dev_messages_idea_ts").on(table.ideaId, table.ts),
+  }),
+);
+
+export const devLogs = pgTable(
+  "dev_logs",
+  {
+    id: text("id").primaryKey(), // cuid
+    jobId: uuid("job_id").notNull().references(() => devJobs.id, { onDelete: "cascade" }),
+    level: text("level").notNull(), // info|warn|error
+    text: text("text").notNull(),
+    seq: integer("seq").notNull(),
+    ts: timestamp("ts", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    jobSeqIdx: index("idx_dev_logs_job_seq").on(table.jobId, table.seq),
+  }),
+);
+
+// Dev Mode pairing codes
+export const devPairings = pgTable(
+  "dev_pairings",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    code: text("code").notNull(),
+    state: text("state").notNull().default("pending"),
+    userId: text("user_id"),
+    runnerId: text("runner_id"),
+    runnerToken: text("runner_token"),
+    runnerTokenJti: text("runner_token_jti"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull().default(sql`(now() + interval '10 minutes')`),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+  },
+  (table) => ({
+    codeIdx: index("idx_dev_pairings_code").on(table.code),
+  }),
+);

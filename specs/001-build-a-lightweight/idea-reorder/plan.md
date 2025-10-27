@@ -2,12 +2,12 @@
 
 # Plan Input — Idea Reordering & Companion Docs
 
-Use this as the user argument when invoking `.codex/prompts/plan.md`.
+Use this plan to guide implementation and task breakdown.
 
 ## Desired Outcome
 - Add drag-and-drop reordering for ideas so users can rearrange cards and keep the sequence after logging out.
 - Persist order via a new sortable column on `ideas`, ensuring all reads respect the saved ordering.
-- Deliver a short companion explanation for the new server/client files using `.codex/prompts/accompany.md`.
+-- Deliver a short companion explanation for the new server/client files alongside the code changes.
 
 ## Key Constraints & Considerations
 - Maintain existing undo, search, and rate-limiting behavior.
@@ -16,7 +16,7 @@ Use this as the user argument when invoking `.codex/prompts/plan.md`.
 - Update Playwright coverage to confirm order persistence.
 
 ## Follow-up Prompts
-- After the plan solidifies, run `.codex/prompts/accompany.md` for any new files (e.g., reorder action, drag-drop component) so teammates get quick context summaries.
+- After the plan solidifies, add companion notes for any new files (e.g., reorder action, drag‑drop component) so teammates get quick context summaries.
 
 
 ## Workstreams

@@ -4,7 +4,7 @@ Coda MVP Specification
 **Feature Branch**: `001-build-a-lightweight`  
 **Created**: 2025-10-04  
 **Status**: Draft  
-**Input**: User description from `.arguments/specify-arg-1.md`
+**Input**: User description and constraints from the project brief
 
 ## Clarifications
 

@@ -1,4 +1,4 @@
-import { track } from "@vercel/analytics";
+import { track } from "@vercel/analytics/server";
 
 const ANALYTICS_EVENT_NAMES = [
   "auth_magic_link_requested",

@@ -7,6 +7,7 @@ import { Footer } from "@/components/footer";
 import { Toaster } from "@/components/ui/sonner";
 
 import "./globals.css";
+import "@xterm/xterm/css/xterm.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,7 +33,6 @@ export const metadata: Metadata = {
     "idea manager",
     "startup toolkit",
     "Next.js app",
-    "specify",
   ],
   icons: {
     icon: [

@@ -24,8 +24,7 @@
   - `pnpm add next-auth bcryptjs @upstash/ratelimit @upstash/redis rehype-sanitize @vercel/analytics`
   - Create baseline `lib/{db,auth,validations,utils}`, `scripts`, `tests/{unit,e2e,contract,perf}` directories
   - Add minimal `drizzle.config.ts`, `lib/db/schema.ts`
-  - Touch `.specify/memory/scaffold.ok` to unblock `/tasks`
-  - Re-run `.specify/scripts/bash/update-agent-context.sh codex`
+  - Verify scaffold completion to unblock `/tasks`
 
 ## Phase 3.1: Setup
 - [X] T001 Populate `.env.example` and `.env.local` with placeholders for `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `VERCEL_ANALYTICS_ID`, and email delivery settings; document sourcing steps in quickstart.
@@ -72,7 +71,7 @@
 - [X] T036 Add Vercel Cron config (`vercel.json`) + `scripts/purge-soft-deleted-ideas.ts` to hard-delete rows older than 30 days.
 - [X] T037 Enforce Auth.js session checks for ideas routes in `middleware.ts` and dedicated route groups (`(auth)` vs `(dashboard)`); redirect unauthenticated users to `/login`.
 - [X] T038 Update `specs/001-build-a-lightweight/quickstart.md` with final runbooks (env sync, cron, analytics, manual QA results).
-- [X] T039 Rerun `.specify/scripts/bash/update-agent-context.sh codex` to capture latest stack/command updates once implementation wiring is complete.
+- [X] T039 Update any agent context or docs to capture latest stack/command updates once implementation wiring is complete (optional).
 
 ## Phase 3.5: Polish & Verification
 - [ ] T040 [P] Tune Framer Motion tokens and prefers-reduced-motion fallbacks; record findings in quickstart QA section.
@@ -95,11 +94,11 @@
 - [X] T055 Add SMTP/email provider configuration: document `EMAIL_SERVER`, `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASSWORD`, `EMAIL_FROM`, optional provider tokens; update `.env.example`, README, deployment guide, and quickstart runbooks.
 - [ ] T056 [P] Update CI and local scripts to load mail transport env vars (e.g., add `EMAIL_*` placeholders to CI secrets guidance) and confirm `pnpm test` passes with mocked transport.
 - [X] T057 Ensure rate limiting + analytics cover email flow: update `lib/utils/rate-limit.ts` (if needed) and analytics helper to log `auth_magic_link_requested` / `auth_magic_link_verified`; add contract assertions.
-- [X] T058 [P] Re-run `.specify/scripts/bash/update-agent-context.sh codex` to capture email-auth stack changes and append results to `AGENTS.md`.
+- [X] T058 [P] Update AGENTS.md to capture email-auth stack changes and append results (optional script or manual).
 - [ ] T059 Execute validation suite post-integration: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm playwright test`, `pnpm lighthouse`; attach evidence for new tests and ensure PROD env vars set in Vercel.
 
 ## Dependencies
-- T000 blocks entire workflow (must create `.specify/memory/scaffold.ok`).
+- T000 blocks entire workflow (scaffold must be complete).
 - T001–T004 depend on scaffold but precede all tests.
 - Tests T005–T017 must complete before any implementation tasks T018–T032.
 - T018 is prerequisite for T019–T028; T028 depends on T023.

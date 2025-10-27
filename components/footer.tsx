@@ -154,6 +154,9 @@ function FooterContent({ className }: { className?: string }) {
           <Link className="transition hover:text-foreground" href="/legal">
             Legal center
           </Link>
+          <Link className="transition hover:text-foreground" href="/dashboard/devmode/downloads">
+            Desktop companion
+          </Link>
         </nav>
         <Link
           href="https://github.com/SproutSeeds/coda"

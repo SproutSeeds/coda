@@ -1,0 +1,21 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "ES2022",
+    "outDir": "dist/main",
+    "rootDir": "src/main",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "noEmit": false,
+    "strict": true,
+    "types": ["node", "electron"],
+    "baseUrl": ".",
+    "paths": {
+      "@coda/runner-core": ["../../packages/runner-core/dist/index"]
+    }
+  },
+  "include": ["src/main/**/*.ts"],
+  "exclude": ["dist", "node_modules"]
+}

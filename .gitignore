@@ -36,6 +36,13 @@ build/
 .tmp/
 .cache/
 
+# Desktop companion artifacts
+public/runner/*
+!public/runner/.gitkeep
+
+# Electron build caches
+.electron-gyp-home/
+
 # Tooling state
 .turbo/
 
@@ -48,6 +55,8 @@ blob-report/
 
 # Lighthouse / evidence artifacts
 evidence/
+.lighthouse/
+artifacts/
 
 # Misc
 Thumbs.db

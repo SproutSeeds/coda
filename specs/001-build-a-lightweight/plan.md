@@ -5,12 +5,12 @@
 
 ## Execution Flow (/plan command scope)
 ```
-1. Verify scaffold gate (G0). If `.specify/memory/scaffold.ok` is absent, queue T000 (Next.js scaffold) before feature work.
+1. Verify scaffold gate (G0). If the project scaffold is incomplete, queue T000 (Next.js scaffold) before feature work.
 2. Read feature specification + clarifications and extract functional scope.
-3. Load constitution (`.specify/memory/constitution.md`) and ensure stack alignment.
+3. Ensure stack alignment against the repository’s engineering guidelines.
 4. Populate Technical Context and Constitution Check with concrete decisions from research.
 5. Execute Phase 0 updates → refresh `research.md` with finalized decisions (complete).
-6. Execute Phase 1 design → update `data-model.md`, `contracts/`, `quickstart.md`, and rerun `update-agent-context.sh codex`.
+6. Execute Phase 1 design → update `data-model.md`, `contracts/`, `quickstart.md`.
 7. Re-run constitution sanity check; capture any deviations in Complexity Tracking.
 8. Define Phase 2 task planning approach (stop before generating `tasks.md`).
 9. Report readiness for `/tasks`.
@@ -34,7 +34,7 @@ Coda MVP delivers a single-user workspace for capturing, searching, and pruning 
 *Status: ✅ Scaffold ready*
 
 - **Stack Alignment**: Planned implementation matches mandated stack (Next.js App Router + Tailwind + shadcn + Drizzle + Auth.js + Upstash). ✅
-- **Scaffold Gate (G0)**: `.specify/memory/scaffold.ok` present after T000 scaffold run. ✅
+- **Scaffold Gate (G0)**: Project scaffold validated after T000 scaffold run. ✅
 - **Data & Validation**: Drizzle schema + drizzle-zod validators defined; soft-delete + undo fields recorded. ✅
 - **Deployment & CI**: Plan enforces pnpm `lint`, `typecheck`, `build`, Drizzle migrations, GitHub Actions + Vercel previews. ✅
 - **Security & Rate Limiting**: Auth.js session gating, Upstash rate limiter, bcrypt ≥12 noted. ✅
@@ -84,14 +84,13 @@ tests/
 - `quickstart.md` provides environment setup, migrations, rate limiter config, CI gates, and observability guidance.
 - Next action before implementation is to rerun agent context sync when plan changes:
   ```bash
-  SPECIFY_FEATURE=001-build-a-lightweight \
-  .specify/scripts/bash/update-agent-context.sh codex
+  # If you maintain an agent context file, update it now (optional).
   ```
   (Run once more after scaffold exists to ensure instructions stay current.)
 
 ## Phase 2: Task Planning Approach (Ready for /tasks)
-- `/tasks` will load `.specify/templates/tasks-template.md` and generate ~25–30 tasks covering:
-  - T000 scaffold (until `.specify/memory/scaffold.ok` present)
+- `/tasks` will generate ~25–30 tasks covering:
+  - T000 scaffold (ensure scaffold is complete)
   - Database migrations + Drizzle schema for Idea + soft delete fields
   - Server Actions/tests for create, edit, list, search, delete, undo
   - UI components (composer, list, search, empty/error states) with motion tokens
@@ -105,10 +104,10 @@ tests/
 ## Progress Tracking
 | Phase | Status | Notes |
 |-------|--------|-------|
-| Constitution Gate | ✅ | `.specify/memory/scaffold.ok` created via T000 scaffold run |
+| Constitution Gate | ✅ | Scaffold created via T000 scaffold run |
 | Phase 0 – Research | ✅ | `research.md` finalized with six resolved decisions |
 | Phase 1 – Design  | ✅ | `data-model.md`, `contracts/`, `quickstart.md` updated |
 | Phase 2 – Tasks   | ⏳ | Ready for `/tasks` after scaffold gate satisfied |
 
 ## Ready for /tasks?
-Proceed to `/tasks` once `T000 – Scaffold Next.js app` has been executed and `.specify/memory/scaffold.ok` exists. After scaffold completion, rerun `update-agent-context.sh codex`, then invoke `/tasks` using the latest prompts in `CODEX.md` with `.arguments/plan-tech-stack.md` as technical context.
+Proceed to `/tasks` once `T000 – Scaffold Next.js app` has been executed. Then generate the tasks list in `specs/001-build-a-lightweight/tasks.md` using the repository’s conventions.

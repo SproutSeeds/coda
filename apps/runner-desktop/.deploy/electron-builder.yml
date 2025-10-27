@@ -1,0 +1,54 @@
+appId: com.codacli.runner
+productName: Coda Runner Companion
+directories:
+  buildResources: build
+  output: ../../dist/apps/runner-desktop
+files:
+  - dist/main/**
+  - dist/preload/**
+  - dist/renderer/**
+  - node_modules/**
+  - package.json
+asar: true
+asarUnpack:
+  - dist/renderer/**
+extraMetadata:
+  main: dist/main/index.js
+afterPack: scripts/afterPack-ensure-icon.js
+mac:
+  category: public.app-category.developer-tools
+  hardenedRuntime: true
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  icon: build/coda-icon.icns
+  target:
+    - dmg
+    - zip
+  artifactName: "coda-runner-companion-mac-${arch}.${ext}"
+dmg:
+  icon: build/coda-icon.icns
+  iconSize: 128
+  contents:
+    - x: 140
+      y: 160
+      type: file
+    - x: 400
+      y: 160
+      type: link
+      path: /Applications
+win:
+  target:
+    - nsis
+  artifactName: "coda-runner-companion-windows-${arch}.${ext}"
+  icon: build/coda-icon.ico
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Utility
+  artifactName: "coda-runner-companion-linux-${arch}.${ext}"
+  icon: build/coda-icon-512.png
+publish:
+  - provider: github
+    owner: codymitchell
+    repo: coda

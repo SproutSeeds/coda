@@ -44,6 +44,7 @@ import { FeatureComposer } from "./FeatureComposer";
 import { FeatureList } from "./FeatureList";
 import { showUndoToast } from "./UndoSnackbar";
 import type { Feature, Idea } from "./types";
+import { IdeaDevPanel } from "./IdeaDevPanel";
 
 function formatDateTime(value: string) {
   try {
@@ -123,6 +124,8 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
   const [isExporting, startExportTransition] = useTransition();
   const [isConvertDropdownOpen, setIsConvertDropdownOpen] = useState(false);
   const [isActionsOpen, setIsActionsOpen] = useState(false);
+  const [isOnline, setIsOnline] = useState<boolean | null>(null);
+  const [showDevMode, setShowDevMode] = useState(false);
   const convertDropdownRef = useRef<HTMLDivElement | null>(null);
 const actionsMenuRef = useRef<HTMLDivElement | null>(null);
 const [isCoreExpanded, setIsCoreExpanded] = useState(false);
@@ -168,6 +171,18 @@ const titleInputRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
     setDeletedFeaturesState(deletedFeatures);
   }, [deletedFeatures]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/devmode/runners/online", { cache: "no-store" as RequestCache });
+        if (res.ok) {
+          const data = await res.json();
+          setIsOnline(!!data.online);
+        }
+      } catch {}
+    })();
+  }, []);
 
   useEffect(() => {
     if (!showFilters) return;
@@ -975,6 +990,15 @@ const handleConvert = () => {
                 data-testid="idea-actions-button"
               >
                 Actions
+                {isOnline !== null ? (
+                  <span
+                    className={cn(
+                      "ml-1 inline-block h-2 w-2 rounded-full",
+                      isOnline ? "bg-green-500" : "bg-gray-400",
+                    )}
+                    aria-label={isOnline ? "Runner online" : "Runner offline"}
+                  />
+                ) : null}
                 <ChevronDown
                   className={cn(
                     "size-3 transition-transform text-muted-foreground",
@@ -1009,6 +1033,30 @@ const handleConvert = () => {
                     >
                       <span>{isConvertOpen ? "Close convert panel" : "Convert to feature"}</span>
                       {isConverting ? <Loader2 className="size-3 animate-spin text-muted-foreground" /> : null}
+                    </button>
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between px-3 py-2 transition-colors hover:bg-muted/30 hover:text-foreground"
+                      onClick={() => { setShowDevMode((v) => !v); setIsActionsOpen(false); }}
+                      data-testid="idea-devmode-toggle"
+                    >
+                      <span>{showDevMode ? "Hide Dev Mode" : "Show Dev Mode"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between px-3 py-2 transition-colors hover:bg-muted/30 hover:text-foreground"
+                      onClick={() => { try { router.push("/dashboard/devmode/pair"); } catch {} setIsActionsOpen(false); }}
+                      data-testid="idea-devmode-pair"
+                    >
+                      <span>Enable Dev Mode (Pair Runner)</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between px-3 py-2 transition-colors hover:bg-muted/30 hover:text-foreground"
+                      onClick={() => { try { router.push("/dashboard/devmode/devices"); } catch {} setIsActionsOpen(false); }}
+                      data-testid="idea-devmode-devices"
+                    >
+                      <span>Manage Paired Devices</span>
                     </button>
                     <button
                       type="button"
@@ -1483,6 +1531,10 @@ const handleConvert = () => {
           </div>
         </CardContent>
       </Card>
+
+      {showDevMode ? (
+        <IdeaDevPanel ideaId={idea.id} onRequestClose={() => setShowDevMode(false)} />
+      ) : null}
 
       <section className="space-y-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">

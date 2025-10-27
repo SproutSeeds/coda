@@ -37,20 +37,21 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
     throw error;
   }
   const user = session?.user;
-  if (!user?.id) {
+  const userId = user && typeof user === "object" ? (user as { id?: unknown }).id : undefined;
+  if (typeof userId !== "string" || userId.length === 0) {
     return null;
   }
-  await ensureRequiredDocumentAcceptances(user.id);
+  await ensureRequiredDocumentAcceptances(userId);
   const cookieTheme = (await cookies()).get("coda-theme")?.value;
   let theme: "light" | "dark" | undefined = cookieTheme === "light" || cookieTheme === "dark" ? cookieTheme : undefined;
   if (!theme) {
-    const preference = await getThemePreference(user.id);
+    const preference = await getThemePreference(userId);
     theme = preference?.theme;
   }
   return {
-    id: user.id,
-    email: user.email ?? null,
-    name: user.name ?? null,
+    id: userId,
+    email: (user as { email?: string | null })?.email ?? null,
+    name: (user as { name?: string | null })?.name ?? null,
     theme,
   };
 }

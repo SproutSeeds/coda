@@ -20,6 +20,21 @@ const eslintConfig = [
       "next-env.d.ts",
     ],
   },
+  {
+    files: [
+      "app/api/devmode/**/*.ts",
+      "app/api/devmode/**/*.tsx",
+      "app/dashboard/devmode/**/*.ts",
+      "app/dashboard/devmode/**/*.tsx",
+      "app/dashboard/ideas/components/TerminalDock.tsx",
+      "app/dashboard/ideas/components/TerminalPane.tsx",
+    ],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+      "@typescript-eslint/ban-ts-comment": "off",
+    },
+  },
 ];
 
 export default eslintConfig;

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { trackEvent } from "@/lib/utils/analytics";
 
-vi.mock("@vercel/analytics", () => ({
+vi.mock("@vercel/analytics/server", () => ({
   track: vi.fn(),
 }));
 
@@ -13,7 +13,7 @@ describe("Analytics instrumentation", () => {
       properties: { ideaId: "idea-1", latencyMs: 120 },
     });
 
-    const { track } = await import("@vercel/analytics");
+    const { track } = await import("@vercel/analytics/server");
     expect(track).toHaveBeenCalledWith("idea_created", {
       ideaId: "idea-1",
       latencyMs: 120,
@@ -23,7 +23,7 @@ describe("Analytics instrumentation", () => {
   it("supports events without additional properties", async () => {
     await trackEvent({ name: "idea_deleted" });
 
-    const { track } = await import("@vercel/analytics");
+    const { track } = await import("@vercel/analytics/server");
     expect(track).toHaveBeenCalledWith("idea_deleted", {});
   });
 });

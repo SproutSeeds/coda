@@ -86,7 +86,7 @@
           "detailSections": [
             {
               "label": "Compass spec",
-              "body": "### Compass Tile\n- Quadrant view: investment vs. confidence.\n- Click-through to backlog filtered by agent or owner.\n- Export to JSON for Specify so automation stays in sync."
+              "body": "### Compass Tile\n- Quadrant view: investment vs. confidence.\n- Click-through to backlog filtered by agent or owner.\n- Export to JSON for automation so agent workflows stay in sync."
             }
           ],
           "position": 1500,

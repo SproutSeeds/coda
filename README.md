@@ -11,7 +11,7 @@ A lightweight product-planning workspace for capturing ideas, shaping them into 
 | Ideas live in docs, tickets, and chat threads where they quickly lose context. | Each idea opens into a structured brief with autosaving sections, feature breakdowns, and source-of-truth IDs. |
 | Teams struggle to prioritise or reorganise fast enough to keep pace with changing priorities. | Drag-and-drop reordering (mouse, touch, keyboard) keeps the roadmap fluid while maintaining audit trails and undo support. |
 | Product specs rarely stay aligned with implementation once engineers start building. | Server actions enforce a single source of truth, exports snap the current idea/feature tree into JSON, and conversion tools keep the artefacts in sync. |
-| Agentic workflows are hard to adopt because systems are expensive and closed. | Coda is intentionally cheap to run (Next.js + Postgres + Redis free tiers), connector-friendly via JSON exports, and already wired for Specify/Codex agent flows. |
+| Agentic workflows are hard to adopt because systems are expensive and closed. | Coda is intentionally cheap to run (Next.js + Postgres + Redis free tiers) and connector-friendly via JSON exports, so external automation can integrate without lock‑in. |
 
 We are designing toward a fully agentic product-development assistant: human-friendly on the surface, automation-ready underneath. Today, Coda acts as the staging ground where ideas become specs; tomorrow, agents will consume these specs, run tests, and ship updates end-to-end.
 
@@ -25,7 +25,7 @@ We are designing toward a fully agentic product-development assistant: human-fri
 - **Authentication** – Auth.js email magic links plus password-first sign-up/sign-in fallback, with admin capabilities keyed to the `DEVELOPER_EMAIL` constant.
 - **Rate-limited workflows** – Upstash Redis keeps email and mutation flows safe; server actions wrap each critical mutation.
 - **Undo + lifecycle** – Soft deletes issue undo tokens, and a Vercel cron job purges expired items daily.
-- **Agent hooks** – Codex/Specify prompts live under `.codex/prompts/*`, making it trivial to feed ideas into automated planning/execution loops.
+ 
 - **One-click JSON export** – download a structured idea + features payload to seed downstream services, LLM runs, or connector APIs.
 
 ## Legal Documents
@@ -40,7 +40,7 @@ Canonical copies of our Terms of Service, Privacy Policy, and Data Processing Ad
 | --- | --- |
 | **Founder / PM** | “Capture an idea during a stand-up, star it for later, and export the JSON to brief an external agent.” |
 | **Tech lead** | “Split a high-level idea into features, reorder them by priority, and convert an exploratory feature into its own idea when scope expands.” |
-| **Automation engineer** | “Subscribe to JSON exports, feed them into Specify/Codex agents, and post results back as new features or updates.” |
+| **Automation engineer** | “Subscribe to JSON exports, feed them into your automation, and post results back as new features or updates.” |
 | **QA / Ops** | “Use the recently deleted drawer and undo tokens to keep history clean without losing auditability.” |
 
 ---
@@ -56,7 +56,7 @@ Next.js 15 (App Router, Server Actions)
 ├── UI: Tailwind CSS + shadcn/ui + lucide-react icons + Framer Motion transitions
 ├── Drag & drop: @dnd-kit for ideas + features ordering
 ├── Notifications: Sonner toasts
-└── Agent tooling: Specify / Codex CLI prompts (.codex/)
+└── Agent tooling: (optional; bring your own)
 ```
 
 - **Server actions** handle every mutation (`app/dashboard/ideas/actions/index.ts`).
@@ -104,30 +104,19 @@ Run `pnpm db:migrate` any time migrations change.
 3. **Database** – run `pnpm drizzle-kit generate && pnpm drizzle-kit migrate` (Neon/Vercel Postgres URLs work too).
 4. **Run locally** – `pnpm dev` then open `http://localhost:3000/login`.
 5. **QA** – `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm playwright test`, `pnpm lighthouse`.
-6. **Agent tooling** – copy `.codex/config.example.toml` → `.codex/config.toml`, add MCP credentials, and follow the Specify/Codex flow documented in `.codex/prompts/*`.
+6. **Agent tooling (optional)** – integrate your preferred automation; exports/imports are designed to be machine‑friendly.
 7. **Deploy** – Vercel project with Postgres + Upstash Redis. Add cron entry in `vercel.json` for `/api/cron/purge-soft-deletes`.
 
 ---
 
-## Spec Kit Development Flow
+## Development Rhythm
 
-We keep the repo aligned with Spec Kit by cycling through three layers of prompts and reusing them whenever the build stage changes.
+Use the `specs/` folder as the single source of truth:
 
-| Stage | When to Run | What It Produces | 
-| --- | --- | --- |
-| **Specify** (`/.codex/prompts/specify.md`) | Kick off a new feature or large refactor. | Captures the product brief under `specs/<feature>/spec.md` and seeds the global constitution. |
-| **Plan** (`/.codex/prompts/plan.md`) | Right after Specify, or whenever the strategy/constraints shift. | Generates the phased roadmap and updates constitution guardrails (testing matrix, WCAG bars, etc.). |
-| **Taskify** (`/.codex/prompts/tasks.md`) | After planning, or when you add a batch of fixes. | Expands the roadmap into actionable checklist items (`specs/<feature>/tasks.md`). |
-| **Clarify** (`/.codex/prompts/clarify.md`) | Any time specs/tasks leave questions unanswered. | Appends decisions and answers into the spec so future runs stay unambiguous. |
-| **Implement** (`/.codex/prompts/implement.md`) | Day-to-day execution. Run whenever you’re ready to work through the next unchecked tasks. | Drives coding + verification using the latest tasks file, and enforces constitution checks. |
-
-**Workflow Rhythm**
-
-1. **Big feature** → Specify → Plan → Clarify (if needed) → Taskify → Implement until the checklist is complete.
-2. **Polish / small fixes** → Update the spec if scope changed, rerun Taskify with a focused `$ARGUMENTS`, then keep cycling Implement.
-3. **Next big initiative** → repeat from step 1. Only rerun Specify/Plan when the product brief or high-level constraints actually change.
-
-After major code or plan shifts, run `.specify/scripts/bash/update-agent-context.sh codex` so `AGENTS.md` reflects reality. This keeps Playwright/Vitest suites, documentation, and tooling all in sync with the active Spec Kit phase.
+- Plan: update `specs/<feature>/plan.md` as constraints or strategy shift.
+- Tasks: keep `specs/<feature>/tasks.md` current as work completes (`[ ]` → `[X]`).
+- Implement: follow tasks with TDD (tests first), then code, then polish.
+- Sync: refresh `AGENTS.md` when notable plan/code changes land so tooling/docs stay aligned.
 
 ---
 
@@ -216,6 +205,9 @@ Both conversions record analytics events and reuse server actions for consistenc
 - `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` – Redis REST credentials for rate limiting.
 - `CRON_SECRET` – Shared secret for Vercel Cron invocations.
 - `GITHUB_ID`, `GITHUB_SECRET` – Optional GitHub OAuth provider.
+- `NEXT_PUBLIC_SITE_URL` – Canonical origin for the production app (used by the desktop companion).
+- `NEXT_PUBLIC_DEVMODE_RELAY_URL` – Public Relay websocket URL (prefills pairing commands).
+- `NEXT_PUBLIC_RUNNER_DOWNLOAD_BASE` – Release folder that serves desktop installers and CLI binaries.
 
 Create `.env.local` from `.env.example`, populate the values above, and mirror them in Vercel for Development/Preview/Production.
 
@@ -239,6 +231,51 @@ Create `.env.local` from `.env.example`, populate the values above, and mirror t
 ### Local vs. Cloud Databases
 - Neon is recommended for local development; run `pnpm db:migrate` after pulling a teammate’s changes.
 - Vercel Postgres handles Preview/Production deployments; migrations run in the postbuild script guarded by `VERCEL_ENV === "production"`.
+
+### Dev Mode Relay (Terminals)
+- Default: the runner companion starts a local PTY server; the browser connects via the Relay.
+- Recommended: enable the managed Relay for a zero-config experience.
+  - Deploy the relay in `relay/` to Fly.io (or your host). Our default deployment lives at `wss://relay-falling-butterfly-779.fly.dev`.
+  - In your app env, set `NEXT_PUBLIC_DEVMODE_RELAY_ENABLED=1`, `DEVMODE_RELAY_URL=wss://relay-falling-butterfly-779.fly.dev`, and `DEVMODE_JWT_SECRET`.
+  - The desktop app auto-detects these values. CLI runners should continue exporting `RELAY_URL` + `RUNNER_TOKEN`.
+- See `docs/dev-mode-relay.md` for protocol details and CLI pairing notes.
+
+### Runner Companion Desktop App
+- Location: `apps/runner-desktop/` (Electron main + preload + Vite/React renderer).
+- Shared core logic lives in `packages/runner-core` and is reused by the CLI script and desktop shell.
+- Development:
+  ```bash
+  pnpm --filter runner-desktop dev
+  ```
+  This runs the renderer (Vite), compiles the Electron main/preload in watch mode, and launches Electron.
+- Build/Package:
+  ```bash
+  pnpm --filter runner-desktop package -- --publish never
+  ```
+  The script builds runner-core, compiles the desktop app, and invokes `electron-builder`. Artifacts land in `dist/apps/runner-desktop/`.
+- Current rollout (Oct 2025): macOS DMG/ZIP are signed and notarized. Windows/Linux installers are in progress—ship the CLI runner on those platforms until the desktop build lands.
+- Releases:
+  - Tag the repo `runner-desktop-vX.Y.Z` (or trigger `Desktop Builds` manually) to build macOS/Windows/Linux installers via GitHub Actions.
+  - Publish the generated DMG/EXE/AppImage/DEB assets (e.g., GitHub Releases) and point `NEXT_PUBLIC_RUNNER_DOWNLOAD_BASE` at that folder.
+  - The downloads dashboard detects the visitor’s platform and surfaces the correct installer link; CLI binaries remain available under “Advanced”.
+- Configuration:
+  - Desktop settings mirror the web env. Defaults pull from `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_DEVMODE_RELAY_URL`, and the active Relay secret setup.
+  - Pairing tokens persist via `electron-store`; the runner auto-reconnects when the app relaunches.
+- macOS signing + notarization (local build):
+  ```bash
+  export CSC_IDENTITY_AUTO_DISCOVERY=true
+  export APPLE_TEAM_ID=4QV4WR9G32                      # replace with your Team ID
+  export APPLE_ID="you@example.com"                    # Apple ID that owns the Developer ID cert
+  export APPLE_APP_SPECIFIC_PASSWORD="xxxx-xxxx-xxxx-xxxx"
+  pnpm --filter runner-desktop package -- --publish never
+  xcrun stapler staple dist/apps/runner-desktop/coda-runner-companion-mac-arm64.dmg
+  xcrun stapler validate dist/apps/runner-desktop/coda-runner-companion-mac-arm64.dmg
+  spctl --assess --type exec --verbose dist/apps/runner-desktop/mac-arm64/Coda\ Runner\ Companion.app
+  ```
+  All three commands must succeed before you ship the DMG. Gatekeeper will then open the download with no warnings.
+- CLI fallback:
+  - `scripts/devmode-runner.ts` now imports from `@coda/runner-core`. Keep it around for automation scripts and CI.
+  - Refer to the downloads page for the latest commands and binary names.
 
 ---
 
@@ -264,8 +301,8 @@ pnpm lighthouse
 | Stage | Focus | Status |
 | --- | --- | --- |
 | **Spec Workspace** | Unified idea + feature authoring, autosave, undo, exports. | ✅
-| **Agent Handoff** | Reliable JSON exports, conversion hooks, Codex/Specify prompt templates. | ✅
-| **Task Automation** | Generate tasks/tests directly from ideas via Specify/Codex agents. | 🚧
+| **Agent Handoff** | Reliable JSON exports and conversion hooks. | ✅
+| **Task Automation** | Generate tasks/tests directly from ideas with your preferred tooling. | 🚧
 | **Closed-loop Delivery** | Agents implement tasks, run tests, and update ideas/features with results. | 🔜
 | **Connector Marketplace** | Plug-and-play integrations (Jira, Linear, Notion, Figma) powered by exported JSON schema. | 🔜
 
@@ -276,10 +313,10 @@ We are deliberately optimising for low-cost infrastructure (Neon/Upstash/Vercel 
 ## Contributing
 
 1. Branch off `main`.
-2. Follow the command sequence in `.codex` if using Codex CLI.
+2. Use repository conventions and scripts documented here; external automation is optional.
 3. Update tests, migrations, and documentation where relevant.
 4. Run the QA commands listed above.
-5. Stage files with `.codex/files-to-add.txt` when applicable.
+5. Stage relevant files and ensure tests/docs are updated.
 6. Submit a PR describing the change, testing evidence, and any agent impacts.
 
 For questions, check `AGENTS.md` or open a discussion.
