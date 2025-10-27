@@ -22,8 +22,10 @@
     "build:renderer": "vite build",
     "typecheck": "tsc --project tsconfig.json --noEmit",
     "lint": "eslint ./src --ext .ts,.tsx",
-    "package": "pnpm run build && electron-builder",
-    "clean": "rimraf dist"
+    "package": "pnpm run build && pnpm run deploy",
+    "deploy": "electron-builder --publish never",
+    "clean": "rimraf dist",
+    "postinstall": "electron-rebuild -f -w node-pty"
   },
   "dependencies": {
     "@coda/runner-core": "workspace:*",

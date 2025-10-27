@@ -212,6 +212,7 @@ function computeDetailSectionChanges(
   existing: FeatureRecord["detailSections"],
   incoming?: FeatureDetailImportItem[],
 ): FeatureDetailImportItem[] | undefined {
+  const current = existing ?? [];
   const normalizedIncoming =
     incoming?.flatMap((section, index) => {
       if (!section) return [];
@@ -222,21 +223,21 @@ function computeDetailSectionChanges(
       }
       return [
         {
-          id: section.id ?? existing[index]?.id,
+          id: section.id ?? current[index]?.id,
           label: label || "Detail",
           body,
-          position: section.position ?? existing[index]?.position ?? (index + 1) * 1000,
+          position: section.position ?? current[index]?.position ?? (index + 1) * 1000,
         },
       ];
     }) ?? [];
 
-  if (normalizedIncoming.length !== existing.length) {
+  if (normalizedIncoming.length !== current.length) {
     return normalizedIncoming;
   }
 
   for (let index = 0; index < normalizedIncoming.length; index += 1) {
     const incomingSection = normalizedIncoming[index]!;
-    const existingSection = existing[index]!;
+    const existingSection = current[index]!;
     if (incomingSection.label !== existingSection.label || incomingSection.body !== existingSection.body) {
       return normalizedIncoming;
     }

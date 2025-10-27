@@ -304,13 +304,11 @@ Bottom line: tmux session names are discoverable by design, but attaching to the
 - **Performance** – `pnpm lighthouse` runs against the dev server; capture results for production readiness.
 
 Before merging:
-```bash
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm playwright test
-pnpm lighthouse
-```
+1. `pnpm lint`
+2. `pnpm typecheck`
+3. `pnpm test`
+4. `pnpm playwright test`
+5. `pnpm lighthouse`
 
 ---
 
