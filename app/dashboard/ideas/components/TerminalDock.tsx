@@ -168,7 +168,18 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
           try { ws.send(JSON.stringify({ type: "pick-cwd" })); } catch { cleanup(); }
         };
         ws.onmessage = (ev) => {
-          const text = typeof ev.data === "string" ? ev.data : new TextDecoder().decode(new Uint8Array(ev.data as any));
+          let text = typeof ev.data === "string" ? ev.data : new TextDecoder().decode(new Uint8Array(ev.data as any));
+
+          // Handle relay meta messages
+          try {
+            const msg = JSON.parse(text);
+            if (msg.type === "meta" && typeof msg.data === "string") {
+              text = msg.data;
+            }
+          } catch {
+            // Not JSON, use raw text
+          }
+
           if (text.startsWith("coda:cwd:")) {
             const path = text.trim().slice("coda:cwd:".length);
             if (path) notifyRootSet(path);
