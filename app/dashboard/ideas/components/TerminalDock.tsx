@@ -122,15 +122,45 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
 
   // Fallback picker when no terminal is connected: open a short-lived WS just to pick
   const pickFolderNoTerminal = async () => {
-    const url = computeDefaultWsUrl();
-    if (!url) {
-      toast.error("No terminal URL available. Connect a terminal first or set a runner.");
-      return;
-    }
     setPicking(true);
     try {
+      // Try relay first if enabled
+      let wsUrl = "";
+      const relayEnabled = process.env.NEXT_PUBLIC_DEVMODE_RELAY_ENABLED === "1";
+      if (relayEnabled && ideaId && runnerId) {
+        try {
+          const res = await fetch("/api/devmode/sessions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ideaId,
+              runnerId,
+              projectRoot: projectRoot || null,
+            }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const relayUrl = new URL(data.relayUrl as string);
+            relayUrl.pathname = "/client";
+            relayUrl.searchParams.set("token", data.token as string);
+            wsUrl = relayUrl.toString();
+          }
+        } catch {
+          // Fall through to direct mode
+        }
+      }
+
+      // Fallback to direct mode
+      if (!wsUrl) {
+        wsUrl = computeDefaultWsUrl();
+        if (!wsUrl) {
+          toast.error("No terminal URL available. Connect a terminal first or set a runner.");
+          return;
+        }
+      }
+
       await new Promise<void>((resolve) => {
-        const ws = new WebSocket(url);
+        const ws = new WebSocket(wsUrl);
         // @ts-ignore
         ws.binaryType = "arraybuffer";
         const cleanup = () => { try { ws.close(); } catch {} resolve(); };
