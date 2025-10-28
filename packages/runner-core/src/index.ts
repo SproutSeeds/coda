@@ -1,5 +1,6 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import type { IncomingMessage } from "node:http";
 
 export type RunnerStatus = "initializing" | "pairing" | "online" | "stopped" | "error";
@@ -186,6 +187,32 @@ export function createFileTokenStore(appName = "Coda Runner"): RunnerTokenStore 
 
 function normalizeOptions(options: RunnerOptions): NormalizedOptions {
   const env: MutableEnv = { ...(process.env as MutableEnv), ...(options.env ?? {}) };
+  const pathDelimiter = process.platform === "win32" ? ";" : ":";
+  const pathKeys = process.platform === "win32" ? ["Path", "PATH"] : ["PATH"];
+  const currentPath =
+    pathKeys
+      .map((key) => env[key])
+      .find((value): value is string => typeof value === "string" && value.length > 0) ||
+    process.env.PATH ||
+    "";
+  const candidatePaths: string[] = [];
+  if (process.platform === "darwin") {
+    candidatePaths.push("/opt/homebrew/bin", "/opt/homebrew/sbin");
+  }
+  if (process.platform !== "win32") {
+    candidatePaths.push("/usr/local/bin", "/usr/local/sbin");
+  }
+  const existingSegments = currentPath.split(pathDelimiter).filter(Boolean);
+  const normalizedSegments = [
+    ...candidatePaths.filter((candidate) => existsSync(candidate) && !existingSegments.includes(candidate)),
+    ...existingSegments,
+  ];
+  const normalizedPath = normalizedSegments.join(pathDelimiter);
+  if (normalizedPath.length > 0) {
+    for (const key of pathKeys) {
+      env[key] = normalizedPath;
+    }
+  }
   const baseUrl = options.baseUrl || env.BASE_URL || "http://localhost:3000";
   const runnerId = options.runnerId || env.DEV_RUNNER_ID || "";
   if (!runnerId) {
@@ -299,11 +326,13 @@ async function startTTYServer(ctx: RunnerCore, signal: AbortSignal): Promise<Asy
     const { WebSocketServer } = ws;
     const server = new WebSocketServer({ host, port });
     const sockets = new Set<any>();
+    const activeTerminals = new Map<any, { term: any; socket: any }>();
     ctx.log("info", `TTY server listening ws://${host}:${port}/tty`);
-    server.on("connection", (socket: any, req: IncomingMessage) => {
+    server.on("connection", async (socket: any, req: IncomingMessage) => {
       sockets.add(socket);
       const destroy = () => {
         sockets.delete(socket);
+        activeTerminals.delete(socket);
         try {
           socket.close();
         } catch {
@@ -316,6 +345,28 @@ async function startTTYServer(ctx: RunnerCore, signal: AbortSignal): Promise<Asy
           socket.close(1008, "invalid path");
           return;
         }
+
+        // Single-connection limit: close existing connections before accepting new one
+        if (activeTerminals.size > 0) {
+          ctx.log("info", "[TTY] Closing existing connections to enforce single-connection limit", {
+            existingConnections: activeTerminals.size,
+          });
+          for (const [existingSocket, { term }] of Array.from(activeTerminals.entries())) {
+            try {
+              term.kill();
+            } catch {
+              /* noop */
+            }
+            try {
+              existingSocket.close();
+            } catch {
+              /* noop */
+            }
+            activeTerminals.delete(existingSocket);
+            sockets.delete(existingSocket);
+          }
+        }
+
         ctx.log("info", "TTY client connected", { remote: (req.socket as any)?.remoteAddress });
         const shell =
           process.env.SHELL || (process.platform === "win32" ? "powershell.exe" : "/bin/bash");
@@ -334,22 +385,54 @@ async function startTTYServer(ctx: RunnerCore, signal: AbortSignal): Promise<Asy
           const sessionName = staticName && staticName.length > 0
             ? staticName
             : `${ctx.options.tty.sessionPrefix}-${Math.random().toString(36).slice(2, 8)}`;
+
+          // First, ensure the tmux session exists by creating it detached if needed
+          const { execSync } = await import("child_process");
+          // Ensure tmux is in PATH (common locations for Homebrew, MacPorts, Linux)
+          const extendedPath = [
+            "/opt/homebrew/bin",
+            "/usr/local/bin",
+            "/usr/bin",
+            "/bin",
+            process.env.PATH || ""
+          ].filter(Boolean).join(":");
+          const execOptions = { env: { ...process.env, PATH: extendedPath } };
+
+          try {
+            execSync(`tmux has-session -t ${sessionName} 2>/dev/null`, execOptions);
+            ctx.log("info", `TTY tmux session ${sessionName} exists, attaching`);
+          } catch {
+            // Session doesn't exist, create it detached
+            execSync(`tmux new-session -d -s ${sessionName} -c ${cwd}`, execOptions);
+            ctx.log("info", `TTY tmux session ${sessionName} created detached`);
+          }
+
           cmd = "tmux";
-          args = ["new-session", "-A", "-s", sessionName, "-c", cwd];
-          ctx.log("info", `TTY tmux session ${sessionName}`);
+          args = ["attach-session", "-t", sessionName];
           try {
             if ((socket as any).readyState === 1) socket.send(`coda:session:${sessionName}\n`);
           } catch {
             /* noop */
           }
         }
+        // Ensure tmux is in PATH for pty.spawn as well
+        const extendedPath = [
+          "/opt/homebrew/bin",
+          "/usr/local/bin",
+          "/usr/bin",
+          "/bin",
+          ctx.options.env.PATH || process.env.PATH || ""
+        ].filter(Boolean).join(":");
+        const spawnEnv = { ...ctx.options.env, PATH: extendedPath };
+
         const term = pty.spawn(cmd, args, {
           name: "xterm-color",
           cols,
           rows,
           cwd,
-          env: ctx.options.env as any,
+          env: spawnEnv as any,
         });
+        activeTerminals.set(socket, { term, socket });
         let recording: { jobId: string; token: string; buffer: string } | null = null;
         term.onData(async (data: string) => {
           if ((socket as any).readyState === 1) {
@@ -576,12 +659,35 @@ async function startRelayClient(ctx: RunnerCore, signal: AbortSignal, relay: Rel
         let msg: any;
         try {
           msg = JSON.parse(String(raw));
+          ctx.log("info", "[relay] Received message", { type: msg?.type, sessionId: msg?.sessionId });
         } catch {
           return;
         }
         const sessionId = String(msg.sessionId ?? "");
         if (!sessionId) return;
         if (msg.type === "session-open") {
+          // If no cwd/projectRoot is set, this is likely a picker session - don't spawn terminal yet
+          const hasCwd = (typeof msg.cwd === "string" && msg.cwd.trim() !== "") ||
+                        (ctx.options.tty.cwd && ctx.options.tty.cwd !== "/" && ctx.options.tty.cwd.trim() !== "");
+          if (!hasCwd) {
+            ctx.log("info", "[relay] Picker session detected, waiting for pick-cwd message", { sessionId });
+            // Create a placeholder session without a terminal
+            sessions.set(sessionId, { term: null as any, recording: null });
+            return;
+          }
+
+          // Single-connection limit: close any existing terminal sessions before creating a new one
+          const existingTerminalSessions = Array.from(sessions.entries()).filter(([_, sess]) => sess.term);
+          if (existingTerminalSessions.length > 0) {
+            ctx.log("info", "[relay] Closing existing sessions to enforce single-connection limit", {
+              existingSessions: existingTerminalSessions.map(([sid]) => sid),
+              newSessionId: sessionId
+            });
+            for (const [sid] of existingTerminalSessions) {
+              await cleanupSession(sid);
+            }
+          }
+
           try {
             const shell =
               process.env.SHELL || (process.platform === "win32" ? "powershell.exe" : "/bin/bash");
@@ -590,6 +696,10 @@ async function startRelayClient(ctx: RunnerCore, signal: AbortSignal, relay: Rel
             let cwd = ctx.options.tty.cwd;
             if (typeof msg.cwd === "string" && msg.cwd.trim() !== "") {
               cwd = msg.cwd;
+            }
+            // Fallback to home directory if cwd is not set or is root
+            if (!cwd || cwd === "/" || cwd.trim() === "") {
+              cwd = process.env.HOME || process.env.USERPROFILE || process.cwd();
             }
             const useTmux = ctx.options.tty.sync === "tmux";
             let cmd = shell;
@@ -600,19 +710,52 @@ async function startRelayClient(ctx: RunnerCore, signal: AbortSignal, relay: Rel
               sessionName = staticName && staticName.length > 0
                 ? staticName
                 : `${ctx.options.tty.sessionPrefix}-${Math.random().toString(36).slice(2, 8)}`;
+
+              // First, ensure the tmux session exists by creating it detached if needed
+              const { execSync } = await import("child_process");
+              // Ensure tmux is in PATH (common locations for Homebrew, MacPorts, Linux)
+              const extendedPath = [
+                "/opt/homebrew/bin",
+                "/usr/local/bin",
+                "/usr/bin",
+                "/bin",
+                process.env.PATH || ""
+              ].filter(Boolean).join(":");
+              const execOptions = { env: { ...process.env, PATH: extendedPath } };
+
+              try {
+                execSync(`tmux has-session -t ${sessionName} 2>/dev/null`, execOptions);
+                ctx.log("info", `Relay tmux session ${sessionName} exists, attaching`);
+              } catch {
+                // Session doesn't exist, create it detached
+                execSync(`tmux new-session -d -s ${sessionName} -c ${cwd}`, execOptions);
+                ctx.log("info", `Relay tmux session ${sessionName} created detached`);
+              }
+
               cmd = "tmux";
-              args = ["new-session", "-A", "-s", sessionName, "-c", cwd];
-              ctx.log("info", `Relay tmux session ${sessionName}`);
+              args = ["attach-session", "-t", sessionName];
             }
+            // Ensure tmux is in PATH for pty.spawn as well
+            const extendedPath = [
+              "/opt/homebrew/bin",
+              "/usr/local/bin",
+              "/usr/bin",
+              "/bin",
+              ctx.options.env.PATH || process.env.PATH || ""
+            ].filter(Boolean).join(":");
+            const spawnEnv = { ...ctx.options.env, PATH: extendedPath };
+
+            ctx.log("info", "[relay] Spawning terminal", { cmd, args, cwd });
             const term = pty.spawn(cmd, args, {
               name: "xterm-color",
               cols,
               rows,
               cwd,
-              env: ctx.options.env as any,
+              env: spawnEnv as any,
             });
             const sess: Session = { term, recording: null };
             sessions.set(sessionId, sess);
+            ctx.log("info", "[relay] Session created", { sessionId, pid: term.pid });
             if (sessionName) {
               send({ type: "meta", sessionId, data: `coda:session:${sessionName}` });
             }
@@ -644,7 +787,8 @@ async function startRelayClient(ctx: RunnerCore, signal: AbortSignal, relay: Rel
                 }
               }
             });
-            term.onExit(async () => {
+            term.onExit(async (exitCode) => {
+              ctx.log("info", "[relay] Terminal exited", { sessionId, exitCode });
               await cleanupSession(sessionId);
             });
           } catch (error) {
@@ -653,8 +797,12 @@ async function startRelayClient(ctx: RunnerCore, signal: AbortSignal, relay: Rel
           return;
         }
         const sess = sessions.get(sessionId);
-        if (!sess) return;
+        if (!sess) {
+          ctx.log("warn", "[relay] Session not found", { sessionId, availableSessions: Array.from(sessions.keys()) });
+          return;
+        }
         if (msg.type === "stdin" && typeof msg.data === "string") {
+          if (!sess.term) return; // Ignore stdin for picker sessions
           try {
             sess.term.write(msg.data);
           } catch {
@@ -663,6 +811,7 @@ async function startRelayClient(ctx: RunnerCore, signal: AbortSignal, relay: Rel
           return;
         }
         if (msg.type === "resize" && msg.cols && msg.rows) {
+          if (!sess.term) return; // Ignore resize for picker sessions
           try {
             sess.term.resize(Number(msg.cols), Number(msg.rows));
           } catch {
@@ -676,15 +825,25 @@ async function startRelayClient(ctx: RunnerCore, signal: AbortSignal, relay: Rel
         }
         if (msg.type === "pick-cwd") {
           try {
+            ctx.log("info", "[relay] Handling pick-cwd", { sessionId, hasSession: sessions.has(sessionId) });
             const path = await chooseFolder();
             const data = path ? `coda:cwd:${path}\n` : `coda:error:No folder selected\n`;
             send({ type: "meta", sessionId, data });
+            // Clean up picker placeholder session if it exists
+            if (sess && !sess.term) {
+              ctx.log("info", "[relay] Cleaning up picker session", { sessionId });
+              sessions.delete(sessionId);
+            }
           } catch (error) {
             send({
               type: "meta",
               sessionId,
               data: `coda:error:${(error as Error).message}\n`,
             });
+            // Clean up picker placeholder session on error too
+            if (sess && !sess.term) {
+              sessions.delete(sessionId);
+            }
           }
           return;
         }

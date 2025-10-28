@@ -209,8 +209,15 @@ class RunnerManager {
   }
 
   async start() {
-    if (this.isStarting) return;
-    if (this.handle) return;
+    if (this.isStarting) {
+      console.log("[RunnerManager] Already starting, ignoring duplicate start() call");
+      return;
+    }
+    if (this.handle) {
+      console.log("[RunnerManager] Already running, ignoring duplicate start() call");
+      return;
+    }
+    console.log("[RunnerManager] Starting runner...");
     this.logs = [];
     this.pairingCode = null;
     this.setStatus("initializing");
@@ -239,9 +246,9 @@ class RunnerManager {
         enableTTY: true,
         tty: { sync: "tmux", sessionPrefix: sessionName, sessionName },
         logger: {
-          info: (message, context) => this.appendLog({ level: "info", message, context }),
-          warn: (message, context) => this.appendLog({ level: "warn", message, context }),
-          error: (message, context) => this.appendLog({ level: "error", message, context }),
+          info: (message, context) => { /* handled by onLog */ },
+          warn: (message, context) => { /* handled by onLog */ },
+          error: (message, context) => { /* handled by onLog */ },
         },
         tokenStore: {
           load: this.tokenStore.load,
@@ -340,9 +347,13 @@ app.whenReady().then(async () => {
 });
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
+  // Always quit when window closes - don't keep running in background
+  app.quit();
+});
+
+app.on("before-quit", async () => {
+  // Ensure runner stops cleanly on quit
+  await runnerManager.stop();
 });
 
 ipcMain.handle("runner:get-settings", async () => {

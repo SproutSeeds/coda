@@ -23,7 +23,7 @@
     "typecheck": "tsc --project tsconfig.json --noEmit",
     "lint": "eslint ./src --ext .ts,.tsx",
     "package": "pnpm run build && node scripts/materialize-workspace-deps.js && pnpm run deploy",
-    "deploy": "electron-builder --publish never",
+    "deploy": "cross-env APPLE_TEAM_ID=4QV4WR9G32 APPLE_KEYCHAIN_PROFILE=coda-notary-profile electron-builder --publish never",
     "clean": "rimraf dist",
     "postinstall": "electron-rebuild -f -w node-pty"
   },

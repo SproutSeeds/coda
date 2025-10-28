@@ -40,7 +40,8 @@ export default function DownloadsPage() {
         const segments = baseUrl.pathname.split("/").filter(Boolean);
         if (segments.length) {
           const last = segments[segments.length - 1];
-          if (last.includes(".")) {
+          // Only strip if it looks like an actual file (ends with common extensions)
+          if (/\.(dmg|zip|exe|deb|rpm|AppImage|tar\.gz|pkg)$/i.test(last)) {
             segments.pop();
           }
         }

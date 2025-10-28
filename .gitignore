@@ -49,6 +49,8 @@ public/runner/*
 # Logs
 **/*.log
 logs/
+!app/api/devmode/logs/
+!app/api/devmode/logs/**
 test-results/
 playwright-report/
 blob-report/
