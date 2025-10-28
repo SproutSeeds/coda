@@ -15,6 +15,8 @@ function generateCode() {
 
 export async function POST() {
   const db = getDb();
+  const errors: string[] = [];
+
   // Try a few times to avoid rare code collisions
   for (let i = 0; i < 5; i++) {
     const code = generateCode();
@@ -28,9 +30,22 @@ export async function POST() {
         return row;
       });
       return NextResponse.json({ code: out.code, expiresAt: out.expiresAt });
-    } catch {
+    } catch (err) {
       // On unique violation or missing table (handled by bootstrap), loop and try another code
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      const errorCode = (err as { code?: string })?.code;
+      errors.push(`Attempt ${i + 1}: [${errorCode || "UNKNOWN"}] ${errorMsg}`);
+      console.error(`[pair/start] Attempt ${i + 1} failed:`, {
+        code: errorCode,
+        message: errorMsg,
+        error: err,
+      });
     }
   }
-  return NextResponse.json({ error: "Unable to allocate code" }, { status: 500 });
+
+  console.error("[pair/start] All attempts exhausted. Errors:", errors);
+  return NextResponse.json({
+    error: "Unable to allocate code",
+    details: process.env.NODE_ENV === "development" ? errors : undefined,
+  }, { status: 500 });
 }
