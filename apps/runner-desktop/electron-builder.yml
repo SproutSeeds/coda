@@ -12,6 +12,7 @@ files:
 asar: true
 asarUnpack:
   - dist/renderer/**
+  - node_modules/node-pty/**
 extraMetadata:
   main: dist/main/index.js
 afterPack: scripts/afterPack-ensure-icon.js

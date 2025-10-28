@@ -30,6 +30,7 @@
   "dependencies": {
     "@coda/runner-core": "workspace:*",
     "ws": "^8.18.3",
+    "node-pty": "^1.1.0-beta5",
     "clsx": "^2.1.1",
     "electron-store": "^9.0.0",
     "lucide-react": "^0.544.0",
