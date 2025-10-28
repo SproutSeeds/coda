@@ -190,12 +190,12 @@ export function RecordingsList({ ideaId }: { ideaId: string }) {
         ) : (
           byDay.map(([day, jobsInDay]) => (
             <div key={day} className="rounded border">
-              <div className="flex items-center justify-between gap-2 p-2 text-sm cursor-pointer" onClick={() => toggleDay(day)}>
-                <div className="flex items-center gap-3">
+              <div className="flex flex-col gap-3 p-3 text-sm sm:flex-row sm:items-center sm:justify-between" onClick={() => toggleDay(day)}>
+                <div className="flex items-center gap-3 cursor-pointer">
                   <span className="rounded bg-muted px-2 py-0.5 text-xs">{day}</span>
                   <span className="text-muted-foreground">{jobsInDay.length} session{jobsInDay.length > 1 ? "s" : ""}</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Button size="sm" variant={combinedDay === day ? "secondary" : "default"} onClick={(e) => { e.stopPropagation(); void openCombined(day); }}>
                     {combinedDay === day ? "Hide Combined" : "Combined Logs"}
                   </Button>
@@ -203,8 +203,8 @@ export function RecordingsList({ ideaId }: { ideaId: string }) {
                     <Button size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); downloadCombined(day); }}>Download</Button>
                   ) : null}
                   {confirmDay === day ? (
-                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                      <span className="text-xs text-muted-foreground">Delete all logs for {day}?</span>
+                    <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">Delete all logs for {day}?</span>
                       <Button size="sm" variant="secondary" onClick={() => setConfirmDay(null)}>Cancel</Button>
                       <Button size="sm" variant="destructive" onClick={() => deleteDay(day, jobsInDay)}>Delete All</Button>
                     </div>

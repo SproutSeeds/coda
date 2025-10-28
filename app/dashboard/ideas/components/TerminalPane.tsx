@@ -422,8 +422,8 @@ export function TerminalPane({
 
   return (
     <Card className="border-blue-500/30 bg-blue-500/5">
-      <CardContent className="space-y-2 pt-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+      <CardContent className="space-y-3 pt-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           {process.env.NEXT_PUBLIC_DEVMODE_RELAY_ENABLED === "1" ? null : (
             <Input
               value={wsUrl}
@@ -432,48 +432,51 @@ export function TerminalPane({
                 onUrlChange?.(e.target.value);
               }}
               placeholder="ws://localhost:8787/tty or wss://dev-<runner>.codacli.com/tty"
+              className="sm:flex-1"
             />
           )}
           {!connected ? (
-            <Button onClick={connect} disabled={connecting || (!wsUrl && process.env.NEXT_PUBLIC_DEVMODE_RELAY_ENABLED !== "1") }>
+            <Button onClick={connect} disabled={connecting || (!wsUrl && process.env.NEXT_PUBLIC_DEVMODE_RELAY_ENABLED !== "1") } className="w-full sm:w-auto">
               {connecting ? "Connecting…" : "Connect"}
             </Button>
           ) : (
-            <Button variant="secondary" onClick={disconnect}>
+            <Button variant="secondary" onClick={disconnect} className="w-full sm:w-auto">
               Disconnect
             </Button>
           )}
-          <div className="flex items-center gap-2 text-xs">
-            <span className={`rounded px-2 py-0.5 ${connected ? "bg-green-600/20 text-green-600" : connecting ? "bg-yellow-600/20 text-yellow-700" : "bg-gray-500/20 text-gray-600"}`}>
-              {connected ? "Connected" : connecting ? "Connecting…" : "Disconnected"}
-            </span>
-            {recordingJobId ? (
-              <div className="flex items-center gap-2 rounded border bg-muted px-2 py-1">
-                <span className="font-semibold">Recording</span>
-                <code className="rounded bg-background px-1 py-0.5">{recordingJobId.slice(0, 8)}…</code>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => navigator.clipboard.writeText(recordingJobId)}
-                >
-                  Copy
-                </Button>
-              </div>
-            ) : null}
-            {sessionName ? (
-              <div className="flex items-center gap-2 rounded border bg-muted px-2 py-1">
-                <span className="font-semibold">Synced</span>
-                <code className="rounded bg-background px-1 py-0.5 font-mono">{sessionName}</code>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => navigator.clipboard.writeText(`tmux attach -t ${sessionName}`)}
-                >
-                  Copy attach
-                </Button>
-              </div>
-            ) : null}
-          </div>
+        </div>
+
+        {/* Status indicators - stacked on mobile */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center text-xs">
+          <span className={`inline-flex w-fit rounded px-2 py-0.5 ${connected ? "bg-green-600/20 text-green-600" : connecting ? "bg-yellow-600/20 text-yellow-700" : "bg-gray-500/20 text-gray-600"}`}>
+            {connected ? "Connected" : connecting ? "Connecting…" : "Disconnected"}
+          </span>
+          {recordingJobId ? (
+            <div className="flex flex-wrap items-center gap-2 rounded border bg-muted px-2 py-1">
+              <span className="font-semibold">Recording</span>
+              <code className="rounded bg-background px-1 py-0.5">{recordingJobId.slice(0, 8)}…</code>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => navigator.clipboard.writeText(recordingJobId)}
+              >
+                Copy
+              </Button>
+            </div>
+          ) : null}
+          {sessionName ? (
+            <div className="flex flex-wrap items-center gap-2 rounded border bg-muted px-2 py-1">
+              <span className="font-semibold">Synced</span>
+              <code className="rounded bg-background px-1 py-0.5 font-mono">{sessionName}</code>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => navigator.clipboard.writeText(`tmux attach -t ${sessionName}`)}
+              >
+                Copy attach
+              </Button>
+            </div>
+          ) : null}
         </div>
         {requireProjectRoot && (!projectRoot || projectRoot.trim() === "") ? (
           <div className="text-xs text-muted-foreground">
