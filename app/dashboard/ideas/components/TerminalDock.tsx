@@ -286,9 +286,9 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
   return (
     <Card className="border-blue-500/30 bg-blue-500/5">
       <CardHeader>
-        <CardTitle className="flex items-center justify-between">
+        <CardTitle className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
           <span>Terminals</span>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" onClick={() => addSession("terminal")} className="gap-1" disabled={!projectRoot || online === false} title={!projectRoot ? "Pick a Project Root first" : online === false ? "Runner offline — Pair/Start it first" : undefined}>
               <Plus className="h-4 w-4" /> Terminal
             </Button>
@@ -313,48 +313,50 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
           </div>
         ) : null}
         {/* Project Root + Combined Logs Controls */}
-        <div className="flex flex-col gap-2 rounded border p-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-col gap-3 rounded border p-3">
+          <div className="flex flex-col gap-2">
             <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Project Root</div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <Input
                 value={projectRoot}
                 onChange={(e) => persistProjectRoot(e.target.value)}
-                placeholder="/path/on/runner (used for new connections)"
-                className="h-8 w-[32rem] max-w-full"
+                placeholder="/path/on/runner"
+                className="h-8 flex-1"
               />
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              const fn = activeId ? pickersRef.current[activeId] : undefined;
-              if (fn) {
-                fn();
-              } else {
-                void pickFolderNoTerminal();
-              }
-            }}
-            disabled={picking}
-            title="Opens a native folder picker on the runner"
-          >
-            {picking ? "Picking…" : "Pick Folder…"}
-          </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  const fn = activeId ? pickersRef.current[activeId] : undefined;
+                  if (fn) {
+                    fn();
+                  } else {
+                    void pickFolderNoTerminal();
+                  }
+                }}
+                disabled={picking}
+                title="Opens a native folder picker on the runner"
+                className="whitespace-nowrap"
+              >
+                {picking ? "Picking…" : "Pick Folder…"}
+              </Button>
             </div>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-col gap-2">
             <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Agent Session ID</div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <Input
                 value={codexSession}
                 onChange={(e) => persistCodexSession(e.target.value)}
-                placeholder="optional: e.g., sess_123... (auto-exported on connect)"
-                className="h-8 w-[32rem] max-w-full"
+                placeholder="optional: sess_123..."
+                className="h-8 flex-1"
               />
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={() => navigator.clipboard.writeText(codexSession)}
                 disabled={!codexSession}
+                className="whitespace-nowrap"
               >
                 Copy
               </Button>
@@ -364,8 +366,8 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
 
         {/* Combined Logs Controls */}
         {sessions.length > 0 ? (
-          <div className="rounded border p-2">
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <div className="rounded border p-3">
+            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Combined Logs</div>
               <div className="flex items-center gap-3">
                 <label className="flex items-center gap-1 text-xs text-muted-foreground">

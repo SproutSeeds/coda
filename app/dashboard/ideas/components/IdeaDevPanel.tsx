@@ -39,7 +39,7 @@ export function IdeaDevPanel({ ideaId, onRequestClose }: { ideaId: string; onReq
   return (
     <Card className="border-blue-500/30 bg-blue-500/5">
       <CardHeader>
-        <CardTitle className="flex items-center justify-between gap-2">
+        <CardTitle className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
           <span>Dev Mode</span>
           <div className="flex items-center gap-2">
             <Button size="sm" variant="secondary" onClick={() => setCollapsed((v) => !v)}>
