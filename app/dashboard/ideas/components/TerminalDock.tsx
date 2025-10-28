@@ -127,8 +127,10 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
       // Try relay first if enabled
       let wsUrl = "";
       const relayEnabled = process.env.NEXT_PUBLIC_DEVMODE_RELAY_ENABLED === "1";
+      console.log("[picker] Relay enabled:", relayEnabled, "ideaId:", ideaId, "runnerId:", runnerId);
       if (relayEnabled && ideaId && runnerId) {
         try {
+          console.log("[picker] Creating relay session...");
           const res = await fetch("/api/devmode/sessions", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -138,14 +140,18 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
               projectRoot: projectRoot || null,
             }),
           });
+          console.log("[picker] Session API response:", res.status, res.ok);
           if (res.ok) {
             const data = await res.json();
+            console.log("[picker] Session data:", data);
             const relayUrl = new URL(data.relayUrl as string);
             relayUrl.pathname = "/client";
             relayUrl.searchParams.set("token", data.token as string);
             wsUrl = relayUrl.toString();
+            console.log("[picker] Relay URL:", wsUrl);
           }
-        } catch {
+        } catch (err) {
+          console.error("[picker] Session creation failed:", err);
           // Fall through to direct mode
         }
       }
@@ -159,22 +165,27 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
         }
       }
 
+      console.log("[picker] Connecting to WebSocket:", wsUrl);
       await new Promise<void>((resolve) => {
         const ws = new WebSocket(wsUrl);
         // @ts-ignore
         ws.binaryType = "arraybuffer";
         const cleanup = () => { try { ws.close(); } catch {} resolve(); };
         ws.onopen = () => {
+          console.log("[picker] WebSocket opened, sending pick-cwd");
           try { ws.send(JSON.stringify({ type: "pick-cwd" })); } catch { cleanup(); }
         };
         ws.onmessage = (ev) => {
+          console.log("[picker] Received message:", ev.data);
           let text = typeof ev.data === "string" ? ev.data : new TextDecoder().decode(new Uint8Array(ev.data as any));
 
           // Handle relay meta messages
           try {
             const msg = JSON.parse(text);
+            console.log("[picker] Parsed message:", msg);
             if (msg.type === "meta" && typeof msg.data === "string") {
               text = msg.data;
+              console.log("[picker] Extracted meta data:", text);
             }
           } catch {
             // Not JSON, use raw text
@@ -182,16 +193,18 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
 
           if (text.startsWith("coda:cwd:")) {
             const path = text.trim().slice("coda:cwd:".length);
+            console.log("[picker] Got path:", path);
             if (path) notifyRootSet(path);
             cleanup();
           } else if (text.startsWith("coda:error:")) {
             const msg = text.slice("coda:error:".length) || "Folder picker failed";
+            console.error("[picker] Error:", msg);
             toast.error(msg);
             cleanup();
           }
         };
-        ws.onerror = () => { toast.error("Unable to contact runner for folder picker"); cleanup(); };
-        ws.onclose = () => cleanup();
+        ws.onerror = (err) => { console.error("[picker] WebSocket error:", err); toast.error("Unable to contact runner for folder picker"); cleanup(); };
+        ws.onclose = () => { console.log("[picker] WebSocket closed"); cleanup(); };
       });
     } finally {
       setPicking(false);
