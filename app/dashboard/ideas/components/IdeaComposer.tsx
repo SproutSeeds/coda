@@ -148,13 +148,13 @@ export function IdeaComposer({
   const celebrationTimeout = useRef<number | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
 
+  // Sync initial values only on mount, not on every prop change
+  // to prevent input spazzing/cursor jumping during typing
   useEffect(() => {
-    setTitle((prev) => (prev === initialTitle ? prev : initialTitle));
-  }, [initialTitle]);
-
-  useEffect(() => {
-    setNotes((prev) => (prev === initialNotes ? prev : initialNotes));
-  }, [initialNotes]);
+    setTitle(initialTitle);
+    setNotes(initialNotes);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     onDraftChange?.({ title, notes });

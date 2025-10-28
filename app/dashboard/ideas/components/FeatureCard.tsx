@@ -191,32 +191,46 @@ export function FeatureCard({
       .trim();
   }, [currentDetails]);
 
+  // Sync feature props to state, but only when NOT editing to prevent input spazzing
+  // When editing, the draft state is independent and should not be reset
+  const featureIdRef = useRef(feature.id);
+
   useEffect(() => {
-    const normalizedDetails = normalizeDetailSectionsState(feature.detailSections);
-    const currentClone = normalizedDetails.map((section) => ({ ...section }));
-    const draftClone = normalizedDetails.map((section) => ({ ...section }));
-    setCurrentTitle(feature.title);
-    setCurrentNotes(feature.notes);
-    setCurrentDetails(currentClone);
-    setDraftTitle(feature.title);
-    setDraftNotes(feature.notes);
-    setDraftDetails(draftClone);
-    setStarState(deriveStarState(feature));
-    setSyncedFeature({
-      title: feature.title,
-      notes: feature.notes,
-      detailSections: normalizedDetails.map((section) => ({ ...section })),
-      updatedAt: feature.updatedAt,
-      completed: feature.completed,
-      completedAt: feature.completedAt,
-      starred: feature.starred,
-      superStarred: feature.superStarred,
-    });
-    setIsCompleted(Boolean(feature.completed));
-    setCompletedAt(feature.completedAt ?? null);
-    setIsDetailEditorVisible(normalizedDetails.length > 0);
-    setConfirmingDetailRemovalIndex(null);
+    // If feature ID changed, it's a different feature - reset everything
+    const isNewFeature = featureIdRef.current !== feature.id;
+    if (isNewFeature) {
+      featureIdRef.current = feature.id;
+    }
+
+    // Only sync from props when not editing OR when it's a new feature
+    if (!isEditing || isNewFeature) {
+      const normalizedDetails = normalizeDetailSectionsState(feature.detailSections);
+      const currentClone = normalizedDetails.map((section) => ({ ...section }));
+      const draftClone = normalizedDetails.map((section) => ({ ...section }));
+      setCurrentTitle(feature.title);
+      setCurrentNotes(feature.notes);
+      setCurrentDetails(currentClone);
+      setDraftTitle(feature.title);
+      setDraftNotes(feature.notes);
+      setDraftDetails(draftClone);
+      setStarState(deriveStarState(feature));
+      setSyncedFeature({
+        title: feature.title,
+        notes: feature.notes,
+        detailSections: normalizedDetails.map((section) => ({ ...section })),
+        updatedAt: feature.updatedAt,
+        completed: feature.completed,
+        completedAt: feature.completedAt,
+        starred: feature.starred,
+        superStarred: feature.superStarred,
+      });
+      setIsCompleted(Boolean(feature.completed));
+      setCompletedAt(feature.completedAt ?? null);
+      setIsDetailEditorVisible(normalizedDetails.length > 0);
+      setConfirmingDetailRemovalIndex(null);
+    }
   }, [
+    isEditing,
     feature,
     feature.completed,
     feature.completedAt,
