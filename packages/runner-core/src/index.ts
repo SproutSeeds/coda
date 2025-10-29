@@ -241,8 +241,8 @@ function normalizeOptions(options: RunnerOptions): NormalizedOptions {
     throw new Error("fetch implementation required (Node 18+)");
   }
   const pairingPollIntervalMs = options.pairingPollIntervalMs ?? 3000;
-  const heartbeatIntervalMs = options.heartbeatIntervalMs ?? 20000;
-  const jobPollIntervalMs = options.jobPollIntervalMs ?? 1500;
+  const heartbeatIntervalMs = options.heartbeatIntervalMs ?? 30000;
+  const jobPollIntervalMs = options.jobPollIntervalMs ?? 5000;
   const ttyDefaults: Required<TTYOptions> = {
     host: options.tty?.host ?? env.TTY_BIND ?? "127.0.0.1",
     port: options.tty?.port ?? Number(env.TTY_PORT ?? 8787),
