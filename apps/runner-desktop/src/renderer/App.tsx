@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Play, StopCircle, Globe, Radio, Settings2, Terminal, ExternalLink, RefreshCcw, Copy, Check, Hash } from "lucide-react";
+import { Play, StopCircle, Globe, Radio, Settings2, Terminal, ExternalLink, RefreshCcw, Copy, Check, Hash, ChevronDown, ChevronUp, Filter } from "lucide-react";
 import { Button } from "@ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@ui/card";
 import { Input } from "@ui/input";
@@ -70,6 +70,7 @@ export default function App() {
   const [tmuxCopied, setTmuxCopied] = useState(false);
   const [ideaId, setIdeaId] = useState("");
   const [sessionSlot, setSessionSlot] = useState("primary");
+  const [logsMinimized, setLogsMinimized] = useState(false);
 
   useEffect(() => {
     try {
@@ -615,29 +616,41 @@ export default function App() {
           </Card>
         </div>
 
-        <Card className="flex h-full flex-col overflow-hidden">
+        <Card className={cn("flex flex-col overflow-hidden transition-all", logsMinimized ? "h-auto" : "h-full")}>
           <CardHeader className="flex flex-row items-center justify-between border-b border-border/60 bg-card/80">
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Terminal className="size-5 text-primary" />
                 Runner Activity
               </CardTitle>
-              <CardDescription>The most recent entries appear at the bottom.</CardDescription>
+              {!logsMinimized && <CardDescription>The most recent entries appear at the bottom.</CardDescription>}
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={async () => {
-                const nextSnapshot = await window.runner.getSnapshot();
-                setSnapshot(nextSnapshot);
-              }}
-            >
-              Refresh
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  const nextSnapshot = await window.runner.getSnapshot();
+                  setSnapshot(nextSnapshot);
+                }}
+              >
+                Refresh
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setLogsMinimized(!logsMinimized)}
+                className="app-no-drag"
+              >
+                {logsMinimized ? <ChevronDown className="size-4" /> : <ChevronUp className="size-4" />}
+              </Button>
+            </div>
           </CardHeader>
-          <CardContent className="flex flex-1 flex-col overflow-hidden p-0">
-            <LogViewer logs={snapshot?.logs ?? []} />
-          </CardContent>
+          {!logsMinimized && (
+            <CardContent className="flex flex-1 flex-col overflow-hidden p-0">
+              <LogViewer logs={snapshot?.logs ?? []} />
+            </CardContent>
+          )}
         </Card>
       </main>
     </div>
@@ -645,6 +658,28 @@ export default function App() {
 }
 
 function LogViewer({ logs }: { logs: Array<RunnerSnapshot["logs"][number]> }) {
+  const [filterLevel, setFilterLevel] = useState<"all" | "info" | "warn" | "error">("all");
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+
+  const filteredLogs = useMemo(() => {
+    if (filterLevel === "all") return logs;
+    return logs.filter(log => log.level === filterLevel);
+  }, [logs, filterLevel]);
+
+  const copyLog = async (entry: RunnerSnapshot["logs"][number], index: number) => {
+    const text = entry.context
+      ? `[${entry.level.toUpperCase()}] ${entry.message}\n${JSON.stringify(entry.context, null, 2)}`
+      : `[${entry.level.toUpperCase()}] ${entry.message}`;
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedIndex(index);
+      setTimeout(() => setCopiedIndex(null), 1500);
+    } catch {
+      // ignore
+    }
+  };
+
   if (!logs.length) {
     return (
       <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
@@ -652,26 +687,66 @@ function LogViewer({ logs }: { logs: Array<RunnerSnapshot["logs"][number]> }) {
       </div>
     );
   }
+
   return (
-    <div className="scrollbar-thin flex-1 overflow-auto bg-card px-4 py-4 text-sm">
-      <ul className="space-y-2">
-        {logs.map((entry, index) => (
-          <li key={`${entry.timestamp}-${index}`} className="rounded-md border border-border/60 bg-background/80 px-3 py-2 shadow-sm">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>{new Date(entry.timestamp).toLocaleTimeString()}</span>
-              <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase", toneClass(levelTone(entry.level)))}>
-                {entry.level}
-              </span>
-            </div>
-            <pre className="mt-2 whitespace-pre-wrap break-words font-mono text-xs text-foreground">{entry.message}</pre>
-            {entry.context ? (
-              <pre className="mt-2 whitespace-pre-wrap break-words font-mono text-[11px] text-muted-foreground">
-                {JSON.stringify(entry.context, null, 2)}
-              </pre>
-            ) : null}
-          </li>
-        ))}
-      </ul>
+    <div className="flex flex-1 flex-col overflow-hidden">
+      {/* Filter bar */}
+      <div className="flex items-center gap-2 border-b border-border/60 bg-muted/30 px-4 py-2">
+        <Filter className="size-4 text-muted-foreground" />
+        <span className="text-xs font-medium text-muted-foreground">Filter:</span>
+        <div className="flex gap-1">
+          {(["all", "info", "warn", "error"] as const).map((level) => (
+            <Button
+              key={level}
+              variant={filterLevel === level ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setFilterLevel(level)}
+              className="h-6 px-2 text-xs"
+            >
+              {level === "all" ? "All" : level}
+            </Button>
+          ))}
+        </div>
+        <span className="ml-auto text-xs text-muted-foreground">
+          {filteredLogs.length} {filteredLogs.length === 1 ? "entry" : "entries"}
+        </span>
+      </div>
+
+      {/* Log list */}
+      <div className="scrollbar-thin flex-1 overflow-auto bg-card px-4 py-4 text-sm">
+        <ul className="space-y-2">
+          {filteredLogs.map((entry, index) => (
+            <li key={`${entry.timestamp}-${index}`} className="group rounded-md border border-border/60 bg-background/80 px-3 py-2 shadow-sm">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>{new Date(entry.timestamp).toLocaleTimeString()}</span>
+                <div className="flex items-center gap-2">
+                  <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase", toneClass(levelTone(entry.level)))}>
+                    {entry.level}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-6 opacity-0 transition-opacity group-hover:opacity-100"
+                    onClick={() => copyLog(entry, index)}
+                  >
+                    {copiedIndex === index ? (
+                      <Check className="size-3 text-emerald-500" />
+                    ) : (
+                      <Copy className="size-3" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+              <pre className="mt-2 whitespace-pre-wrap break-words font-mono text-xs text-foreground">{entry.message}</pre>
+              {entry.context ? (
+                <pre className="mt-2 whitespace-pre-wrap break-words font-mono text-[11px] text-muted-foreground">
+                  {JSON.stringify(entry.context, null, 2)}
+                </pre>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
