@@ -63,6 +63,7 @@ export function TerminalPane({
   const [connecting, setConnecting] = useState(false);
   const [connected, setConnected] = useState(false);
   const [sessionName, setSessionName] = useState<string | null>(null);
+  const [sessionNameExpanded, setSessionNameExpanded] = useState(false);
   const [recordingJobId, setRecordingJobId] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const termRef = useRef<any>(null);
@@ -482,12 +483,25 @@ export function TerminalPane({
           ) : null}
           {sessionName ? (
             <div className="flex flex-wrap items-center gap-2 rounded border bg-muted px-2 py-1">
-              <span className="font-semibold">Synced</span>
-              <code className="rounded bg-background px-1 py-0.5 font-mono">{sessionName}</code>
+              <span className="font-semibold">Session</span>
+              <button
+                onClick={() => setSessionNameExpanded(!sessionNameExpanded)}
+                className="rounded bg-background px-1 py-0.5 font-mono text-xs hover:bg-accent transition-colors cursor-pointer"
+                title={sessionNameExpanded ? "Click to collapse" : "Click to expand"}
+              >
+                {sessionNameExpanded ? (
+                  <span className="break-all">{sessionName}</span>
+                ) : (
+                  <span>
+                    {sessionName.length > 20 ? `${sessionName.slice(0, 20)}…` : sessionName}
+                  </span>
+                )}
+              </button>
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={() => navigator.clipboard.writeText(`tmux attach -t ${sessionName}`)}
+                title={`Copy: tmux attach -t ${sessionName}`}
               >
                 Copy attach
               </Button>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Play, StopCircle, Globe, Radio, Settings2, Terminal, ExternalLink, RefreshCcw, Copy, Check, Hash, ChevronDown, ChevronUp, Filter } from "lucide-react";
+import { Play, StopCircle, Globe, Radio, Settings2, Terminal, ExternalLink, RefreshCcw, Copy, Check, Hash, ChevronDown, ChevronUp, Filter, Trash2 } from "lucide-react";
 import { Button } from "@ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@ui/card";
 import { Input } from "@ui/input";
@@ -66,47 +66,15 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [theme, setTheme] = useTheme();
   const [copied, setCopied] = useState(false);
-  const [initCopied, setInitCopied] = useState(false);
-  const [tmuxCopied, setTmuxCopied] = useState(false);
-  const [ideaId, setIdeaId] = useState("");
-  const [sessionSlot, setSessionSlot] = useState("primary");
+  const [copiedSessionId, setCopiedSessionId] = useState<string | null>(null);
   const [logsMinimized, setLogsMinimized] = useState(false);
   const [allLogsCopied, setAllLogsCopied] = useState(false);
-
-  useEffect(() => {
-    try {
-      const storedIdea = window.localStorage.getItem("tmux.ideaId");
-      if (storedIdea) setIdeaId(storedIdea);
-      const storedSlot = window.localStorage.getItem("tmux.sessionSlot");
-      if (storedSlot) setSessionSlot(storedSlot);
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  useEffect(() => {
-    try {
-      window.localStorage.setItem("tmux.ideaId", ideaId);
-    } catch {
-      /* ignore */
-    }
-  }, [ideaId]);
-
-  useEffect(() => {
-    try {
-      window.localStorage.setItem("tmux.sessionSlot", sessionSlot);
-    } catch {
-      /* ignore */
-    }
-  }, [sessionSlot]);
 
   useEffect(() => {
     async function bootstrap() {
       const [initialSettings, initialSnapshot] = await Promise.all([window.runner.getSettings(), window.runner.getSnapshot()]);
       setSettings(initialSettings);
       setPendingSettings(initialSettings);
-      setIdeaId(initialSettings.ideaId ?? "");
-      setSessionSlot(initialSettings.sessionSlot ?? "primary");
       setSnapshot(initialSnapshot);
     }
     bootstrap().catch((err) => {
@@ -221,50 +189,11 @@ export default function App() {
     return JSON.stringify(settings) !== JSON.stringify(pendingSettings);
   }
 
-  function handleIdeaChange(value: string) {
-    setIdeaId(value);
-    setPendingSettings((prev) => (prev ? { ...prev, ideaId: value } : prev));
-  }
-
-  function handleSlotChange(value: string) {
-    setSessionSlot(value);
-    setPendingSettings((prev) => (prev ? { ...prev, sessionSlot: value } : prev));
-  }
-
   const pairingUrl = pendingSettings?.baseUrl?.replace(/\/$/, "") + "/dashboard/devmode/pair";
-
-  const latestTmuxSession = useMemo(() => {
-    const entries = snapshot?.logs ?? [];
-    for (let i = entries.length - 1; i >= 0; i -= 1) {
-      const message = entries[i]?.message ?? "";
-      if (typeof message === "string" && message.startsWith("TTY tmux session ")) {
-        const session = message.slice("TTY tmux session ".length).trim();
-        if (session) return session;
-      }
-    }
-    return null;
-  }, [snapshot?.logs]);
-
-  const rawIdea = ideaId.trim();
-  const rawSlot = sessionSlot.trim();
-  const ideaSlug = rawIdea ? rawIdea.replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") : "workspace";
-  const slotSlug = rawSlot ? rawSlot.replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") : "primary";
-  const sessionName = `coda-${ideaSlug}-${slotSlug}`;
-  const effectiveSession = latestTmuxSession ?? sessionName;
-  const initCommand = `tmux new-session -A -s ${sessionName}`;
-  const attachCommand = `tmux attach -t ${effectiveSession}`;
-  const ideaSlugDiffers = Boolean(rawIdea && ideaSlug !== rawIdea);
-  const slotSlugDiffers = Boolean(rawSlot && slotSlug !== rawSlot);
-  const hasOverrideSession = Boolean(latestTmuxSession && latestTmuxSession !== sessionName);
 
   useEffect(() => {
     setCopied(false);
   }, [snapshot?.pairingCode?.code]);
-
-  useEffect(() => {
-    setInitCopied(false);
-    setTmuxCopied(false);
-  }, [initCommand, attachCommand]);
 
   return (
     <div className="mx-auto flex min-h-screen max-w-5xl flex-col gap-6 overflow-y-auto px-6 py-8">
@@ -359,8 +288,6 @@ export default function App() {
                     const [freshSettings, freshSnapshot] = await Promise.all([window.runner.getSettings(), window.runner.getSnapshot()]);
                     setSettings(freshSettings);
                     setPendingSettings(freshSettings);
-                    setIdeaId(freshSettings.ideaId ?? "");
-                    setSessionSlot(freshSettings.sessionSlot ?? "primary");
                     setSnapshot(freshSnapshot);
                   }}
                 >
@@ -455,128 +382,26 @@ export default function App() {
 
           <Card>
             <CardHeader className="space-y-1">
-          <CardTitle className="flex items-center gap-2">
-            <Terminal className="size-5 text-primary" />
-            TMUX Session Control
-          </CardTitle>
-          <CardDescription>This helper only works with TMUX—wrap the shell you already use, then reconnect anywhere.</CardDescription>
+              <CardTitle className="flex items-center gap-2">
+                <Radio className="size-5 text-primary" />
+                Paired Devices
+              </CardTitle>
+              <CardDescription>Manage paired runners in your browser</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="ideaId" className="flex items-center gap-2">
-                    <Hash className="size-4 text-muted-foreground" />
-                    Idea or Workspace ID
-                  </Label>
-                  <Input
-                    id="ideaId"
-                    placeholder="e.g. 001-build-a-lightweight"
-                    value={ideaId}
-                    onChange={(event) => handleIdeaChange(event.target.value)}
-                    spellCheck={false}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="sessionSlot">Session slot (optional)</Label>
-                  <Input
-                    id="sessionSlot"
-                    placeholder="primary"
-                    value={sessionSlot}
-                    onChange={(event) => handleSlotChange(event.target.value)}
-                    spellCheck={false}
-                  />
-                </div>
-              </div>
-
-              {ideaSlugDiffers || slotSlugDiffers ? (
-                <p className="text-xs text-muted-foreground">
-                  Session names are sanitized for TMUX compatibility: <code>{sessionName}</code>.
-                </p>
-              ) : null}
-
-              <div className="space-y-3">
-                <div className="rounded-md border border-border/70 bg-card/60 px-4 py-3">
-                  <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Initialize session (run once)</div>
-                  <div className="mt-2 flex items-center justify-between gap-3 rounded-md border border-dashed border-border/60 bg-background/80 px-3 py-2 font-mono text-sm text-foreground">
-                    <span className="truncate">{initCommand}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="app-no-drag size-8"
-                      onClick={async () => {
-                        try {
-                          await navigator.clipboard.writeText(initCommand);
-                          setInitCopied(true);
-                          setTimeout(() => setInitCopied(false), 1500);
-                        } catch {
-                          setInitCopied(false);
-                        }
-                      }}
-                      aria-label="Copy tmux init command"
-                    >
-                      {initCopied ? <Check className="size-4 text-emerald-500" /> : <Copy className="size-4" />}
-                    </Button>
-                  </div>
-                  <div className="mt-2 text-xs text-muted-foreground">
-                    Run this inside your existing local terminal to wrap your active shell in TMUX. The <code>-A</code> flag creates the session if needed and reattaches when it already exists.
-                  </div>
-                </div>
-
-                <div className="rounded-md border border-border/70 bg-card/60 px-4 py-3">
-                  <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Reattach session</div>
-                  <div className="mt-2 flex items-center justify-between gap-3 rounded-md border border-dashed border-border/60 bg-background/80 px-3 py-2 font-mono text-sm text-foreground">
-                    <span className="truncate">{attachCommand}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="app-no-drag size-8"
-                      onClick={async () => {
-                        try {
-                          await navigator.clipboard.writeText(attachCommand);
-                          setTmuxCopied(true);
-                          setTimeout(() => setTmuxCopied(false), 1500);
-                        } catch {
-                          setTmuxCopied(false);
-                        }
-                      }}
-                      aria-label="Copy tmux attach command"
-                    >
-                      {tmuxCopied ? <Check className="size-4 text-emerald-500" /> : <Copy className="size-4" />}
-                    </Button>
-                  </div>
-                  {hasOverrideSession ? (
-                    <div className="mt-2 text-xs text-primary">
-                      Live session detected: <code>{latestTmuxSession}</code>. The attach command reflects the active relay session.
-                    </div>
-                  ) : (
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      Update the idea or slot above to generate a deterministic session name. The helper defaults to <code>{sessionName}</code>.
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="rounded-md border border-muted-foreground/40 bg-muted/15 px-3 py-3 text-xs leading-relaxed text-muted-foreground">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">Session lifecycle</p>
-                <ol className="mt-2 space-y-2 list-decimal pl-4">
-                  <li>
-                    Run the initialize command inside the terminal you want mirrored. From that moment on, every command in that pane lives inside TMUX.
-                  </li>
-                  <li>
-                    With the helper paired, open the idea in codacli.com → Dev Mode → Terminals. The browser attaches to the same TMUX session and stays in lockstep.
-                  </li>
-                  <li>
-                    Detach locally with <code>Ctrl+B</code> then <code>D</code>. To resume on your rig, run the reattach command; reopening the idea in the web app attaches automatically.
-                  </li>
-                </ol>
-              </div>
-
-              <div className="rounded-md border border-primary/40 bg-primary/10 px-3 py-3 text-xs text-primary">
-                <p className="font-medium">Pro tip</p>
-                <p className="mt-1">
-                  Want a dedicated TMUX window per idea? Launch <code>tmux new-window -t {sessionName}</code> after initialising, then split panes as usual—both the browser and your local terminal will reflect every change instantly.
-                </p>
-              </div>
+            <CardContent>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  const devicesUrl = pendingSettings?.baseUrl?.replace(/\/$/, "") + "/dashboard/devmode/devices";
+                  if (devicesUrl) {
+                    window.runner.openPairPage(devicesUrl);
+                  }
+                }}
+              >
+                <ExternalLink className="size-4" />
+                View & Revoke Paired Devices
+              </Button>
             </CardContent>
           </Card>
 
@@ -591,22 +416,48 @@ export default function App() {
             <CardContent className="space-y-3">
               {snapshot?.activeSessions && snapshot.activeSessions.length > 0 ? (
                 <div className="space-y-2">
-                  {snapshot.activeSessions.map((session) => (
-                    <div
-                      key={session.sessionId}
-                      className="flex items-center justify-between rounded-md border border-border/60 bg-muted/30 px-4 py-3"
-                    >
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="size-2 rounded-full bg-emerald-500" />
-                          <code className="text-sm font-medium">{session.sessionName || session.sessionId.slice(0, 8)}</code>
+                  {snapshot.activeSessions.map((session) => {
+                    const attachCommand = session.sessionName ? `tmux attach -t ${session.sessionName}` : null;
+                    return (
+                      <div
+                        key={session.sessionId}
+                        className="flex items-center justify-between rounded-md border border-border/60 bg-muted/30 px-4 py-3"
+                      >
+                        <div className="flex-1 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="size-2 rounded-full bg-emerald-500" />
+                            <code className="text-sm font-medium">{session.sessionName || session.sessionId.slice(0, 8)}</code>
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {session.pid ? `PID: ${session.pid}` : "No PID"} • Connected {new Date(session.connectedAt).toLocaleTimeString()}
+                          </div>
                         </div>
-                        <div className="text-xs text-muted-foreground">
-                          {session.pid ? `PID: ${session.pid}` : "No PID"} • Connected {new Date(session.connectedAt).toLocaleTimeString()}
-                        </div>
+                        {attachCommand && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="app-no-drag size-8 shrink-0"
+                            onClick={async () => {
+                              try {
+                                await navigator.clipboard.writeText(attachCommand);
+                                setCopiedSessionId(session.sessionId);
+                                setTimeout(() => setCopiedSessionId(null), 1500);
+                              } catch {
+                                // ignore
+                              }
+                            }}
+                            title={`Copy: ${attachCommand}`}
+                          >
+                            {copiedSessionId === session.sessionId ? (
+                              <Check className="size-4 text-emerald-500" />
+                            ) : (
+                              <Copy className="size-4" />
+                            )}
+                          </Button>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
@@ -663,6 +514,17 @@ export default function App() {
               )}
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSnapshot((prev) => prev ? { ...prev, logs: [] } : prev);
+                }}
+                title="Clear logs"
+              >
+                <Trash2 className="size-4" />
+                Clear
+              </Button>
               <Button
                 variant="outline"
                 size="sm"

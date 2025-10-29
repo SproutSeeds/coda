@@ -354,27 +354,6 @@ async function startTTYServer(ctx: RunnerCore, signal: AbortSignal): Promise<Asy
           return;
         }
 
-        // Single-connection limit: close existing connections before accepting new one
-        if (activeTerminals.size > 0) {
-          ctx.log("info", "[TTY] Closing existing connections to enforce single-connection limit", {
-            existingConnections: activeTerminals.size,
-          });
-          for (const [existingSocket, { term }] of Array.from(activeTerminals.entries())) {
-            try {
-              term.kill();
-            } catch {
-              /* noop */
-            }
-            try {
-              existingSocket.close();
-            } catch {
-              /* noop */
-            }
-            activeTerminals.delete(existingSocket);
-            sockets.delete(existingSocket);
-          }
-        }
-
         ctx.log("info", "TTY client connected", { remote: (req.socket as any)?.remoteAddress });
         const shell =
           process.env.SHELL || (process.platform === "win32" ? "powershell.exe" : "/bin/bash");
@@ -700,10 +679,7 @@ async function startRelayClient(ctx: RunnerCore, signal: AbortSignal, relay: Rel
         let msg: any;
         try {
           msg = JSON.parse(String(raw));
-          // Only log important messages, skip noisy stdin/resize messages
-          if (msg?.type !== "stdin" && msg?.type !== "resize") {
-            ctx.log("info", "[relay] Received message", { type: msg?.type, sessionId: msg?.sessionId });
-          }
+          // Logging happens in specific message type handlers below
         } catch {
           return;
         }
@@ -718,18 +694,6 @@ async function startRelayClient(ctx: RunnerCore, signal: AbortSignal, relay: Rel
             // Create a placeholder session without a terminal
             sessions.set(sessionId, { term: null as any, recording: null });
             return;
-          }
-
-          // Single-connection limit: close any existing terminal sessions before creating a new one
-          const existingTerminalSessions = Array.from(sessions.entries()).filter(([_, sess]) => sess.term);
-          if (existingTerminalSessions.length > 0) {
-            ctx.log("info", "[relay] Closing existing sessions to enforce single-connection limit", {
-              existingSessions: existingTerminalSessions.map(([sid]) => sid),
-              newSessionId: sessionId
-            });
-            for (const [sid] of existingTerminalSessions) {
-              await cleanupSession(sid);
-            }
           }
 
           try {
@@ -754,9 +718,13 @@ async function startRelayClient(ctx: RunnerCore, signal: AbortSignal, relay: Rel
               const slotSuffix = (typeof msg.sessionSlot === "string" && msg.sessionSlot.trim() !== "")
                 ? `-${msg.sessionSlot}`
                 : "";
-              sessionName = staticName && staticName.length > 0
+              const rawSessionName = staticName && staticName.length > 0
                 ? `${staticName}${slotSuffix}`
                 : `${ctx.options.tty.sessionPrefix}-${Math.random().toString(36).slice(2, 8)}${slotSuffix}`;
+
+              // Sanitize session name: tmux converts dots and other special chars to underscores
+              // Do this manually to ensure consistency between creation and attachment
+              sessionName = rawSessionName.replace(/[^a-zA-Z0-9_-]/g, "_");
 
               // First, ensure the tmux session exists by creating it detached if needed
               const { execSync } = await import("child_process");
@@ -835,8 +803,44 @@ async function startRelayClient(ctx: RunnerCore, signal: AbortSignal, relay: Rel
               }
             };
 
+            // Batched logging for terminal output to reduce API load
+            let outputLogBuffer: { lines: number; hasContent: boolean } = { lines: 0, hasContent: false };
+            let outputLogTimer: NodeJS.Timeout | null = null;
+
+            const flushOutputLog = () => {
+              if (outputLogTimer) {
+                clearTimeout(outputLogTimer);
+                outputLogTimer = null;
+              }
+              if (outputLogBuffer.hasContent && outputLogBuffer.lines > 0) {
+                ctx.log("info", "[relay] Terminal output", { sessionId, lines: outputLogBuffer.lines });
+              }
+              outputLogBuffer = { lines: 0, hasContent: false };
+            };
+
             term.onData(async (data) => {
               send({ type: "stdout", sessionId, data });
+              // Batch terminal output logging: accumulate for 5s or until 50 lines
+              if (data.includes("\n") || data.includes("\r")) {
+                const newLines = (data.match(/[\r\n]/g) || []).length;
+                // Check if output has actual content (not just empty newlines)
+                const strippedData = data.replace(/[\r\n]+/g, "").trim();
+                if (strippedData.length > 0) {
+                  outputLogBuffer.hasContent = true;
+                }
+                outputLogBuffer.lines += newLines;
+
+                // Flush immediately if buffer is large (>50 lines) to prevent memory buildup
+                if (outputLogBuffer.lines > 50) {
+                  flushOutputLog();
+                } else {
+                  // Otherwise, debounce the flush to batch multiple outputs together
+                  if (outputLogTimer) clearTimeout(outputLogTimer);
+                  outputLogTimer = setTimeout(() => {
+                    flushOutputLog();
+                  }, 5000); // 5 second delay
+                }
+              }
               if (sess.recording) {
                 try {
                   sess.recording.buffer += data;
@@ -873,6 +877,7 @@ async function startRelayClient(ctx: RunnerCore, signal: AbortSignal, relay: Rel
               }
             });
             term.onExit(async (exitCode) => {
+              flushOutputLog(); // Flush any pending output logs before exit
               ctx.log("info", "[relay] Terminal exited", { sessionId, exitCode });
               await cleanupSession(sessionId);
             });
@@ -890,6 +895,7 @@ async function startRelayClient(ctx: RunnerCore, signal: AbortSignal, relay: Rel
           if (!sess.term) return; // Ignore stdin for picker sessions
           try {
             sess.term.write(msg.data);
+            // Stdin is not logged - output logging is sufficient
           } catch {
             /* noop */
           }

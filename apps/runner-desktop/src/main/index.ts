@@ -19,8 +19,6 @@ type RunnerSettings = {
   relayUrl: string;
   deviceId: string;
   deviceName: string;
-  ideaId: string;
-  sessionSlot: string;
 };
 
 type RunnerStoreShape = {
@@ -68,24 +66,8 @@ const DEFAULT_SETTINGS = (): RunnerSettings => ({
   relayUrl: process.env.RUNNER_DEFAULT_RELAY_URL || "wss://relay-falling-butterfly-779.fly.dev",
   deviceId: process.env.RUNNER_DEFAULT_DEVICE_ID || `${os.hostname()}-${os.userInfo().username}`,
   deviceName: process.env.RUNNER_DEFAULT_DEVICE_NAME || os.userInfo().username || "Desktop Runner",
-  ideaId: "",
-  sessionSlot: "primary",
 });
 
-function sanitizeSegment(value: string, fallback: string): string {
-  const cleaned = value
-    .trim()
-    .replace(/[^a-zA-Z0-9_-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-  return cleaned.length > 0 ? cleaned : fallback;
-}
-
-function computeSessionName(settings: RunnerSettings): string {
-  const idea = sanitizeSegment(settings.ideaId ?? "", "workspace");
-  const slot = sanitizeSegment(settings.sessionSlot ?? "", "primary");
-  return `coda-${idea}-${slot}`;
-}
 
 type RendererChannel =
   | "runner:status"
@@ -224,7 +206,7 @@ class RunnerManager {
     this.setStatus("initializing");
     const settings = this.settings;
 
-    const sessionName = computeSessionName(settings);
+    const sessionPrefix = `coda-runner-${settings.deviceId}`;
     const env = {
       ...process.env,
       BASE_URL: settings.baseUrl,
@@ -232,8 +214,7 @@ class RunnerManager {
       DEV_RUNNER_NAME: settings.deviceName,
       RELAY_URL: settings.relayUrl,
       TTY_SYNC: "tmux",
-      TTY_SESSION_NAME: sessionName,
-      TTY_SESSION_PREFIX: sessionName,
+      TTY_SESSION_PREFIX: sessionPrefix,
     };
 
     this.isStarting = true;
@@ -245,7 +226,7 @@ class RunnerManager {
         relay: { url: settings.relayUrl },
         env,
         enableTTY: true,
-        tty: { sync: "tmux", sessionPrefix: sessionName, sessionName },
+        tty: { sync: "tmux", sessionPrefix },
         logger: {
           info: (message, context) => { /* handled by onLog */ },
           warn: (message, context) => { /* handled by onLog */ },

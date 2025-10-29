@@ -19,8 +19,6 @@ type RunnerSettings = {
   relayUrl: string;
   deviceId: string;
   deviceName: string;
-  ideaId: string;
-  sessionSlot: string;
 };
 
 type Unsubscribe = () => void;
