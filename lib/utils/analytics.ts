@@ -5,6 +5,7 @@ const ANALYTICS_EVENT_NAMES = [
   "auth_password_created",
   "auth_password_updated",
   "auth_magic_link_verified",
+  "meetup_checkin",
   "idea_created",
   "idea_updated",
   "idea_deleted",

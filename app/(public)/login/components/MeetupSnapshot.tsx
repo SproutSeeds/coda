@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 import { AUTH_INPUT_STYLE } from "./EmailSignInForm";
+import { checkInToMeetupAction } from "../actions";
 
 function isCheckInOpen(now: Date) {
   const centralString = now.toLocaleString("en-US", {
@@ -21,12 +23,33 @@ function isCheckInOpen(now: Date) {
 export function MeetupSnapshot({ isAuthenticated }: { isAuthenticated: boolean }) {
   const [email, setEmail] = useState("");
   const [didCheckIn, setDidCheckIn] = useState(false);
-  const open = useMemo(() => isCheckInOpen(new Date()), []);
+  const [open, setOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  // Calculate check-in open state on client only to prevent hydration mismatch
+  useEffect(() => {
+    setOpen(isCheckInOpen(new Date()));
+  }, []);
 
   const handleCheckIn = (event: React.FormEvent<HTMLFormElement> | React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
-    if (!open) return;
-    setDidCheckIn(true);
+    if (!open || isPending) return;
+
+    startTransition(async () => {
+      try {
+        const result = await checkInToMeetupAction(isAuthenticated ? undefined : email);
+
+        if (result.success) {
+          setDidCheckIn(true);
+          toast.success(result.message ?? "Successfully checked in!");
+        } else {
+          toast.error(result.error ?? "Unable to check in");
+        }
+      } catch (error) {
+        console.error("[MeetupSnapshot] Check-in failed:", error);
+        toast.error("Something went wrong. Please try again.");
+      }
+    });
   };
 
   return (
@@ -35,10 +58,10 @@ export function MeetupSnapshot({ isAuthenticated }: { isAuthenticated: boolean }
         <Button
           type="button"
           onClick={handleCheckIn}
-          disabled={!open || didCheckIn}
+          disabled={!open || didCheckIn || isPending}
           className="interactive-btn cursor-pointer w-full border border-white/12 bg-slate-950/80 text-white hover:bg-slate-950"
         >
-          {didCheckIn ? "You're checked in" : open ? "Check in here" : "Check-in opens Saturdays 11 AM CT"}
+          {isPending ? "Checking in…" : didCheckIn ? "You're checked in" : open ? "Check in here" : "Check-in opens Saturdays 11 AM CT"}
         </Button>
       ) : (
         <form onSubmit={handleCheckIn} className="space-y-3">
@@ -53,14 +76,14 @@ export function MeetupSnapshot({ isAuthenticated }: { isAuthenticated: boolean }
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             className={AUTH_INPUT_STYLE}
-            disabled={didCheckIn}
+            disabled={didCheckIn || isPending}
           />
           <Button
             type="submit"
-            disabled={!open || didCheckIn}
+            disabled={!open || didCheckIn || isPending}
             className="interactive-btn cursor-pointer w-full border border-white/12 bg-slate-950/80 text-white hover:bg-slate-950"
           >
-            {didCheckIn ? "You're checked in" : open ? "Email me the link" : "Check-in opens Saturdays 11 AM CT"}
+            {isPending ? "Checking in…" : didCheckIn ? "You're checked in" : open ? "Email me the link" : "Check-in opens Saturdays 11 AM CT"}
           </Button>
         </form>
       )}

@@ -11,6 +11,8 @@ import { trackEvent } from "@/lib/utils/analytics";
 import { consumeRateLimit } from "@/lib/utils/rate-limit";
 import { passwordSignUpSchema } from "@/lib/validations/auth";
 import { sendPasswordVerificationEmail } from "@/lib/auth/email";
+import { recordMeetupCheckIn } from "@/lib/db/meetup";
+import { getCurrentUser } from "@/lib/auth/session";
 
 export type PasswordSignUpState =
   | { status: "idle" }
@@ -86,4 +88,96 @@ export async function registerWithPasswordAction(
   });
 
   return { status: "pending", email };
+}
+
+/**
+ * Server action to record a meetup check-in.
+ * Only available on Saturdays 11 AM - 1 PM Central Time (Pensacola, FL).
+ * Returns success status and whether user was already checked in for this event.
+ */
+export async function checkInToMeetupAction(email?: string) {
+  const user = await getCurrentUser();
+
+  // Verify check-in is open
+  const now = new Date();
+  const centralString = now.toLocaleString("en-US", {
+    timeZone: "America/Chicago",
+  });
+  const centralNow = new Date(centralString);
+  const isSaturday = centralNow.getDay() === 6;
+  const hour = centralNow.getHours();
+  const isOpen = isSaturday && hour >= 11 && hour < 13;
+
+  if (!isOpen) {
+    return {
+      success: false,
+      error: "Check-in is only available on Saturdays from 11 AM to 1 PM Central Time",
+    };
+  }
+
+  // Format event date as YYYY-MM-DD in Central Time
+  const year = centralNow.getFullYear();
+  const month = String(centralNow.getMonth() + 1).padStart(2, "0");
+  const day = String(centralNow.getDate()).padStart(2, "0");
+  const eventDate = `${year}-${month}-${day}`;
+
+  // For authenticated users
+  if (user?.id && user?.email) {
+    try {
+      const result = await recordMeetupCheckIn({
+        userId: user.id,
+        email: user.email,
+        eventDate,
+      });
+
+      if (result.alreadyCheckedIn) {
+        return {
+          success: true,
+          alreadyCheckedIn: true,
+          message: "You're already checked in for this meeting",
+        };
+      }
+
+      await trackEvent({
+        name: "meetup_checkin",
+        properties: { userId: user.id, eventDate },
+      });
+
+      return {
+        success: true,
+        alreadyCheckedIn: false,
+        message: "Successfully checked in!",
+      };
+    } catch (error) {
+      console.error("[checkInToMeetupAction] Failed to record check-in:", error);
+      return {
+        success: false,
+        error: "Failed to record check-in. Please try again.",
+      };
+    }
+  }
+
+  // For non-authenticated users, validate email
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return {
+      success: false,
+      error: "Please provide a valid email address",
+    };
+  }
+
+  // Rate limit for unauthenticated check-ins
+  const rate = await consumeRateLimit(`meetup:checkin:${email}`);
+  if (!rate.success) {
+    return {
+      success: false,
+      error: "Too many requests. Please try again in a moment.",
+    };
+  }
+
+  // For now, just return success without persisting for unauthenticated users
+  // In future, could send email link or create pending check-in
+  return {
+    success: true,
+    message: "Check-in received! Sign in to track your attendance.",
+  };
 }

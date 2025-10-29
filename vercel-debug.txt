@@ -1,0 +1,742 @@
+Domain to test (e.g. example.com): 
+┌───────────────────────────────────────
+├─────── Fetching IP Addresses
+│
+│ codacli.com IP range: 216.198.79.1, 216.198.79.65, 216.198.79.129, 216.198.79.193, 64.29.17.1, 64.29.17.65, 64.29.17.129, 64.29.17.193
+└───────────────────────────────────────
+
+┌───────────────────────────────────────
+├─────── STARTING
+│
+│ Domain to test: codacli.com 
+│ Timestamp (UTC): Tue Oct 28 10:46:45 UTC 2025
+│ Timestamp (Local): Tue Oct 28 05:46:45 CDT 2025
+└───────────────────────────────────────
+
+┌───────────────────────────────────────
+├─────── IP Information 
+
+{
+  "ip": "68.109.100.17",
+  "hostname": "ip68-109-100-17.pn.at.cox.net",
+  "city": "Pensacola",
+  "region": "Florida",
+  "country": "US",
+  "loc": "30.4213,-87.2169",
+  "org": "AS22773 Cox Communications Inc.",
+  "postal": "32501",
+  "timezone": "America/Chicago",
+  "readme": "https://ipinfo.io/missingauth"
+}
+└───────────────────────────────────────
+
+┌───────────────────────────────────────
+├─────── Testing 216.198.79.1 
+Checking headers via 216.198.79.1
+* Connecting to hostname: 216.198.79.1
+*   Trying 216.198.79.1:443...
+* Connected to 216.198.79.1 (216.198.79.1) port 443
+* ALPN: curl offers h2,http/1.1
+* (304) (OUT), TLS handshake, Client hello (1):
+} [316 bytes data]
+* (304) (IN), TLS handshake, Server hello (2):
+{ [122 bytes data]
+* (304) (IN), TLS handshake, Unknown (8):
+{ [15 bytes data]
+* (304) (IN), TLS handshake, Certificate (11):
+{ [2579 bytes data]
+* (304) (IN), TLS handshake, CERT verify (15):
+{ [264 bytes data]
+* (304) (IN), TLS handshake, Finished (20):
+{ [36 bytes data]
+* (304) (OUT), TLS handshake, Finished (20):
+} [36 bytes data]
+* SSL connection using TLSv1.3 / AEAD-CHACHA20-POLY1305-SHA256 / [blank] / UNDEF
+* ALPN: server accepted h2
+* Server certificate:
+*  subject: CN=codacli.com
+*  start date: Oct  6 06:52:16 2025 GMT
+*  expire date: Jan  4 06:52:15 2026 GMT
+*  issuer: C=US; O=Let's Encrypt; CN=R12
+*  SSL certificate verify ok.
+* using HTTP/2
+* [HTTP/2] [1] OPENED stream for https://codacli.com/
+* [HTTP/2] [1] [:method: GET]
+* [HTTP/2] [1] [:scheme: https]
+* [HTTP/2] [1] [:authority: codacli.com]
+* [HTTP/2] [1] [:path: /]
+* [HTTP/2] [1] [user-agent: curl/8.7.1]
+* [HTTP/2] [1] [accept: */*]
+> GET / HTTP/2
+> Host: codacli.com
+> User-Agent: curl/8.7.1
+> Accept: */*
+> 
+* Request completely sent off
+< HTTP/2 307 
+< cache-control: public, max-age=0, must-revalidate
+< content-type: text/plain
+< date: Tue, 28 Oct 2025 10:46:45 GMT
+< location: https://www.codacli.com/
+< server: Vercel
+< strict-transport-security: max-age=63072000
+< x-vercel-id: iad1::4rzfc-1761648405607-8d06456f8cdd
+< 
+{ [15 bytes data]
+* Connection #0 to host 216.198.79.1 left intact
+
+Checking ping to 216.198.79.1
+PING 216.198.79.1 (216.198.79.1): 56 data bytes
+64 bytes from 216.198.79.1: icmp_seq=0 ttl=252 time=32.032 ms
+64 bytes from 216.198.79.1: icmp_seq=1 ttl=252 time=27.856 ms
+64 bytes from 216.198.79.1: icmp_seq=2 ttl=252 time=27.663 ms
+64 bytes from 216.198.79.1: icmp_seq=3 ttl=252 time=28.407 ms
+
+--- 216.198.79.1 ping statistics ---
+4 packets transmitted, 4 packets received, 0.0% packet loss
+round-trip min/avg/max/stddev = 27.663/28.989/32.032/1.778 ms
+└───────────────────────────────────────
+
+┌───────────────────────────────────────
+├─────── Testing 216.198.79.65 
+Checking headers via 216.198.79.65
+* Connecting to hostname: 216.198.79.65
+*   Trying 216.198.79.65:443...
+* Connected to 216.198.79.65 (216.198.79.65) port 443
+* ALPN: curl offers h2,http/1.1
+* (304) (OUT), TLS handshake, Client hello (1):
+} [316 bytes data]
+* (304) (IN), TLS handshake, Server hello (2):
+{ [122 bytes data]
+* (304) (IN), TLS handshake, Unknown (8):
+{ [15 bytes data]
+* (304) (IN), TLS handshake, Certificate (11):
+{ [2579 bytes data]
+* (304) (IN), TLS handshake, CERT verify (15):
+{ [264 bytes data]
+* (304) (IN), TLS handshake, Finished (20):
+{ [36 bytes data]
+* (304) (OUT), TLS handshake, Finished (20):
+} [36 bytes data]
+* SSL connection using TLSv1.3 / AEAD-CHACHA20-POLY1305-SHA256 / [blank] / UNDEF
+* ALPN: server accepted h2
+* Server certificate:
+*  subject: CN=codacli.com
+*  start date: Oct  6 06:52:16 2025 GMT
+*  expire date: Jan  4 06:52:15 2026 GMT
+*  issuer: C=US; O=Let's Encrypt; CN=R12
+*  SSL certificate verify ok.
+* using HTTP/2
+* [HTTP/2] [1] OPENED stream for https://codacli.com/
+* [HTTP/2] [1] [:method: GET]
+* [HTTP/2] [1] [:scheme: https]
+* [HTTP/2] [1] [:authority: codacli.com]
+* [HTTP/2] [1] [:path: /]
+* [HTTP/2] [1] [user-agent: curl/8.7.1]
+* [HTTP/2] [1] [accept: */*]
+> GET / HTTP/2
+> Host: codacli.com
+> User-Agent: curl/8.7.1
+> Accept: */*
+> 
+* Request completely sent off
+< HTTP/2 307 
+< cache-control: public, max-age=0, must-revalidate
+< content-type: text/plain
+< date: Tue, 28 Oct 2025 10:46:48 GMT
+< location: https://www.codacli.com/
+< server: Vercel
+< strict-transport-security: max-age=63072000
+< x-vercel-id: iad1::2bt7d-1761648408818-c3014fb09e14
+< 
+{ [15 bytes data]
+* Connection #0 to host 216.198.79.65 left intact
+
+Checking ping to 216.198.79.65
+PING 216.198.79.65 (216.198.79.65): 56 data bytes
+64 bytes from 216.198.79.65: icmp_seq=0 ttl=252 time=34.236 ms
+64 bytes from 216.198.79.65: icmp_seq=1 ttl=252 time=29.498 ms
+64 bytes from 216.198.79.65: icmp_seq=2 ttl=252 time=28.967 ms
+64 bytes from 216.198.79.65: icmp_seq=3 ttl=252 time=33.270 ms
+
+--- 216.198.79.65 ping statistics ---
+4 packets transmitted, 4 packets received, 0.0% packet loss
+round-trip min/avg/max/stddev = 28.967/31.493/34.236/2.294 ms
+└───────────────────────────────────────
+
+┌───────────────────────────────────────
+├─────── Testing 216.198.79.129 
+Checking headers via 216.198.79.129
+* Connecting to hostname: 216.198.79.129
+*   Trying 216.198.79.129:443...
+* Connected to 216.198.79.129 (216.198.79.129) port 443
+* ALPN: curl offers h2,http/1.1
+* (304) (OUT), TLS handshake, Client hello (1):
+} [316 bytes data]
+* (304) (IN), TLS handshake, Server hello (2):
+{ [122 bytes data]
+* (304) (IN), TLS handshake, Unknown (8):
+{ [15 bytes data]
+* (304) (IN), TLS handshake, Certificate (11):
+{ [2579 bytes data]
+* (304) (IN), TLS handshake, CERT verify (15):
+{ [264 bytes data]
+* (304) (IN), TLS handshake, Finished (20):
+{ [36 bytes data]
+* (304) (OUT), TLS handshake, Finished (20):
+} [36 bytes data]
+* SSL connection using TLSv1.3 / AEAD-CHACHA20-POLY1305-SHA256 / [blank] / UNDEF
+* ALPN: server accepted h2
+* Server certificate:
+*  subject: CN=codacli.com
+*  start date: Oct  6 06:52:16 2025 GMT
+*  expire date: Jan  4 06:52:15 2026 GMT
+*  issuer: C=US; O=Let's Encrypt; CN=R12
+*  SSL certificate verify ok.
+* using HTTP/2
+* [HTTP/2] [1] OPENED stream for https://codacli.com/
+* [HTTP/2] [1] [:method: GET]
+* [HTTP/2] [1] [:scheme: https]
+* [HTTP/2] [1] [:authority: codacli.com]
+* [HTTP/2] [1] [:path: /]
+* [HTTP/2] [1] [user-agent: curl/8.7.1]
+* [HTTP/2] [1] [accept: */*]
+> GET / HTTP/2
+> Host: codacli.com
+> User-Agent: curl/8.7.1
+> Accept: */*
+> 
+* Request completely sent off
+< HTTP/2 307 
+< cache-control: public, max-age=0, must-revalidate
+< content-type: text/plain
+< date: Tue, 28 Oct 2025 10:46:52 GMT
+< location: https://www.codacli.com/
+< server: Vercel
+< strict-transport-security: max-age=63072000
+< x-vercel-id: iad1::plfrh-1761648412043-5336c560dcee
+< 
+{ [15 bytes data]
+* Connection #0 to host 216.198.79.129 left intact
+
+Checking ping to 216.198.79.129
+PING 216.198.79.129 (216.198.79.129): 56 data bytes
+64 bytes from 216.198.79.129: icmp_seq=0 ttl=252 time=32.743 ms
+64 bytes from 216.198.79.129: icmp_seq=1 ttl=252 time=29.934 ms
+64 bytes from 216.198.79.129: icmp_seq=2 ttl=252 time=36.085 ms
+64 bytes from 216.198.79.129: icmp_seq=3 ttl=252 time=35.129 ms
+
+--- 216.198.79.129 ping statistics ---
+4 packets transmitted, 4 packets received, 0.0% packet loss
+round-trip min/avg/max/stddev = 29.934/33.473/36.085/2.378 ms
+└───────────────────────────────────────
+
+┌───────────────────────────────────────
+├─────── Testing 216.198.79.193 
+Checking headers via 216.198.79.193
+* Connecting to hostname: 216.198.79.193
+*   Trying 216.198.79.193:443...
+* Connected to 216.198.79.193 (216.198.79.193) port 443
+* ALPN: curl offers h2,http/1.1
+* (304) (OUT), TLS handshake, Client hello (1):
+} [316 bytes data]
+* (304) (IN), TLS handshake, Server hello (2):
+{ [122 bytes data]
+* (304) (IN), TLS handshake, Unknown (8):
+{ [15 bytes data]
+* (304) (IN), TLS handshake, Certificate (11):
+{ [2579 bytes data]
+* (304) (IN), TLS handshake, CERT verify (15):
+{ [264 bytes data]
+* (304) (IN), TLS handshake, Finished (20):
+{ [36 bytes data]
+* (304) (OUT), TLS handshake, Finished (20):
+} [36 bytes data]
+* SSL connection using TLSv1.3 / AEAD-CHACHA20-POLY1305-SHA256 / [blank] / UNDEF
+* ALPN: server accepted h2
+* Server certificate:
+*  subject: CN=codacli.com
+*  start date: Oct  6 06:52:16 2025 GMT
+*  expire date: Jan  4 06:52:15 2026 GMT
+*  issuer: C=US; O=Let's Encrypt; CN=R12
+*  SSL certificate verify ok.
+* using HTTP/2
+* [HTTP/2] [1] OPENED stream for https://codacli.com/
+* [HTTP/2] [1] [:method: GET]
+* [HTTP/2] [1] [:scheme: https]
+* [HTTP/2] [1] [:authority: codacli.com]
+* [HTTP/2] [1] [:path: /]
+* [HTTP/2] [1] [user-agent: curl/8.7.1]
+* [HTTP/2] [1] [accept: */*]
+> GET / HTTP/2
+> Host: codacli.com
+> User-Agent: curl/8.7.1
+> Accept: */*
+> 
+* Request completely sent off
+< HTTP/2 307 
+< cache-control: public, max-age=0, must-revalidate
+< content-type: text/plain
+< date: Tue, 28 Oct 2025 10:46:55 GMT
+< location: https://www.codacli.com/
+< server: Vercel
+< strict-transport-security: max-age=63072000
+< x-vercel-id: iad1::dw2k2-1761648415283-14938aaf905b
+< 
+{ [15 bytes data]
+* Connection #0 to host 216.198.79.193 left intact
+
+Checking ping to 216.198.79.193
+PING 216.198.79.193 (216.198.79.193): 56 data bytes
+64 bytes from 216.198.79.193: icmp_seq=0 ttl=252 time=29.630 ms
+64 bytes from 216.198.79.193: icmp_seq=1 ttl=252 time=30.449 ms
+64 bytes from 216.198.79.193: icmp_seq=2 ttl=252 time=33.386 ms
+64 bytes from 216.198.79.193: icmp_seq=3 ttl=252 time=33.017 ms
+
+--- 216.198.79.193 ping statistics ---
+4 packets transmitted, 4 packets received, 0.0% packet loss
+round-trip min/avg/max/stddev = 29.630/31.620/33.386/1.613 ms
+└───────────────────────────────────────
+
+┌───────────────────────────────────────
+├─────── Testing 64.29.17.1 
+Checking headers via 64.29.17.1
+* Connecting to hostname: 64.29.17.1
+*   Trying 64.29.17.1:443...
+* Connected to 64.29.17.1 (64.29.17.1) port 443
+* ALPN: curl offers h2,http/1.1
+* (304) (OUT), TLS handshake, Client hello (1):
+} [316 bytes data]
+* (304) (IN), TLS handshake, Server hello (2):
+{ [122 bytes data]
+* (304) (IN), TLS handshake, Unknown (8):
+{ [15 bytes data]
+* (304) (IN), TLS handshake, Certificate (11):
+{ [2579 bytes data]
+* (304) (IN), TLS handshake, CERT verify (15):
+{ [264 bytes data]
+* (304) (IN), TLS handshake, Finished (20):
+{ [36 bytes data]
+* (304) (OUT), TLS handshake, Finished (20):
+} [36 bytes data]
+* SSL connection using TLSv1.3 / AEAD-CHACHA20-POLY1305-SHA256 / [blank] / UNDEF
+* ALPN: server accepted h2
+* Server certificate:
+*  subject: CN=codacli.com
+*  start date: Oct  6 06:52:16 2025 GMT
+*  expire date: Jan  4 06:52:15 2026 GMT
+*  issuer: C=US; O=Let's Encrypt; CN=R12
+*  SSL certificate verify ok.
+* using HTTP/2
+* [HTTP/2] [1] OPENED stream for https://codacli.com/
+* [HTTP/2] [1] [:method: GET]
+* [HTTP/2] [1] [:scheme: https]
+* [HTTP/2] [1] [:authority: codacli.com]
+* [HTTP/2] [1] [:path: /]
+* [HTTP/2] [1] [user-agent: curl/8.7.1]
+* [HTTP/2] [1] [accept: */*]
+> GET / HTTP/2
+> Host: codacli.com
+> User-Agent: curl/8.7.1
+> Accept: */*
+> 
+* Request completely sent off
+< HTTP/2 307 
+< cache-control: public, max-age=0, must-revalidate
+< content-type: text/plain
+< date: Tue, 28 Oct 2025 10:46:58 GMT
+< location: https://www.codacli.com/
+< server: Vercel
+< strict-transport-security: max-age=63072000
+< x-vercel-id: iad1::ht74t-1761648418497-969fc62cbc00
+< 
+{ [15 bytes data]
+* Connection #0 to host 64.29.17.1 left intact
+
+Checking ping to 64.29.17.1
+PING 64.29.17.1 (64.29.17.1): 56 data bytes
+64 bytes from 64.29.17.1: icmp_seq=0 ttl=252 time=28.637 ms
+64 bytes from 64.29.17.1: icmp_seq=1 ttl=252 time=27.724 ms
+64 bytes from 64.29.17.1: icmp_seq=2 ttl=252 time=28.822 ms
+64 bytes from 64.29.17.1: icmp_seq=3 ttl=252 time=30.825 ms
+
+--- 64.29.17.1 ping statistics ---
+4 packets transmitted, 4 packets received, 0.0% packet loss
+round-trip min/avg/max/stddev = 27.724/29.002/30.825/1.132 ms
+└───────────────────────────────────────
+
+┌───────────────────────────────────────
+├─────── Testing 64.29.17.65 
+Checking headers via 64.29.17.65
+* Connecting to hostname: 64.29.17.65
+*   Trying 64.29.17.65:443...
+* Connected to 64.29.17.65 (64.29.17.65) port 443
+* ALPN: curl offers h2,http/1.1
+* (304) (OUT), TLS handshake, Client hello (1):
+} [316 bytes data]
+* (304) (IN), TLS handshake, Server hello (2):
+{ [122 bytes data]
+* (304) (IN), TLS handshake, Unknown (8):
+{ [15 bytes data]
+* (304) (IN), TLS handshake, Certificate (11):
+{ [2579 bytes data]
+* (304) (IN), TLS handshake, CERT verify (15):
+{ [264 bytes data]
+* (304) (IN), TLS handshake, Finished (20):
+{ [36 bytes data]
+* (304) (OUT), TLS handshake, Finished (20):
+} [36 bytes data]
+* SSL connection using TLSv1.3 / AEAD-CHACHA20-POLY1305-SHA256 / [blank] / UNDEF
+* ALPN: server accepted h2
+* Server certificate:
+*  subject: CN=codacli.com
+*  start date: Oct  6 06:52:16 2025 GMT
+*  expire date: Jan  4 06:52:15 2026 GMT
+*  issuer: C=US; O=Let's Encrypt; CN=R12
+*  SSL certificate verify ok.
+* using HTTP/2
+* [HTTP/2] [1] OPENED stream for https://codacli.com/
+* [HTTP/2] [1] [:method: GET]
+* [HTTP/2] [1] [:scheme: https]
+* [HTTP/2] [1] [:authority: codacli.com]
+* [HTTP/2] [1] [:path: /]
+* [HTTP/2] [1] [user-agent: curl/8.7.1]
+* [HTTP/2] [1] [accept: */*]
+> GET / HTTP/2
+> Host: codacli.com
+> User-Agent: curl/8.7.1
+> Accept: */*
+> 
+* Request completely sent off
+< HTTP/2 307 
+< cache-control: public, max-age=0, must-revalidate
+< content-type: text/plain
+< date: Tue, 28 Oct 2025 10:47:01 GMT
+< location: https://www.codacli.com/
+< server: Vercel
+< strict-transport-security: max-age=63072000
+< x-vercel-id: iad1::cd8pv-1761648421719-4eb90b917475
+< 
+{ [15 bytes data]
+* Connection #0 to host 64.29.17.65 left intact
+
+Checking ping to 64.29.17.65
+PING 64.29.17.65 (64.29.17.65): 56 data bytes
+64 bytes from 64.29.17.65: icmp_seq=0 ttl=252 time=32.423 ms
+64 bytes from 64.29.17.65: icmp_seq=1 ttl=252 time=28.196 ms
+64 bytes from 64.29.17.65: icmp_seq=2 ttl=252 time=32.068 ms
+64 bytes from 64.29.17.65: icmp_seq=3 ttl=252 time=32.577 ms
+
+--- 64.29.17.65 ping statistics ---
+4 packets transmitted, 4 packets received, 0.0% packet loss
+round-trip min/avg/max/stddev = 28.196/31.316/32.577/1.811 ms
+└───────────────────────────────────────
+
+┌───────────────────────────────────────
+├─────── Testing 64.29.17.129 
+Checking headers via 64.29.17.129
+* Connecting to hostname: 64.29.17.129
+*   Trying 64.29.17.129:443...
+* Connected to 64.29.17.129 (64.29.17.129) port 443
+* ALPN: curl offers h2,http/1.1
+* (304) (OUT), TLS handshake, Client hello (1):
+} [316 bytes data]
+* (304) (IN), TLS handshake, Server hello (2):
+{ [122 bytes data]
+* (304) (IN), TLS handshake, Unknown (8):
+{ [15 bytes data]
+* (304) (IN), TLS handshake, Certificate (11):
+{ [2579 bytes data]
+* (304) (IN), TLS handshake, CERT verify (15):
+{ [264 bytes data]
+* (304) (IN), TLS handshake, Finished (20):
+{ [36 bytes data]
+* (304) (OUT), TLS handshake, Finished (20):
+} [36 bytes data]
+* SSL connection using TLSv1.3 / AEAD-CHACHA20-POLY1305-SHA256 / [blank] / UNDEF
+* ALPN: server accepted h2
+* Server certificate:
+*  subject: CN=codacli.com
+*  start date: Oct  6 06:52:16 2025 GMT
+*  expire date: Jan  4 06:52:15 2026 GMT
+*  issuer: C=US; O=Let's Encrypt; CN=R12
+*  SSL certificate verify ok.
+* using HTTP/2
+* [HTTP/2] [1] OPENED stream for https://codacli.com/
+* [HTTP/2] [1] [:method: GET]
+* [HTTP/2] [1] [:scheme: https]
+* [HTTP/2] [1] [:authority: codacli.com]
+* [HTTP/2] [1] [:path: /]
+* [HTTP/2] [1] [user-agent: curl/8.7.1]
+* [HTTP/2] [1] [accept: */*]
+> GET / HTTP/2
+> Host: codacli.com
+> User-Agent: curl/8.7.1
+> Accept: */*
+> 
+* Request completely sent off
+< HTTP/2 307 
+< cache-control: public, max-age=0, must-revalidate
+< content-type: text/plain
+< date: Tue, 28 Oct 2025 10:47:04 GMT
+< location: https://www.codacli.com/
+< server: Vercel
+< strict-transport-security: max-age=63072000
+< x-vercel-id: iad1::v7gnj-1761648424954-18d3b53613e2
+< 
+{ [15 bytes data]
+* Connection #0 to host 64.29.17.129 left intact
+
+Checking ping to 64.29.17.129
+PING 64.29.17.129 (64.29.17.129): 56 data bytes
+64 bytes from 64.29.17.129: icmp_seq=0 ttl=252 time=24.882 ms
+64 bytes from 64.29.17.129: icmp_seq=1 ttl=252 time=33.938 ms
+64 bytes from 64.29.17.129: icmp_seq=2 ttl=252 time=33.158 ms
+64 bytes from 64.29.17.129: icmp_seq=3 ttl=252 time=32.932 ms
+
+--- 64.29.17.129 ping statistics ---
+4 packets transmitted, 4 packets received, 0.0% packet loss
+round-trip min/avg/max/stddev = 24.882/31.228/33.938/3.683 ms
+└───────────────────────────────────────
+
+┌───────────────────────────────────────
+├─────── Testing 64.29.17.193 
+Checking headers via 64.29.17.193
+* Connecting to hostname: 64.29.17.193
+*   Trying 64.29.17.193:443...
+* Connected to 64.29.17.193 (64.29.17.193) port 443
+* ALPN: curl offers h2,http/1.1
+* (304) (OUT), TLS handshake, Client hello (1):
+} [316 bytes data]
+* (304) (IN), TLS handshake, Server hello (2):
+{ [122 bytes data]
+* (304) (IN), TLS handshake, Unknown (8):
+{ [15 bytes data]
+* (304) (IN), TLS handshake, Certificate (11):
+{ [2579 bytes data]
+* (304) (IN), TLS handshake, CERT verify (15):
+{ [264 bytes data]
+* (304) (IN), TLS handshake, Finished (20):
+{ [36 bytes data]
+* (304) (OUT), TLS handshake, Finished (20):
+} [36 bytes data]
+* SSL connection using TLSv1.3 / AEAD-CHACHA20-POLY1305-SHA256 / [blank] / UNDEF
+* ALPN: server accepted h2
+* Server certificate:
+*  subject: CN=codacli.com
+*  start date: Oct  6 06:52:16 2025 GMT
+*  expire date: Jan  4 06:52:15 2026 GMT
+*  issuer: C=US; O=Let's Encrypt; CN=R12
+*  SSL certificate verify ok.
+* using HTTP/2
+* [HTTP/2] [1] OPENED stream for https://codacli.com/
+* [HTTP/2] [1] [:method: GET]
+* [HTTP/2] [1] [:scheme: https]
+* [HTTP/2] [1] [:authority: codacli.com]
+* [HTTP/2] [1] [:path: /]
+* [HTTP/2] [1] [user-agent: curl/8.7.1]
+* [HTTP/2] [1] [accept: */*]
+> GET / HTTP/2
+> Host: codacli.com
+> User-Agent: curl/8.7.1
+> Accept: */*
+> 
+* Request completely sent off
+< HTTP/2 307 
+< cache-control: public, max-age=0, must-revalidate
+< content-type: text/plain
+< date: Tue, 28 Oct 2025 10:47:08 GMT
+< location: https://www.codacli.com/
+< server: Vercel
+< strict-transport-security: max-age=63072000
+< x-vercel-id: iad1::z2vcc-1761648428191-6c553b6fd26d
+< 
+{ [15 bytes data]
+* Connection #0 to host 64.29.17.193 left intact
+
+Checking ping to 64.29.17.193
+PING 64.29.17.193 (64.29.17.193): 56 data bytes
+64 bytes from 64.29.17.193: icmp_seq=0 ttl=252 time=29.791 ms
+64 bytes from 64.29.17.193: icmp_seq=1 ttl=252 time=33.856 ms
+64 bytes from 64.29.17.193: icmp_seq=2 ttl=252 time=28.162 ms
+64 bytes from 64.29.17.193: icmp_seq=3 ttl=252 time=28.335 ms
+
+--- 64.29.17.193 ping statistics ---
+4 packets transmitted, 4 packets received, 0.0% packet loss
+round-trip min/avg/max/stddev = 28.162/30.036/33.856/2.294 ms
+└───────────────────────────────────────
+
+┌───────────────────────────────────────
+├─────── dig codacli.com 
+
+
+; <<>> DiG 9.10.6 <<>> codacli.com
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 29805
+;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1
+
+;; OPT PSEUDOSECTION:
+; EDNS: version: 0, flags:; udp: 512
+;; QUESTION SECTION:
+;codacli.com.			IN	A
+
+;; ANSWER SECTION:
+codacli.com.		327	IN	A	216.198.79.1
+
+;; Query time: 30 msec
+;; SERVER: 100.100.100.100#53(100.100.100.100)
+;; WHEN: Tue Oct 28 05:47:11 CDT 2025
+;; MSG SIZE  rcvd: 56
+
+└───────────────────────────────────────
+
+┌───────────────────────────────────────
+├─────── dig codacli.com via 8.8.8.8
+
+
+; <<>> DiG 9.10.6 <<>> codacli.com @8.8.8.8
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 60646
+;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1
+
+;; OPT PSEUDOSECTION:
+; EDNS: version: 0, flags:; udp: 512
+;; QUESTION SECTION:
+;codacli.com.			IN	A
+
+;; ANSWER SECTION:
+codacli.com.		1799	IN	A	216.198.79.1
+
+;; Query time: 32 msec
+;; SERVER: 8.8.8.8#53(8.8.8.8)
+;; WHEN: Tue Oct 28 05:47:11 CDT 2025
+;; MSG SIZE  rcvd: 56
+
+└───────────────────────────────────────
+
+┌───────────────────────────────────────
+├─────── dig codacli.com via trace
+
+
+; <<>> DiG 9.10.6 <<>> codacli.com +trace
+;; global options: +cmd
+.			366858	IN	NS	h.root-servers.net.
+.			366858	IN	NS	i.root-servers.net.
+.			366858	IN	NS	j.root-servers.net.
+.			366858	IN	NS	k.root-servers.net.
+.			366858	IN	NS	l.root-servers.net.
+.			366858	IN	NS	m.root-servers.net.
+.			366858	IN	NS	a.root-servers.net.
+.			366858	IN	NS	b.root-servers.net.
+.			366858	IN	NS	c.root-servers.net.
+.			366858	IN	NS	d.root-servers.net.
+.			366858	IN	NS	e.root-servers.net.
+.			366858	IN	NS	f.root-servers.net.
+.			366858	IN	NS	g.root-servers.net.
+;; Received 811 bytes from 100.100.100.100#53(100.100.100.100) in 30 ms
+
+com.			172800	IN	NS	c.gtld-servers.net.
+com.			172800	IN	NS	i.gtld-servers.net.
+com.			172800	IN	NS	g.gtld-servers.net.
+com.			172800	IN	NS	b.gtld-servers.net.
+com.			172800	IN	NS	l.gtld-servers.net.
+com.			172800	IN	NS	d.gtld-servers.net.
+com.			172800	IN	NS	m.gtld-servers.net.
+com.			172800	IN	NS	f.gtld-servers.net.
+com.			172800	IN	NS	h.gtld-servers.net.
+com.			172800	IN	NS	a.gtld-servers.net.
+com.			172800	IN	NS	e.gtld-servers.net.
+com.			172800	IN	NS	j.gtld-servers.net.
+com.			172800	IN	NS	k.gtld-servers.net.
+com.			86400	IN	DS	19718 13 2 8ACBB0CD28F41250A80A491389424D341522D946B0DA0C0291F2D3D7 71D7805A
+com.			86400	IN	RRSIG	DS 8 1 86400 20251110050000 20251028040000 61809 . UcxLV3s56Ykj2HjZCj4MoChbE82dUKCeHHuxk6PA7kdT3FHMoORgLb4m eZeAGWKe9ru82XuOrW1vk8a5q4WropUi+GuxtOTtudjpTRXwpRhsuvUX S4Ky0jKH4oNpB8JFMVGaUnuW3xFSbq9P1OkWduOVM579yNh9yPyazoAo rGwtu/cgAeS95luccPQ+WxAn3LSvsW60MfE/k/Ehe3LNXBhxmEtZ9/b4 K8NibS11O3c4k/Nu4aB8MXkxqWlRtog/h8qoR790IrOgpBPHViS/IzbY 760KcS+GLF4RCdJX5CLeVzGI05uqQCITW64qrZW1/dIyVXV4ZBhPiY99 Rlqs8g==
+;; Received 1171 bytes from 192.33.4.12#53(c.root-servers.net) in 44 ms
+
+codacli.com.		172800	IN	NS	dns1.registrar-servers.com.
+codacli.com.		172800	IN	NS	dns2.registrar-servers.com.
+CK0POJMG874LJREF7EFN8430QVIT8BSM.com. 900 IN NSEC3 1 1 0 - CK0Q3UDG8CEKKAE7RUKPGCT1DVSSH8LL  NS SOA RRSIG DNSKEY NSEC3PARAM
+CK0POJMG874LJREF7EFN8430QVIT8BSM.com. 900 IN RRSIG NSEC3 13 2 900 20251103002626 20251026231626 46539 com. jnAJVtZURTZ9QaxgKT7j0RGVB5PCVq35aTporrS20sxKEiXZ3uH8LbDd Y1ae2SkZvaAhF2iuAtSfBAOcbUm97w==
+V3VFDHPGTTH40UFOTBSO6NNKCCRPDN39.com. 900 IN NSEC3 1 1 0 - V3VFJ9KO2JELI0V34BJ9OIPNKN0VUN4N  NS DS RRSIG
+V3VFDHPGTTH40UFOTBSO6NNKCCRPDN39.com. 900 IN RRSIG NSEC3 13 2 900 20251103024700 20251027013700 46539 com. 5yeORtUrS2vx7JjqyEpMNk8Pet5CL8CJt2CfYm3m1TCplPSQUAgTWPYo RhwA2C3W3YhWGL64Gn0bHDIOYtFNIw==
+;; Received 541 bytes from 2001:500:d937::30#53(l.gtld-servers.net) in 48 ms
+
+codacli.com.		1799	IN	A	216.198.79.1
+codacli.com.		1800	IN	NS	dns1.registrar-servers.com.
+codacli.com.		1800	IN	NS	dns2.registrar-servers.com.
+;; Received 112 bytes from 2610:a1:1025::200#53(dns2.registrar-servers.com) in 44 ms
+
+└───────────────────────────────────────
+
+┌───────────────────────────────────────
+├─────── Output of codacli.com
+
+* Host codacli.com:443 was resolved.
+* IPv6: (none)
+* IPv4: 216.198.79.1
+*   Trying 216.198.79.1:443...
+* Connected to codacli.com (216.198.79.1) port 443
+* ALPN: curl offers h2,http/1.1
+* (304) (OUT), TLS handshake, Client hello (1):
+} [316 bytes data]
+* (304) (IN), TLS handshake, Server hello (2):
+{ [122 bytes data]
+* (304) (IN), TLS handshake, Unknown (8):
+{ [15 bytes data]
+* (304) (IN), TLS handshake, Certificate (11):
+{ [2579 bytes data]
+* (304) (IN), TLS handshake, CERT verify (15):
+{ [264 bytes data]
+* (304) (IN), TLS handshake, Finished (20):
+{ [36 bytes data]
+* (304) (OUT), TLS handshake, Finished (20):
+} [36 bytes data]
+* SSL connection using TLSv1.3 / AEAD-CHACHA20-POLY1305-SHA256 / [blank] / UNDEF
+* ALPN: server accepted h2
+* Server certificate:
+*  subject: CN=codacli.com
+*  start date: Oct  6 06:52:16 2025 GMT
+*  expire date: Jan  4 06:52:15 2026 GMT
+*  issuer: C=US; O=Let's Encrypt; CN=R12
+*  SSL certificate verify ok.
+* using HTTP/2
+* [HTTP/2] [1] OPENED stream for https://codacli.com/
+* [HTTP/2] [1] [:method: GET]
+* [HTTP/2] [1] [:scheme: https]
+* [HTTP/2] [1] [:authority: codacli.com]
+* [HTTP/2] [1] [:path: /]
+* [HTTP/2] [1] [user-agent: curl/8.7.1]
+* [HTTP/2] [1] [accept: */*]
+> GET / HTTP/2
+> Host: codacli.com
+> User-Agent: curl/8.7.1
+> Accept: */*
+> 
+* Request completely sent off
+< HTTP/2 307 
+< cache-control: public, max-age=0, must-revalidate
+< content-type: text/plain
+< date: Tue, 28 Oct 2025 10:47:11 GMT
+< location: https://www.codacli.com/
+< server: Vercel
+< strict-transport-security: max-age=63072000
+< x-vercel-id: iad1::g8zgd-1761648431755-7e53a8ad0293
+< 
+{ [15 bytes data]
+Redirecting...
+* Connection #0 to host codacli.com left intact
+
+└───────────────────────────────────────
+
+
+┌───────────────────────────────────────
+│ Time elapsed: 26 seconds
+│
+├─────── FINISHED
+└───────────────────────────────────────
+
+
+
+File can be found at /Users/codymitchell/Documents/code/coda/vercel-debug.txt
+
