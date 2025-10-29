@@ -278,9 +278,21 @@ See `.env.example` for full list. Mirror all vars in Vercel for deployments.
 ## Git Workflow & Commits
 
 ### Branch Strategy
-- Main branch: `main`
-- Feature branches: Descriptive names (e.g., `electron-icon-debugging`)
-- Merge to main after testing
+**CRITICAL: Always work on feature branches, never directly on `main`**
+
+1. **Create a feature branch** with a descriptive name (e.g., `fix-meetup-hydration-error`, `feat-add-export-json`)
+2. **Make changes and commit** to the feature branch
+3. **Push the feature branch** to remote: `git push origin <branch-name>`
+4. **Wait for Vercel preview build** to complete and verify it passes
+5. **Merge to main** only after Vercel build succeeds: `git checkout main && git merge <branch-name> --ff-only`
+6. **Push main** to remote: `git push origin main`
+7. **Delete feature branch** locally and remotely:
+   ```bash
+   git branch -d <branch-name>
+   git push origin --delete <branch-name>
+   ```
+
+**Why**: Vercel automatically builds preview deployments for every pushed branch. This allows us to catch build errors, type errors, and deployment issues before they reach production on `main`. Never skip the branch preview build step.
 
 ### Commit Message Format
 Use conventional commits with Claude Code attribution:
