@@ -433,7 +433,28 @@ async function startTTYServer(ctx: RunnerCore, signal: AbortSignal): Promise<Asy
           env: spawnEnv as any,
         });
         activeTerminals.set(socket, { term, socket });
-        let recording: { jobId: string; token: string; buffer: string } | null = null;
+        let recording: { jobId: string; token: string; buffer: string; pendingLines: Array<{ level: string; line: string }> } | null = null;
+        let flushTimer: NodeJS.Timeout | null = null;
+
+        // Throttled log flushing - batch logs and send every 500ms max
+        const flushLogs = async () => {
+          if (!recording || recording.pendingLines.length === 0) return;
+          const linesToSend = recording.pendingLines.splice(0, recording.pendingLines.length);
+          try {
+            await ctx.fetchJson(
+              `${ctx.options.baseUrl}/api/devmode/logs/ingest?jobId=${encodeURIComponent(recording.jobId)}&token=${encodeURIComponent(recording.token)}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ lines: linesToSend }),
+              },
+              false,
+            );
+          } catch {
+            /* ignore */
+          }
+        };
+
         term.onData(async (data: string) => {
           if ((socket as any).readyState === 1) {
             socket.send(data);
@@ -448,16 +469,25 @@ async function startTTYServer(ctx: RunnerCore, signal: AbortSignal): Promise<Asy
                 .map((line) => line.trimEnd())
                 .filter((line) => line.length > 0)
                 .map((line) => ({ level: "info", line }));
+
               if (lines.length) {
-                await ctx.fetchJson(
-                  `${ctx.options.baseUrl}/api/devmode/logs/ingest?jobId=${encodeURIComponent(recording.jobId)}&token=${encodeURIComponent(recording.token)}`,
-                  {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ lines }),
-                  },
-                  false,
-                );
+                recording.pendingLines.push(...lines);
+
+                // Flush immediately if buffer is large (>100 lines) to prevent memory buildup
+                if (recording.pendingLines.length > 100) {
+                  if (flushTimer) {
+                    clearTimeout(flushTimer);
+                    flushTimer = null;
+                  }
+                  await flushLogs();
+                } else {
+                  // Otherwise, debounce the flush to batch multiple lines together
+                  if (flushTimer) clearTimeout(flushTimer);
+                  flushTimer = setTimeout(() => {
+                    flushLogs().catch(() => {});
+                    flushTimer = null;
+                  }, 500);
+                }
               }
             } catch {
               /* ignore */
@@ -474,7 +504,7 @@ async function startTTYServer(ctx: RunnerCore, signal: AbortSignal): Promise<Asy
                 return;
               }
               if (obj?.type === "record" && obj.jobId && obj.token) {
-                recording = { jobId: String(obj.jobId), token: String(obj.token), buffer: "" };
+                recording = { jobId: String(obj.jobId), token: String(obj.token), buffer: "", pendingLines: [] };
                 ctx.log("info", `TTY recording enabled for job ${recording.jobId}`);
                 return;
               }
@@ -595,7 +625,8 @@ async function startRelayClient(ctx: RunnerCore, signal: AbortSignal, relay: Rel
     const pty = (await import("node-pty")) as typeof import("node-pty");
     type Session = {
       term: import("node-pty").IPty;
-      recording?: { jobId: string; token: string; buffer: string } | null;
+      recording?: { jobId: string; token: string; buffer: string; pendingLines: Array<{ level: string; line: string }> } | null;
+      flushTimer?: NodeJS.Timeout | null;
     };
     const sessions = new Map<string, Session>();
     let closed = false;
@@ -759,6 +790,26 @@ async function startRelayClient(ctx: RunnerCore, signal: AbortSignal, relay: Rel
             if (sessionName) {
               send({ type: "meta", sessionId, data: `coda:session:${sessionName}` });
             }
+
+            // Throttled log flushing for relay sessions
+            const flushRelayLogs = async () => {
+              if (!sess.recording || sess.recording.pendingLines.length === 0) return;
+              const linesToSend = sess.recording.pendingLines.splice(0, sess.recording.pendingLines.length);
+              try {
+                await ctx.fetchJson(
+                  `${ctx.options.baseUrl}/api/devmode/logs/ingest?jobId=${encodeURIComponent(sess.recording.jobId)}&token=${encodeURIComponent(sess.recording.token)}`,
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ lines: linesToSend }),
+                  },
+                  false,
+                );
+              } catch {
+                /* ignore */
+              }
+            };
+
             term.onData(async (data) => {
               send({ type: "stdout", sessionId, data });
               if (sess.recording) {
@@ -771,16 +822,25 @@ async function startRelayClient(ctx: RunnerCore, signal: AbortSignal, relay: Rel
                     .map((line) => line.trimEnd())
                     .filter((line) => line.length > 0)
                     .map((line) => ({ level: "info", line }));
+
                   if (lines.length) {
-                    await ctx.fetchJson(
-                      `${ctx.options.baseUrl}/api/devmode/logs/ingest?jobId=${encodeURIComponent(sess.recording.jobId)}&token=${encodeURIComponent(sess.recording.token)}`,
-                      {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ lines }),
-                      },
-                      false,
-                    );
+                    sess.recording.pendingLines.push(...lines);
+
+                    // Flush immediately if buffer is large (>100 lines)
+                    if (sess.recording.pendingLines.length > 100) {
+                      if (sess.flushTimer) {
+                        clearTimeout(sess.flushTimer);
+                        sess.flushTimer = null;
+                      }
+                      await flushRelayLogs();
+                    } else {
+                      // Otherwise, debounce the flush to batch multiple lines together
+                      if (sess.flushTimer) clearTimeout(sess.flushTimer);
+                      sess.flushTimer = setTimeout(() => {
+                        flushRelayLogs().catch(() => {});
+                        sess.flushTimer = null;
+                      }, 500);
+                    }
                   }
                 } catch {
                   /* ignore */
@@ -820,7 +880,8 @@ async function startRelayClient(ctx: RunnerCore, signal: AbortSignal, relay: Rel
           return;
         }
         if (msg.type === "record" && msg.jobId && msg.token) {
-          sess.recording = { jobId: String(msg.jobId), token: String(msg.token), buffer: "" };
+          sess.recording = { jobId: String(msg.jobId), token: String(msg.token), buffer: "", pendingLines: [] };
+          sess.flushTimer = null;
           return;
         }
         if (msg.type === "pick-cwd") {
@@ -1089,6 +1150,7 @@ class RunnerCore implements RunnerHandle {
     const token = this.runnerToken;
     if (!token) return;
     const url = `${this.options.baseUrl}/api/devmode/runners/heartbeat`;
+    let consecutiveHeartbeatErrors = 0;
     const tick = async () => {
       if (this.signal.aborted) return;
       try {
@@ -1100,9 +1162,18 @@ class RunnerCore implements RunnerHandle {
           },
           false,
         );
+        consecutiveHeartbeatErrors = 0; // Reset on success
       } catch (err) {
         if (!isAbortError(err)) {
-          this.log("warn", "Heartbeat failed", { error: (err as Error).message });
+          consecutiveHeartbeatErrors++;
+          // Only log every 5th error to avoid spam
+          if (consecutiveHeartbeatErrors % 5 === 1) {
+            this.log("warn", "Heartbeat failed", {
+              error: (err as Error).message,
+              baseUrl: this.options.baseUrl,
+              consecutiveErrors: consecutiveHeartbeatErrors
+            });
+          }
         }
       }
     };
@@ -1134,6 +1205,9 @@ class RunnerCore implements RunnerHandle {
     const env = this.options.env;
     const codexCmd = this.options.codex.command;
     const codexArgs = this.options.codex.args;
+    let consecutiveErrors = 0;
+    const maxBackoffMs = 60000; // Cap at 60 seconds
+
     while (!this.signal.aborted) {
       try {
         const poll = await this.fetchRaw(
@@ -1141,10 +1215,19 @@ class RunnerCore implements RunnerHandle {
         );
         if (!poll.ok) {
           const payload = await poll.text();
-          this.log("warn", "Job poll failed", { status: poll.status, payload });
-          await waitFor(this.signal, 2000);
+          consecutiveErrors++;
+          const backoffMs = Math.min(maxBackoffMs, 2000 * Math.pow(2, Math.min(consecutiveErrors - 1, 5)));
+          this.log("warn", "Job poll failed", {
+            status: poll.status,
+            payload,
+            baseUrl,
+            consecutiveErrors,
+            nextRetryMs: backoffMs
+          });
+          await waitFor(this.signal, backoffMs);
           continue;
         }
+        consecutiveErrors = 0; // Reset on success
         const data = (await poll.json()) as { job: any | null; wsToken?: string };
         if (!data.job) {
           await waitFor(this.signal, this.options.jobPollIntervalMs);
@@ -1236,8 +1319,15 @@ class RunnerCore implements RunnerHandle {
         }
       } catch (err) {
         if (this.signal.aborted) break;
-        this.log("warn", "Runner loop error", { error: (err as Error).message });
-        await waitFor(this.signal, 2000);
+        consecutiveErrors++;
+        const backoffMs = Math.min(maxBackoffMs, 2000 * Math.pow(2, Math.min(consecutiveErrors - 1, 5)));
+        this.log("warn", "Runner loop error", {
+          error: (err as Error).message,
+          baseUrl,
+          consecutiveErrors,
+          nextRetryMs: backoffMs
+        });
+        await waitFor(this.signal, backoffMs);
       }
     }
   }

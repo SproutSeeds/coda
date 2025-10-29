@@ -64,7 +64,7 @@ function getStore(): Promise<ElectronStore> {
 }
 
 const DEFAULT_SETTINGS = (): RunnerSettings => ({
-  baseUrl: process.env.RUNNER_DEFAULT_BASE_URL || "https://www.codacli.com",
+  baseUrl: process.env.RUNNER_DEFAULT_BASE_URL || "https://codacli.com",
   relayUrl: process.env.RUNNER_DEFAULT_RELAY_URL || "wss://relay-falling-butterfly-779.fly.dev",
   deviceId: process.env.RUNNER_DEFAULT_DEVICE_ID || `${os.hostname()}-${os.userInfo().username}`,
   deviceName: process.env.RUNNER_DEFAULT_DEVICE_NAME || os.userInfo().username || "Desktop Runner",
