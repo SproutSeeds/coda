@@ -71,6 +71,7 @@ export default function App() {
   const [ideaId, setIdeaId] = useState("");
   const [sessionSlot, setSessionSlot] = useState("primary");
   const [logsMinimized, setLogsMinimized] = useState(false);
+  const [allLogsCopied, setAllLogsCopied] = useState(false);
 
   useEffect(() => {
     try {
@@ -618,12 +619,48 @@ export default function App() {
 
         <Card className={cn("flex flex-col overflow-hidden transition-all", logsMinimized ? "h-auto" : "h-full")}>
           <CardHeader className="flex flex-row items-center justify-between border-b border-border/60 bg-card/80">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Terminal className="size-5 text-primary" />
-                Runner Activity
-              </CardTitle>
-              {!logsMinimized && <CardDescription>The most recent entries appear at the bottom.</CardDescription>}
+            <div className="flex items-center gap-3">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Terminal className="size-5 text-primary" />
+                  Runner Activity
+                </CardTitle>
+                {!logsMinimized && <CardDescription>The most recent entries appear at the bottom.</CardDescription>}
+              </div>
+              {!logsMinimized && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="app-no-drag size-8"
+                  onClick={async () => {
+                    const logs = snapshot?.logs ?? [];
+                    if (logs.length === 0) return;
+
+                    const allLogsText = logs
+                      .map((entry) => {
+                        const timestamp = new Date(entry.timestamp).toLocaleString();
+                        const context = entry.context ? `\n${JSON.stringify(entry.context, null, 2)}` : '';
+                        return `[${timestamp}] [${entry.level.toUpperCase()}] ${entry.message}${context}`;
+                      })
+                      .join('\n\n');
+
+                    try {
+                      await navigator.clipboard.writeText(allLogsText);
+                      setAllLogsCopied(true);
+                      setTimeout(() => setAllLogsCopied(false), 1500);
+                    } catch {
+                      // ignore
+                    }
+                  }}
+                  title="Copy all logs"
+                >
+                  {allLogsCopied ? (
+                    <Check className="size-4 text-emerald-500" />
+                  ) : (
+                    <Copy className="size-4" />
+                  )}
+                </Button>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <Button
