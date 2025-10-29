@@ -15,6 +15,7 @@ type Session = {
   minimized: boolean;
   include: boolean;
   mode: "terminal" | "agent";
+  slotId: string; // Unique slot identifier for independent tmux sessions (slot-1, slot-2, etc.)
 };
 
 type CombinedLine = { ts: number; sessionId: string; text: string };
@@ -63,7 +64,12 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
     try {
       const raw = localStorage.getItem(storageKey);
       if (raw) {
-        const parsed = (JSON.parse(raw) as any[]).map((s) => ({ include: true, mode: (s as any).mode || "terminal", ...s })) as Session[];
+        const parsed = (JSON.parse(raw) as any[]).map((s, index) => ({
+          include: true,
+          mode: (s as any).mode || "terminal",
+          slotId: (s as any).slotId || `slot-${index + 1}`, // Migrate old sessions without slotId
+          ...s
+        })) as Session[];
         setSessions(parsed);
         if (parsed.length) setActiveId(parsed[0].id);
       }
@@ -212,9 +218,35 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
   };
 
   const addSession = (mode: "terminal" | "agent") => {
+    // Enforce maximum of 7 terminals
+    if (sessions.length >= 7) {
+      toast.error("Maximum of 7 terminals per idea");
+      return;
+    }
+
     const n = sessions.length + 1;
     const label = mode === "agent" ? "Agent" : "Terminal";
-    const s: Session = { id: crypto.randomUUID(), title: `${label} ${n}`, url: "", minimized: false, include: true, mode };
+
+    // Find next available slot (1-7)
+    const usedSlots = new Set(sessions.map(s => s.slotId));
+    let nextSlot = "";
+    for (let i = 1; i <= 7; i++) {
+      const slotId = `slot-${i}`;
+      if (!usedSlots.has(slotId)) {
+        nextSlot = slotId;
+        break;
+      }
+    }
+
+    const s: Session = {
+      id: crypto.randomUUID(),
+      title: `${label} ${n}`,
+      url: "",
+      minimized: false,
+      include: true,
+      mode,
+      slotId: nextSlot
+    };
     const next = [...sessions, s];
     persist(next);
     setActiveId(s.id);
@@ -473,6 +505,7 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
                     visible={activeId === s.id}
                     onOutput={(text) => onOutput(s.id, text)}
                     ideaId={ideaId}
+                    sessionSlot={s.slotId}
                     projectRoot={projectRoot || null}
                     codexSessionId={codexSession || null}
                     onProjectRootDetected={(path) => notifyRootSet(path)}

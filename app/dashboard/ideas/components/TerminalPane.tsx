@@ -37,6 +37,7 @@ export function TerminalPane({
   onCodexSessionDetected,
   autoConnect = false,
   onNoRunner,
+  sessionSlot,
 }: {
   runnerId?: string | null;
   initialUrl?: string;
@@ -53,6 +54,7 @@ export function TerminalPane({
   onCodexSessionDetected?: (id: string) => void;
   autoConnect?: boolean;
   onNoRunner?: () => void;
+  sessionSlot?: string;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [ready, setReady] = useState(false);
@@ -159,6 +161,7 @@ export function TerminalPane({
               ideaId,
               runnerId: runnerId || null,
               projectRoot: projectRoot || null,
+              sessionSlot: sessionSlot || "slot-1",
             }),
           });
           if (res.ok) {

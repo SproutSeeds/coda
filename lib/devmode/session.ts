@@ -16,6 +16,7 @@ export async function mintClientSessionToken(params: {
   ideaId?: string | null;
   runnerId?: string | null;
   projectRoot?: string | null;
+  sessionSlot?: string | null;
   ttlSec?: number;
 }) {
   const secret = env("DEVMODE_JWT_SECRET");
@@ -28,6 +29,7 @@ export async function mintClientSessionToken(params: {
     ideaId: params.ideaId ?? undefined,
     runnerId: params.runnerId ?? undefined,
     projectRoot: params.projectRoot ?? undefined,
+    sessionSlot: params.sessionSlot ?? undefined,
   })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt(now)

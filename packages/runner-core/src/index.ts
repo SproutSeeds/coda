@@ -738,9 +738,12 @@ async function startRelayClient(ctx: RunnerCore, signal: AbortSignal, relay: Rel
             let sessionName: string | null = null;
             if (useTmux) {
               const staticName = ctx.options.tty.sessionName?.trim();
+              const slotSuffix = (typeof msg.sessionSlot === "string" && msg.sessionSlot.trim() !== "")
+                ? `-${msg.sessionSlot}`
+                : "";
               sessionName = staticName && staticName.length > 0
-                ? staticName
-                : `${ctx.options.tty.sessionPrefix}-${Math.random().toString(36).slice(2, 8)}`;
+                ? `${staticName}${slotSuffix}`
+                : `${ctx.options.tty.sessionPrefix}-${Math.random().toString(36).slice(2, 8)}${slotSuffix}`;
 
               // First, ensure the tmux session exists by creating it detached if needed
               const { execSync } = await import("child_process");

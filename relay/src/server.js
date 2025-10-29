@@ -98,7 +98,7 @@ wss.on('connection', async (ws) => {
   const token = ws._qs.get('token');
   let payload;
   try { payload = await verify(token); } catch { ws.close(1008, 'unauthorized'); return; }
-  const { type, sessionId, userId, runnerId, projectRoot } = payload;
+  const { type, sessionId, userId, runnerId, projectRoot, sessionSlot } = payload;
   if (type !== 'client' || !sessionId || !userId) { ws.close(1008, 'invalid session claims'); return; }
   // Find a runner either by explicit runnerId or by user match
   let runnerEntry = null;
@@ -116,6 +116,9 @@ wss.on('connection', async (ws) => {
   const openMessage = { type: 'session-open', sessionId: String(sessionId) };
   if (projectRoot && typeof projectRoot === 'string' && projectRoot.trim() !== '') {
     openMessage.cwd = projectRoot;
+  }
+  if (sessionSlot && typeof sessionSlot === 'string' && sessionSlot.trim() !== '') {
+    openMessage.sessionSlot = sessionSlot;
   }
   send(runnerEntry.ws, openMessage);
   ws.on('message', (data) => {

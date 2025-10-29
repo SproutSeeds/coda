@@ -8,10 +8,11 @@ export async function POST(req: Request) {
   const user = await requireUser();
   const relayUrl = process.env.DEVMODE_RELAY_URL || "wss://relay-falling-butterfly-779.fly.dev";
   try {
-    const { ideaId, runnerId, projectRoot } = (await req.json().catch(() => ({}))) as {
+    const { ideaId, runnerId, projectRoot, sessionSlot } = (await req.json().catch(() => ({}))) as {
       ideaId?: string;
       runnerId?: string | null;
       projectRoot?: string | null;
+      sessionSlot?: string;
     };
     const sessionId = crypto.randomUUID();
     const token = await mintClientSessionToken({
@@ -20,6 +21,7 @@ export async function POST(req: Request) {
       ideaId: ideaId || undefined,
       runnerId: runnerId || undefined,
       projectRoot: projectRoot || undefined,
+      sessionSlot: sessionSlot || "slot-1",
       ttlSec: 10 * 60,
     });
     return NextResponse.json({ relayUrl, sessionId, token });
