@@ -4,12 +4,14 @@ import type {
   PairingSuccessPayload,
   RunnerLogEntry,
   RunnerStatus,
+  ActiveSession,
 } from "@coda/runner-core";
 
 type RunnerSnapshot = {
   status: RunnerStatus;
   logs: Array<RunnerLogEntry & { timestamp: string }>;
   pairingCode: PairingCodePayload | null;
+  activeSessions: ActiveSession[];
 };
 
 type RunnerSettings = {

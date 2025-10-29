@@ -113,20 +113,20 @@ export default function App() {
 
     const unsubStatus = window.runner.onStatus((status) =>
       setSnapshot((prev) => {
-        if (!prev) return { status, logs: [], pairingCode: null };
+        if (!prev) return { status, logs: [], pairingCode: null, activeSessions: [] };
         return { ...prev, status };
       }),
     );
     const unsubLog = window.runner.onLog((entry) =>
       setSnapshot((prev) => {
-        if (!prev) return { status: "stopped", logs: [entry], pairingCode: null };
+        if (!prev) return { status: "stopped", logs: [entry], pairingCode: null, activeSessions: [] };
         return { ...prev, logs: [...prev.logs, entry].slice(-200) };
       }),
     );
     const unsubPair = window.runner.onPairingCode((payload) =>
       setSnapshot((prev) => {
         setCopied(false);
-        if (!prev) return { status: "pairing", logs: [], pairingCode: payload };
+        if (!prev) return { status: "pairing", logs: [], pairingCode: payload, activeSessions: [] };
         return { ...prev, pairingCode: payload, status: "pairing" };
       }),
     );
@@ -137,12 +137,24 @@ export default function App() {
       }),
     );
     const unsubError = window.runner.onError((message) => setError(message));
+
+    // Poll for active sessions every 3 seconds
+    const intervalId = setInterval(async () => {
+      try {
+        const freshSnapshot = await window.runner.getSnapshot();
+        setSnapshot((prev) => prev ? { ...prev, activeSessions: freshSnapshot.activeSessions } : freshSnapshot);
+      } catch {
+        // ignore polling errors
+      }
+    }, 3000);
+
     return () => {
       unsubStatus();
       unsubLog();
       unsubPair();
       unsubPairSuccess();
       unsubError();
+      clearInterval(intervalId);
     };
   }, []);
 
@@ -563,6 +575,42 @@ export default function App() {
                   Want a dedicated TMUX window per idea? Launch <code>tmux new-window -t {sessionName}</code> after initialising, then split panes as usual—both the browser and your local terminal will reflect every change instantly.
                 </p>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="space-y-1">
+              <CardTitle className="flex items-center gap-2">
+                <Terminal className="size-5 text-primary" />
+                Active Terminal Connections
+              </CardTitle>
+              <CardDescription>Sessions currently connected to this runner.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {snapshot?.activeSessions && snapshot.activeSessions.length > 0 ? (
+                <div className="space-y-2">
+                  {snapshot.activeSessions.map((session) => (
+                    <div
+                      key={session.sessionId}
+                      className="flex items-center justify-between rounded-md border border-border/60 bg-muted/30 px-4 py-3"
+                    >
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="size-2 rounded-full bg-emerald-500" />
+                          <code className="text-sm font-medium">{session.sessionName || session.sessionId.slice(0, 8)}</code>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {session.pid ? `PID: ${session.pid}` : "No PID"} • Connected {new Date(session.connectedAt).toLocaleTimeString()}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+                  No active terminal connections. Open a terminal in the web app to see connections here.
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

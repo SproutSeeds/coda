@@ -82,9 +82,17 @@ export interface RunnerOptions {
   jobPollIntervalMs?: number;
 }
 
+export interface ActiveSession {
+  sessionId: string;
+  sessionName: string | null;
+  pid: number | null;
+  connectedAt: Date;
+}
+
 export interface RunnerHandle {
   stop(): Promise<void>;
   status(): RunnerStatus;
+  getActiveSessions(): ActiveSession[];
 }
 
 type MutableEnv = Record<string, string | undefined>;
@@ -642,6 +650,8 @@ async function startRelayClient(ctx: RunnerCore, signal: AbortSignal, relay: Rel
         const sess = sessions.get(sid);
         if (!sess) return;
         sessions.delete(sid);
+        // Remove from active sessions tracking
+        (ctx as any).activeSessions.delete(sid);
         try {
           sess.term.kill();
         } catch {
@@ -790,6 +800,15 @@ async function startRelayClient(ctx: RunnerCore, signal: AbortSignal, relay: Rel
             const sess: Session = { term, recording: null };
             sessions.set(sessionId, sess);
             ctx.log("info", "[relay] Session created", { sessionId, pid: term.pid });
+
+            // Track active session in RunnerCore
+            (ctx as any).activeSessions.set(sessionId, {
+              sessionId,
+              sessionName,
+              pid: term.pid ?? null,
+              connectedAt: new Date(),
+            });
+
             if (sessionName) {
               send({ type: "meta", sessionId, data: `coda:session:${sessionName}` });
             }
@@ -933,6 +952,8 @@ async function startRelayClient(ctx: RunnerCore, signal: AbortSignal, relay: Rel
       aborters.clear();
       for (const [sid, session] of sessions) {
         sessions.delete(sid);
+        // Remove from active sessions tracking
+        (ctx as any).activeSessions.delete(sid);
         try {
           session.term.kill();
         } catch {
@@ -969,6 +990,7 @@ class RunnerCore implements RunnerHandle {
   private runnerToken: string | undefined;
   private runnerId: string;
   private relayUrl?: string;
+  private activeSessions: Map<string, ActiveSession> = new Map();
 
   constructor(options: RunnerOptions) {
     this.options = normalizeOptions(options);
@@ -992,6 +1014,10 @@ class RunnerCore implements RunnerHandle {
 
   status(): RunnerStatus {
     return this.statusValue;
+  }
+
+  getActiveSessions(): ActiveSession[] {
+    return Array.from(this.activeSessions.values());
   }
 
   private get signal(): AbortSignal {

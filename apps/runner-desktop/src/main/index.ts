@@ -158,6 +158,7 @@ class RunnerManager {
       status: this.status,
       logs: this.logs,
       pairingCode: this.pairingCode,
+      activeSessions: this.handle?.getActiveSessions() ?? [],
     };
   }
 
