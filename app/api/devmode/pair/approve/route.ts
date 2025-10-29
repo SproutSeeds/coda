@@ -28,7 +28,34 @@ export async function POST(req: Request) {
   if (!pairing) return NextResponse.json({ error: "Code not found or expired" }, { status: 404 });
   if (pairing.state === "approved") return NextResponse.json({ ok: true });
 
-  const runnerId = (body.runnerId && body.runnerId.trim()) || `runner-${crypto.randomUUID().slice(0, 8)}`;
+  // Reuse existing runnerId for this device if one exists
+  let runnerId = body.runnerId?.trim();
+  const deviceId = pairing.deviceId;
+  if (!runnerId && deviceId && deviceId.trim()) {
+    // Look for an existing approved pairing with the same deviceId and userId
+    const existing = await withDevModeBootstrap(() =>
+      db
+        .select({ runnerId: devPairings.runnerId })
+        .from(devPairings)
+        .where(
+          and(
+            eq(devPairings.deviceId, deviceId),
+            eq(devPairings.userId, user.id),
+            eq(devPairings.state, "approved")
+          )
+        )
+        .orderBy(sql`${devPairings.approvedAt} DESC`)
+        .limit(1)
+    );
+    if (existing[0]?.runnerId) {
+      runnerId = existing[0].runnerId;
+    }
+  }
+  // Generate new runnerId if still not found
+  if (!runnerId) {
+    runnerId = `runner-${crypto.randomUUID().slice(0, 8)}`;
+  }
+
   const jti = pairing.id as string;
   const token = await mintRunnerToken({ runnerId, userId: user.id, jti });
   const [updated] = await withDevModeBootstrap(() =>

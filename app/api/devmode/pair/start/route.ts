@@ -13,9 +13,13 @@ function generateCode() {
   return `${raw.slice(0, 3)}-${raw.slice(3)}`;
 }
 
-export async function POST() {
+export async function POST(req: Request) {
   const db = getDb();
   const errors: string[] = [];
+
+  // Accept deviceId from runner to enable stable runner ID reuse
+  const body = (await req.json().catch(() => ({}))) as { deviceId?: string };
+  const deviceId = body.deviceId?.trim() || null;
 
   // Try a few times to avoid rare code collisions
   for (let i = 0; i < 5; i++) {
@@ -25,7 +29,7 @@ export async function POST() {
       const out = await withDevModeBootstrap(async () => {
         const [row] = await db
           .insert(devPairings)
-          .values({ code, state: "pending", expiresAt })
+          .values({ code, state: "pending", expiresAt, deviceId })
           .returning();
         return row;
       });

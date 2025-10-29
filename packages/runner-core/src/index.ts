@@ -1119,7 +1119,11 @@ class RunnerCore implements RunnerHandle {
     this.setStatus("pairing");
     const startRes = await this.fetchJson<{ code: string; expiresAt: string }>(
       `${this.options.baseUrl}/api/devmode/pair/start`,
-      { method: "POST" },
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deviceId: this.options.runnerId }),
+      },
     );
     const expiresAt = new Date(startRes.expiresAt);
     this.events.onPairingCode?.({ code: startRes.code, expiresAt });

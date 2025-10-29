@@ -356,6 +356,7 @@ export const devPairings = pgTable(
     state: text("state").notNull().default("pending"),
     userId: text("user_id"),
     runnerId: text("runner_id"),
+    deviceId: text("device_id"), // Stable device identifier (e.g., hostname-username)
     runnerToken: text("runner_token"),
     runnerTokenJti: text("runner_token_jti"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -365,5 +366,7 @@ export const devPairings = pgTable(
   },
   (table) => ({
     codeIdx: index("idx_dev_pairings_code").on(table.code),
+    deviceIdx: index("idx_dev_pairings_device_id").on(table.deviceId),
+    userRunnerIdx: index("idx_dev_pairings_user_runner").on(table.userId, table.runnerId).where(sql`state = 'approved'`),
   }),
 );
