@@ -60,12 +60,17 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
             <p className="text-sm text-muted-foreground">No check-ins yet. Catch us Saturdays 11 AM – 1 PM CST to start your streak.</p>
           ) : (
             <ol className="space-y-2 text-sm text-muted-foreground">
-              {attendance.map((entry, index) => (
-                <li key={entry.id ?? `${index}-${entry.createdAt}`} className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/30 px-4 py-2">
-                  <span className="font-medium text-foreground">Meeting #{attendance.length - index}</span>
-                  <span>{attendanceFormatter.format(entry.createdAt ?? new Date())}</span>
-                </li>
-              ))}
+              {attendance.map((entry, index) => {
+                // Only render if we have a valid timestamp to prevent hydration mismatches
+                if (!entry.createdAt) return null;
+
+                return (
+                  <li key={entry.id ?? `${index}-${entry.createdAt}`} className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/30 px-4 py-2">
+                    <span className="font-medium text-foreground">Meeting #{attendance.length - index}</span>
+                    <span>{attendanceFormatter.format(entry.createdAt)}</span>
+                  </li>
+                );
+              })}
             </ol>
           )}
         </CardContent>
