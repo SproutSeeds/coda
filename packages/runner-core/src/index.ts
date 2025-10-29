@@ -700,7 +700,10 @@ async function startRelayClient(ctx: RunnerCore, signal: AbortSignal, relay: Rel
         let msg: any;
         try {
           msg = JSON.parse(String(raw));
-          ctx.log("info", "[relay] Received message", { type: msg?.type, sessionId: msg?.sessionId });
+          // Only log important messages, skip noisy stdin/resize messages
+          if (msg?.type !== "stdin" && msg?.type !== "resize") {
+            ctx.log("info", "[relay] Received message", { type: msg?.type, sessionId: msg?.sessionId });
+          }
         } catch {
           return;
         }
