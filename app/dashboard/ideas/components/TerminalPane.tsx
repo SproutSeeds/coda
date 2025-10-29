@@ -404,19 +404,32 @@ export function TerminalPane({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onRegisterPicker, wsRef.current, connected]);
 
-  // Send resize messages to PTY on container size changes
+  // Send resize messages to PTY only when terminal dimensions actually change
   useEffect(() => {
-    const id = setInterval(() => {
+    if (!connected) return;
+    const term = termRef.current;
+    const ws = wsRef.current;
+    if (!term || !ws) return;
+
+    let lastCols = term.cols;
+    let lastRows = term.rows;
+
+    const checkResize = () => {
       try {
-        if (!connected) return;
-        const term = termRef.current;
-        const ws = wsRef.current;
-        if (!term || !ws || ws.readyState !== WebSocket.OPEN) return;
+        if (ws.readyState !== WebSocket.OPEN) return;
         const cols = term.cols;
         const rows = term.rows;
-        ws.send(JSON.stringify({ type: "resize", cols, rows }));
+        // Only send resize if dimensions actually changed
+        if (cols !== lastCols || rows !== lastRows) {
+          ws.send(JSON.stringify({ type: "resize", cols, rows }));
+          lastCols = cols;
+          lastRows = rows;
+        }
       } catch {}
-    }, 1500);
+    };
+
+    // Check for size changes every 2 seconds (reduced frequency)
+    const id = setInterval(checkResize, 2000);
     return () => clearInterval(id);
   }, [connected]);
 
