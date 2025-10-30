@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getDevDb as getDb } from "@/lib/db";
 import { devPairings } from "@/lib/db/schema";
 import { withDevModeBootstrap } from "@/lib/devmode/bootstrap";
-import { sql } from "drizzle-orm";
+import { sql, eq, and } from "drizzle-orm";
 
 export const runtime = "nodejs";
 
@@ -20,6 +20,20 @@ export async function POST(req: Request) {
   // Accept deviceId from runner to enable stable runner ID reuse
   const body = (await req.json().catch(() => ({}))) as { deviceId?: string };
   const deviceId = body.deviceId?.trim() || null;
+
+  // Clear any existing pending pairing codes for this deviceId to ensure only one active code
+  if (deviceId) {
+    try {
+      await withDevModeBootstrap(async () => {
+        await db
+          .delete(devPairings)
+          .where(and(eq(devPairings.deviceId, deviceId), eq(devPairings.state, "pending")));
+      });
+    } catch (err) {
+      console.warn("[pair/start] Failed to clear old pending codes:", err);
+      // Continue anyway - this is not critical
+    }
+  }
 
   // Try a few times to avoid rare code collisions
   for (let i = 0; i < 5; i++) {

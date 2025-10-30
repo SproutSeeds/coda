@@ -16,6 +16,7 @@ type Session = {
   include: boolean;
   mode: "terminal" | "agent";
   slotId: string; // Unique slot identifier for independent tmux sessions (slot-1, slot-2, etc.)
+  connected?: boolean; // Track if terminal is currently connected
 };
 
 type CombinedLine = { ts: number; sessionId: string; text: string };
@@ -245,11 +246,17 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
       minimized: false,
       include: true,
       mode,
-      slotId: nextSlot
+      slotId: nextSlot,
+      connected: false
     };
     const next = [...sessions, s];
     persist(next);
     setActiveId(s.id);
+  };
+
+  const updateConnectionState = (id: string, connected: boolean) => {
+    const next = sessions.map((s) => (s.id === id ? { ...s, connected } : s));
+    persist(next);
   };
 
   const closeSession = (id: string) => {
@@ -453,6 +460,10 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
               }`}
               role="button"
             >
+              <span
+                className={`h-2 w-2 rounded-full ${s.connected ? "bg-emerald-500" : "bg-muted-foreground/40"}`}
+                title={s.connected ? "Connected" : "Disconnected"}
+              />
               <Input
                 value={s.title}
                 onChange={(e) => rename(s.id, e.target.value)}
@@ -515,6 +526,7 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
                     onCodexSessionDetected={(sid) => persistCodexSession(sid)}
                     autoConnect={true}
                     onNoRunner={() => setNoRunner(true)}
+                    onConnectionChange={(connected) => updateConnectionState(s.id, connected)}
                   />
                 )}
               </div>

@@ -368,3 +368,53 @@ ipcMain.handle("runner:open-pair", async (_event, url: string) => {
 ipcMain.handle("runner:clear-token", async () => {
   await runnerManager.clearToken();
 });
+
+ipcMain.handle("runner:list-tmux-sessions", async () => {
+  const { execSync } = await import("child_process");
+  try {
+    const output = execSync("tmux list-sessions -F '#{session_name}|#{session_created}|#{session_attached}'", {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    const sessions = output
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => {
+        const [name, created, attached] = line.split("|");
+        return {
+          name,
+          created: parseInt(created, 10) * 1000, // Convert to milliseconds
+          attached: attached === "1",
+        };
+      });
+    return sessions;
+  } catch (error) {
+    // No sessions or tmux not available
+    return [];
+  }
+});
+
+ipcMain.handle("runner:kill-tmux-session", async (_event, sessionName: string) => {
+  const { execSync } = await import("child_process");
+  try {
+    execSync(`tmux kill-session -t ${JSON.stringify(sessionName)}`, {
+      stdio: "ignore",
+    });
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
+});
+
+ipcMain.handle("runner:kill-all-tmux-sessions", async () => {
+  const { execSync } = await import("child_process");
+  try {
+    execSync("tmux kill-server", {
+      stdio: "ignore",
+    });
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
+});

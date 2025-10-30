@@ -383,7 +383,10 @@ async function startTTYServer(ctx: RunnerCore, signal: AbortSignal): Promise<Asy
             "/bin",
             process.env.PATH || ""
           ].filter(Boolean).join(":");
-          const execOptions = { env: { ...process.env, PATH: extendedPath } };
+          const execOptions = {
+            env: { ...process.env, PATH: extendedPath },
+            stdio: 'ignore' as const // Prevent EPIPE errors by ignoring stdio
+          };
 
           try {
             execSync(`tmux has-session -t ${sessionName} 2>/dev/null`, execOptions);
@@ -715,12 +718,20 @@ async function startRelayClient(ctx: RunnerCore, signal: AbortSignal, relay: Rel
             let sessionName: string | null = null;
             if (useTmux) {
               const staticName = ctx.options.tty.sessionName?.trim();
+              const ideaSuffix = (typeof msg.ideaId === "string" && msg.ideaId.trim() !== "")
+                ? `-${msg.ideaId}`
+                : "";
               const slotSuffix = (typeof msg.sessionSlot === "string" && msg.sessionSlot.trim() !== "")
                 ? `-${msg.sessionSlot}`
                 : "";
+
+              // Use stable session names based on ideaId + slot for reliable reconnection
+              // Format: {prefix}-{ideaId}-{slot} or {prefix}-{slot} if no ideaId
               const rawSessionName = staticName && staticName.length > 0
-                ? `${staticName}${slotSuffix}`
-                : `${ctx.options.tty.sessionPrefix}-${Math.random().toString(36).slice(2, 8)}${slotSuffix}`;
+                ? `${staticName}${ideaSuffix}${slotSuffix}`
+                : (ideaSuffix.length > 0 || slotSuffix.length > 0)
+                  ? `${ctx.options.tty.sessionPrefix}${ideaSuffix}${slotSuffix}`
+                  : `${ctx.options.tty.sessionPrefix}-${Math.random().toString(36).slice(2, 8)}`;
 
               // Sanitize session name: tmux converts dots and other special chars to underscores
               // Do this manually to ensure consistency between creation and attachment
@@ -736,7 +747,10 @@ async function startRelayClient(ctx: RunnerCore, signal: AbortSignal, relay: Rel
                 "/bin",
                 process.env.PATH || ""
               ].filter(Boolean).join(":");
-              const execOptions = { env: { ...process.env, PATH: extendedPath } };
+              const execOptions = {
+                env: { ...process.env, PATH: extendedPath },
+                stdio: 'ignore' as const // Prevent EPIPE errors by ignoring stdio
+              };
 
               try {
                 execSync(`tmux has-session -t ${sessionName} 2>/dev/null`, execOptions);

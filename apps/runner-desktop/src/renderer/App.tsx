@@ -69,6 +69,8 @@ export default function App() {
   const [copiedSessionId, setCopiedSessionId] = useState<string | null>(null);
   const [logsMinimized, setLogsMinimized] = useState(false);
   const [allLogsCopied, setAllLogsCopied] = useState(false);
+  const [tmuxSessions, setTmuxSessions] = useState<Array<{ name: string; created: number; attached: boolean }>>([]);
+  const [isLoadingTmux, setIsLoadingTmux] = useState(false);
 
   useEffect(() => {
     async function bootstrap() {
@@ -103,7 +105,8 @@ export default function App() {
     const unsubPairSuccess = window.runner.onPairingSuccess(() =>
       setSnapshot((prev) => {
         if (!prev) return prev;
-        return { ...prev, pairingCode: null };
+        // Keep the pairing code visible even after success so it's always copyable
+        return { ...prev };
       }),
     );
     const unsubError = window.runner.onError((message) => setError(message));
@@ -130,7 +133,18 @@ export default function App() {
 
   const statusInfo = useMemo(() => {
     if (!snapshot) return { label: "Loading…", tone: "info" as const };
-    return statusCopy[snapshot.status] ?? { label: snapshot.status, tone: "info" as const };
+    const base = statusCopy[snapshot.status] ?? { label: snapshot.status, tone: "info" as const };
+
+    // Add connection count when online and there are active sessions
+    if (snapshot.status === "online" && snapshot.activeSessions && snapshot.activeSessions.length > 0) {
+      const count = snapshot.activeSessions.length;
+      return {
+        ...base,
+        label: `${base.label} • ${count} terminal${count === 1 ? '' : 's'}`,
+      };
+    }
+
+    return base;
   }, [snapshot]);
 
   async function handleSave(next: RunnerSettings) {
@@ -187,6 +201,44 @@ export default function App() {
   function hasDirtySettings() {
     if (!settings || !pendingSettings) return false;
     return JSON.stringify(settings) !== JSON.stringify(pendingSettings);
+  }
+
+  async function refreshTmuxSessions() {
+    setIsLoadingTmux(true);
+    try {
+      const sessions = await window.runner.listTmuxSessions();
+      setTmuxSessions(sessions);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsLoadingTmux(false);
+    }
+  }
+
+  async function killTmuxSession(sessionName: string) {
+    try {
+      const result = await window.runner.killTmuxSession(sessionName);
+      if (result.success) {
+        await refreshTmuxSessions();
+      } else {
+        setError(result.error || "Failed to kill session");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function killAllTmuxSessions() {
+    try {
+      const result = await window.runner.killAllTmuxSessions();
+      if (result.success) {
+        setTmuxSessions([]);
+      } else {
+        setError(result.error || "Failed to kill all sessions");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
   }
 
   const pairingUrl = pendingSettings?.baseUrl?.replace(/\/$/, "") + "/dashboard/devmode/pair";
@@ -329,7 +381,7 @@ export default function App() {
               {snapshot?.pairingCode ? (
                 <div className="rounded-lg border border-primary/40 bg-primary/10 px-4 py-4 text-center">
                   <div className="flex items-center justify-center gap-2 text-sm font-medium text-primary">
-                    Enter this code on the Dev Mode → Pair page
+                    {snapshot.status === "online" ? "Last Pairing Code" : "Enter this code on the Dev Mode → Pair page"}
                     <Button
                       variant="ghost"
                       size="icon"
@@ -346,36 +398,58 @@ export default function App() {
                       {copied ? <Check className="size-4 text-emerald-500" /> : <Copy className="size-4" />}
                     </Button>
                   </div>
-                  <div className="mt-2 text-3xl font-semibold tracking-[0.65rem] text-primary-foreground">{snapshot.pairingCode.code}</div>
-                  <div className="mt-2 text-xs text-muted-foreground">
-                    Expires at {snapshot.pairingCode.expiresAt.toLocaleString?.() ?? snapshot.pairingCode.expiresAt.toString()}
+                  <div className="mt-2 flex items-center justify-center gap-2">
+                    <div className="text-3xl font-semibold tracking-[0.65rem] text-primary-foreground">{snapshot.pairingCode.code}</div>
+                    {snapshot.status === "online" && <span className="text-sm text-emerald-500">✓ Approved</span>}
                   </div>
-                  <Button className="mt-4" variant="ghost" onClick={() => pairingUrl && window.runner.openPairPage(pairingUrl)}>
-                    Open Pairing Page
-                    <ExternalLink className="size-4" />
-                  </Button>
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    {snapshot.status === "online"
+                      ? "Runner is paired and online"
+                      : `Expires at ${snapshot.pairingCode.expiresAt.toLocaleString?.() ?? snapshot.pairingCode.expiresAt.toString()}`}
+                  </div>
+                  {snapshot.status !== "online" && (
+                    <Button className="mt-4" variant="ghost" onClick={() => pairingUrl && window.runner.openPairPage(pairingUrl)}>
+                      Open Pairing Page
+                      <ExternalLink className="size-4" />
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
-                  Pairing codes will surface here whenever the runner needs approval.
+                  {snapshot?.status === "online"
+                    ? "Paired and online. No pairing code needed."
+                    : "Pairing code will appear here when needed."}
                 </div>
               )}
 
               <div className="rounded-md border border-muted/60 bg-muted/10 px-3 py-3 text-xs text-muted-foreground">
-                Resetting pairing clears the stored relay token. Use this if you need to move the runner to a new environment.
+                Resetting pairing will:
+                <ul className="mt-1 list-inside list-disc space-y-0.5">
+                  <li>Clear the stored relay token</li>
+                  <li>Disconnect all active web terminals</li>
+                  <li>Require re-pairing in the web app</li>
+                  <li>Keep local tmux sessions alive</li>
+                </ul>
               </div>
 
               <Button
-                variant="secondary"
+                variant="destructive"
                 className="w-full"
                 onClick={async () => {
-                  await window.runner.clearToken();
-                  const freshSnapshot = await window.runner.getSnapshot();
-                  setSnapshot(freshSnapshot);
-                  setCopied(false);
+                  const activeCount = snapshot?.activeSessions?.length ?? 0;
+                  const confirmMessage = activeCount > 0
+                    ? `Reset pairing and disconnect ${activeCount} active terminal${activeCount === 1 ? '' : 's'}? You'll need to re-pair the runner in the web app.`
+                    : "Reset pairing? You'll need to re-pair the runner in the web app.";
+
+                  if (confirm(confirmMessage)) {
+                    await window.runner.clearToken();
+                    const freshSnapshot = await window.runner.getSnapshot();
+                    setSnapshot(freshSnapshot);
+                    setCopied(false);
+                  }
                 }}
               >
-                Reset pairing
+                Reset Pairing & Disconnect
               </Button>
             </CardContent>
           </Card>
@@ -414,10 +488,44 @@ export default function App() {
               <CardDescription>Sessions currently connected to this runner.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
+              {snapshot?.activeSessions && snapshot.activeSessions.length > 0 && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="w-full"
+                  onClick={async () => {
+                    const count = snapshot.activeSessions?.length ?? 0;
+                    if (confirm(`Disconnect ${count} active terminal${count === 1 ? '' : 's'}? This will close all web terminal connections but keep tmux sessions alive.`)) {
+                      try {
+                        await window.runner.stop();
+                        await window.runner.start();
+                      } catch (err) {
+                        setError(err instanceof Error ? err.message : String(err));
+                      }
+                    }
+                  }}
+                >
+                  <Terminal className="size-4" />
+                  Disconnect All Terminals
+                </Button>
+              )}
               {snapshot?.activeSessions && snapshot.activeSessions.length > 0 ? (
                 <div className="space-y-2">
                   {snapshot.activeSessions.map((session) => {
                     const attachCommand = session.sessionName ? `tmux attach -t ${session.sessionName}` : null;
+
+                    // Parse ideaId and slotId from session name format: coda-runner-{deviceId}-{ideaId}-{slotId}
+                    let ideaId: string | null = null;
+                    let slotId: string | null = null;
+                    if (session.sessionName) {
+                      const parts = session.sessionName.split('-');
+                      // Format: coda-runner-{deviceId}-{ideaId}-{slotId}
+                      if (parts.length >= 5) {
+                        ideaId = parts[parts.length - 2]; // Second to last part
+                        slotId = parts[parts.length - 1]; // Last part
+                      }
+                    }
+
                     return (
                       <div
                         key={session.sessionId}
@@ -426,7 +534,15 @@ export default function App() {
                         <div className="flex-1 space-y-1">
                           <div className="flex items-center gap-2">
                             <span className="size-2 rounded-full bg-emerald-500" />
-                            <code className="text-sm font-medium">{session.sessionName || session.sessionId.slice(0, 8)}</code>
+                            <div className="flex flex-col">
+                              <code className="text-sm font-medium">{session.sessionName || session.sessionId.slice(0, 8)}</code>
+                              {ideaId && (
+                                <div className="text-xs text-muted-foreground">
+                                  Idea: <code className="text-xs">{ideaId}</code>
+                                  {slotId && ` • Slot: ${slotId}`}
+                                </div>
+                              )}
+                            </div>
                           </div>
                           <div className="text-xs text-muted-foreground">
                             {session.pid ? `PID: ${session.pid}` : "No PID"} • Connected {new Date(session.connectedAt).toLocaleTimeString()}
@@ -462,6 +578,82 @@ export default function App() {
               ) : (
                 <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
                   No active terminal connections. Open a terminal in the web app to see connections here.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="space-y-1">
+              <CardTitle className="flex items-center gap-2">
+                <Terminal className="size-5 text-primary" />
+                TMUX Session Management
+              </CardTitle>
+              <CardDescription>View and manage all TMUX sessions on this machine.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={refreshTmuxSessions}
+                  disabled={isLoadingTmux}
+                  className="flex-1"
+                >
+                  <RefreshCcw className={cn("size-4", isLoadingTmux && "animate-spin")} />
+                  {isLoadingTmux ? "Loading..." : "Refresh Sessions"}
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => {
+                    if (confirm("Kill ALL tmux sessions? This cannot be undone.")) {
+                      killAllTmuxSessions();
+                    }
+                  }}
+                  disabled={tmuxSessions.length === 0}
+                  className="flex-1"
+                >
+                  <Trash2 className="size-4" />
+                  Kill All
+                </Button>
+              </div>
+
+              {tmuxSessions.length > 0 ? (
+                <div className="space-y-2">
+                  {tmuxSessions.map((session) => (
+                    <div
+                      key={session.name}
+                      className="flex items-center justify-between rounded-md border border-border/60 bg-muted/30 px-4 py-3"
+                    >
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className={cn("size-2 rounded-full", session.attached ? "bg-emerald-500" : "bg-muted-foreground")} />
+                          <code className="text-sm font-medium">{session.name}</code>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Created {new Date(session.created).toLocaleString()} • {session.attached ? "Attached" : "Detached"}
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="app-no-drag size-8 shrink-0 text-destructive hover:bg-destructive/10"
+                        onClick={() => {
+                          if (confirm(`Kill session "${session.name}"?`)) {
+                            killTmuxSession(session.name);
+                          }
+                        }}
+                        title={`Kill session: ${session.name}`}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+                  {isLoadingTmux ? "Loading sessions..." : "No TMUX sessions found. Click 'Refresh Sessions' to check."}
                 </div>
               )}
             </CardContent>

@@ -23,6 +23,12 @@ type RunnerSettings = {
 
 type Unsubscribe = () => void;
 
+type TmuxSession = {
+  name: string;
+  created: number;
+  attached: boolean;
+};
+
 const api = {
   getSettings: () => ipcRenderer.invoke("runner:get-settings") as Promise<RunnerSettings>,
   saveSettings: (settings: RunnerSettings) => ipcRenderer.invoke("runner:save-settings", settings) as Promise<void>,
@@ -31,6 +37,9 @@ const api = {
   stop: () => ipcRenderer.invoke("runner:stop") as Promise<RunnerSnapshot>,
   clearToken: () => ipcRenderer.invoke("runner:clear-token") as Promise<void>,
   openPairPage: (url: string) => ipcRenderer.invoke("runner:open-pair", url) as Promise<void>,
+  listTmuxSessions: () => ipcRenderer.invoke("runner:list-tmux-sessions") as Promise<TmuxSession[]>,
+  killTmuxSession: (sessionName: string) => ipcRenderer.invoke("runner:kill-tmux-session", sessionName) as Promise<{ success: boolean; error?: string }>,
+  killAllTmuxSessions: () => ipcRenderer.invoke("runner:kill-all-tmux-sessions") as Promise<{ success: boolean; error?: string }>,
   onStatus: (handler: (status: RunnerStatus) => void): Unsubscribe => {
     const listener = (_event: Electron.IpcRendererEvent, status: RunnerStatus) => handler(status);
     ipcRenderer.on("runner:status", listener);

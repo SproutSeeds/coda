@@ -51,6 +51,11 @@ export default function PairRunnerPage() {
             <Input
               value={code}
               onChange={(e) => setCode(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !submitting && code.trim() !== "") {
+                  submit();
+                }
+              }}
               placeholder="e.g., F9G-7QK"
               className="uppercase tracking-widest"
             />

@@ -38,6 +38,7 @@ export function TerminalPane({
   autoConnect = false,
   onNoRunner,
   sessionSlot,
+  onConnectionChange,
 }: {
   runnerId?: string | null;
   initialUrl?: string;
@@ -55,6 +56,7 @@ export function TerminalPane({
   autoConnect?: boolean;
   onNoRunner?: () => void;
   sessionSlot?: string;
+  onConnectionChange?: (connected: boolean) => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [ready, setReady] = useState(false);
@@ -248,6 +250,7 @@ export function TerminalPane({
 
       ws.onopen = async () => {
         setConnected(true);
+        onConnectionChange?.(true);
         setConnecting(false);
         fit.fit();
         term.focus();
@@ -354,6 +357,7 @@ export function TerminalPane({
       };
       ws.onclose = (ev) => {
         setConnected(false);
+        onConnectionChange?.(false);
         setConnecting(false);
         // Back off reconnects for common server-close reasons
         if (usingRelayRef.current && (ev.code === 1013 || ev.code === 1008 || ev.code === 1006)) {
@@ -365,6 +369,7 @@ export function TerminalPane({
       };
       ws.onerror = () => {
         setConnected(false);
+        onConnectionChange?.(false);
         setConnecting(false);
       };
 
@@ -391,6 +396,7 @@ export function TerminalPane({
       termRef.current?.dispose?.();
     } catch {}
     setConnected(false);
+    onConnectionChange?.(false);
     setConnecting(false);
   };
 
