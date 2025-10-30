@@ -82,6 +82,7 @@ export function TerminalPane({
   const [showPathHistory, setShowPathHistory] = useState(false);
   const [selectedHistoryIndex, setSelectedHistoryIndex] = useState(-1);
   const pathHistoryRef = useRef<HTMLDivElement>(null);
+  const previousProjectRootRef = useRef<string | null | undefined>(projectRoot);
 
   // Default URL: local dev, or derive from runnerId using a common pattern
   const defaultUrl = useMemo(() => {
@@ -120,6 +121,35 @@ export function TerminalPane({
       try { fitRef.current?.fit?.(); } catch {}
     }
   }, [visible]);
+
+  // Detect when projectRoot changes and trigger reconnection
+  useEffect(() => {
+    const prevRoot = previousProjectRootRef.current;
+    previousProjectRootRef.current = projectRoot;
+
+    // Only reconnect if:
+    // 1. projectRoot actually changed
+    // 2. Terminal is currently connected
+    // 3. Terminal is visible
+    // 4. The new projectRoot is non-empty
+    if (
+      prevRoot !== projectRoot &&
+      connected &&
+      visible &&
+      projectRoot &&
+      projectRoot.trim() !== ""
+    ) {
+      // Disconnect current session
+      disconnect();
+      // Reconnect with new projectRoot after brief delay
+      setTimeout(() => {
+        if (containerRef.current && !connecting) {
+          void connect();
+        }
+      }, 150);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectRoot, connected, visible]);
 
   // Auto-connect when visible and requested
   useEffect(() => {
