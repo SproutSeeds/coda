@@ -71,6 +71,7 @@ export default function App() {
   const [allLogsCopied, setAllLogsCopied] = useState(false);
   const [tmuxSessions, setTmuxSessions] = useState<Array<{ name: string; created: number; attached: boolean }>>([]);
   const [isLoadingTmux, setIsLoadingTmux] = useState(false);
+  const [expandedIdeas, setExpandedIdeas] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     async function bootstrap() {
@@ -511,69 +512,164 @@ export default function App() {
               )}
               {snapshot?.activeSessions && snapshot.activeSessions.length > 0 ? (
                 <div className="space-y-2">
-                  {snapshot.activeSessions.map((session) => {
-                    const attachCommand = session.sessionName ? `tmux attach -t ${session.sessionName}` : null;
+                  {(() => {
+                    // Group sessions by ideaId
+                    const grouped = new Map<string, typeof snapshot.activeSessions>();
+                    const ungrouped: typeof snapshot.activeSessions = [];
 
-                    // Parse ideaId and slotId from session name format: coda-runner-{deviceId}-{ideaId}-{slotId}
-                    let ideaId: string | null = null;
-                    let slotId: string | null = null;
-                    if (session.sessionName) {
-                      const parts = session.sessionName.split('-');
-                      // Format: coda-runner-{deviceId}-{ideaId}-{slotId}
-                      if (parts.length >= 5) {
-                        ideaId = parts[parts.length - 2]; // Second to last part
-                        slotId = parts[parts.length - 1]; // Last part
+                    snapshot.activeSessions.forEach((session) => {
+                      if (!session.sessionName) {
+                        ungrouped.push(session);
+                        return;
                       }
-                    }
+
+                      const parts = session.sessionName.split('-');
+                      if (parts.length >= 5) {
+                        const ideaId = parts[parts.length - 2];
+                        if (!grouped.has(ideaId)) {
+                          grouped.set(ideaId, []);
+                        }
+                        grouped.get(ideaId)!.push(session);
+                      } else {
+                        ungrouped.push(session);
+                      }
+                    });
 
                     return (
-                      <div
-                        key={session.sessionId}
-                        className="flex items-center justify-between rounded-md border border-border/60 bg-muted/30 px-4 py-3"
-                      >
-                        <div className="flex-1 space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="size-2 rounded-full bg-emerald-500" />
-                            <div className="flex flex-col">
-                              <code className="text-sm font-medium">{session.sessionName || session.sessionId.slice(0, 8)}</code>
-                              {ideaId && (
-                                <div className="text-xs text-muted-foreground">
-                                  Idea: <code className="text-xs">{ideaId}</code>
-                                  {slotId && ` • Slot: ${slotId}`}
+                      <>
+                        {/* Grouped by idea */}
+                        {Array.from(grouped.entries()).map(([ideaId, sessions]) => {
+                          const isExpanded = expandedIdeas.has(ideaId);
+                          return (
+                            <div key={ideaId} className="space-y-1">
+                              {/* Idea header */}
+                              <Button
+                                variant="ghost"
+                                className="w-full justify-start gap-2 px-3 py-2 h-auto text-left hover:bg-muted/50"
+                                onClick={() => {
+                                  setExpandedIdeas((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(ideaId)) {
+                                      next.delete(ideaId);
+                                    } else {
+                                      next.add(ideaId);
+                                    }
+                                    return next;
+                                  });
+                                }}
+                              >
+                                {isExpanded ? <ChevronDown className="size-4 shrink-0" /> : <ChevronUp className="size-4 shrink-0" />}
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="size-2 rounded-full bg-emerald-500 shrink-0" />
+                                    <code className="text-sm font-medium">Idea: {ideaId}</code>
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {sessions.length} slot{sessions.length === 1 ? '' : 's'}
+                                  </div>
+                                </div>
+                              </Button>
+
+                              {/* Slot sessions */}
+                              {isExpanded && (
+                                <div className="ml-6 space-y-1 border-l-2 border-border/30 pl-2">
+                                  {sessions.map((session) => {
+                                    const attachCommand = session.sessionName ? `tmux attach -t ${session.sessionName}` : null;
+                                    const parts = session.sessionName?.split('-') || [];
+                                    const slotId = parts[parts.length - 1];
+
+                                    return (
+                                      <div
+                                        key={session.sessionId}
+                                        className="flex items-center justify-between rounded-md border border-border/60 bg-muted/30 px-3 py-2"
+                                      >
+                                        <div className="flex-1 space-y-1">
+                                          <div className="flex items-center gap-2">
+                                            <span className="size-2 rounded-full bg-emerald-500" />
+                                            <code className="text-xs font-medium">Slot: {slotId}</code>
+                                          </div>
+                                          <div className="text-xs text-muted-foreground">
+                                            {session.pid ? `PID: ${session.pid}` : "No PID"} • Connected {new Date(session.connectedAt).toLocaleTimeString()}
+                                          </div>
+                                        </div>
+                                        {attachCommand && (
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="app-no-drag size-7 shrink-0"
+                                            onClick={async () => {
+                                              try {
+                                                await navigator.clipboard.writeText(attachCommand);
+                                                setCopiedSessionId(session.sessionId);
+                                                setTimeout(() => setCopiedSessionId(null), 1500);
+                                              } catch {
+                                                // ignore
+                                              }
+                                            }}
+                                            title={`Copy: ${attachCommand}`}
+                                          >
+                                            {copiedSessionId === session.sessionId ? (
+                                              <Check className="size-3 text-emerald-500" />
+                                            ) : (
+                                              <Copy className="size-3" />
+                                            )}
+                                          </Button>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               )}
                             </div>
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {session.pid ? `PID: ${session.pid}` : "No PID"} • Connected {new Date(session.connectedAt).toLocaleTimeString()}
-                          </div>
-                        </div>
-                        {attachCommand && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="app-no-drag size-8 shrink-0"
-                            onClick={async () => {
-                              try {
-                                await navigator.clipboard.writeText(attachCommand);
-                                setCopiedSessionId(session.sessionId);
-                                setTimeout(() => setCopiedSessionId(null), 1500);
-                              } catch {
-                                // ignore
-                              }
-                            }}
-                            title={`Copy: ${attachCommand}`}
-                          >
-                            {copiedSessionId === session.sessionId ? (
-                              <Check className="size-4 text-emerald-500" />
-                            ) : (
-                              <Copy className="size-4" />
-                            )}
-                          </Button>
-                        )}
-                      </div>
+                          );
+                        })}
+
+                        {/* Ungrouped sessions */}
+                        {ungrouped.map((session) => {
+                          const attachCommand = session.sessionName ? `tmux attach -t ${session.sessionName}` : null;
+                          return (
+                            <div
+                              key={session.sessionId}
+                              className="flex items-center justify-between rounded-md border border-border/60 bg-muted/30 px-4 py-3"
+                            >
+                              <div className="flex-1 space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="size-2 rounded-full bg-emerald-500" />
+                                  <code className="text-sm font-medium">{session.sessionName || session.sessionId.slice(0, 8)}</code>
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {session.pid ? `PID: ${session.pid}` : "No PID"} • Connected {new Date(session.connectedAt).toLocaleTimeString()}
+                                </div>
+                              </div>
+                              {attachCommand && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="app-no-drag size-8 shrink-0"
+                                  onClick={async () => {
+                                    try {
+                                      await navigator.clipboard.writeText(attachCommand);
+                                      setCopiedSessionId(session.sessionId);
+                                      setTimeout(() => setCopiedSessionId(null), 1500);
+                                    } catch {
+                                      // ignore
+                                    }
+                                  }}
+                                  title={`Copy: ${attachCommand}`}
+                                >
+                                  {copiedSessionId === session.sessionId ? (
+                                    <Check className="size-4 text-emerald-500" />
+                                  ) : (
+                                    <Copy className="size-4" />
+                                  )}
+                                </Button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </>
                     );
-                  })}
+                  })()}
                 </div>
               ) : (
                 <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
