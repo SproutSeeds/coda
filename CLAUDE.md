@@ -280,7 +280,13 @@ See `.env.example` for full list. Mirror all vars in Vercel for deployments.
 ### Branch Strategy
 **CRITICAL: Always work on feature branches, never directly on `main`**
 
-1. **Create a feature branch** with a descriptive name (e.g., `fix-meetup-hydration-error`, `feat-add-export-json`)
+**BEFORE making ANY code changes**, create a feature branch:
+```bash
+git checkout -b feat/<descriptive-name>
+```
+
+**Workflow**:
+1. **Create a feature branch** FIRST with a descriptive name (e.g., `fix-meetup-hydration-error`, `feat-add-export-json`)
 2. **Make changes and commit** to the feature branch
 3. **Push the feature branch** to remote: `git push origin <branch-name>`
 4. **Wait for Vercel preview build** to complete and verify it passes

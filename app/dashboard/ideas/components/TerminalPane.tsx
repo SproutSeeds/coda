@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ChevronDown, History } from "lucide-react";
 
 // Lazy import xterm to keep client bundle lean until needed
 let TerminalImpl: any;
@@ -39,6 +40,8 @@ export function TerminalPane({
   onNoRunner,
   sessionSlot,
   onConnectionChange,
+  pathHistory = [],
+  onPathSelected,
 }: {
   runnerId?: string | null;
   initialUrl?: string;
@@ -57,6 +60,8 @@ export function TerminalPane({
   onNoRunner?: () => void;
   sessionSlot?: string;
   onConnectionChange?: (connected: boolean) => void;
+  pathHistory?: string[];
+  onPathSelected?: (path: string) => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [ready, setReady] = useState(false);
@@ -74,6 +79,9 @@ export function TerminalPane({
   const usingRelayRef = useRef<boolean>(false);
   const lastConnectAtRef = useRef<number>(0);
   const suppressReconnectUntilRef = useRef<number>(0);
+  const [showPathHistory, setShowPathHistory] = useState(false);
+  const [selectedHistoryIndex, setSelectedHistoryIndex] = useState(-1);
+  const pathHistoryRef = useRef<HTMLDivElement>(null);
 
   // Default URL: local dev, or derive from runnerId using a common pattern
   const defaultUrl = useMemo(() => {
@@ -443,6 +451,53 @@ export function TerminalPane({
     return () => clearInterval(id);
   }, [connected]);
 
+  // Handle path selection from history
+  const selectPath = (path: string) => {
+    onProjectRootDetected?.(path);
+    onPathSelected?.(path);
+    setShowPathHistory(false);
+    setSelectedHistoryIndex(-1);
+  };
+
+  // Handle keyboard navigation in path history dropdown
+  const handlePathHistoryKeyDown = (e: React.KeyboardEvent) => {
+    if (!showPathHistory || pathHistory.length === 0) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSelectedHistoryIndex((prev) =>
+        prev < pathHistory.length - 1 ? prev + 1 : 0
+      );
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSelectedHistoryIndex((prev) =>
+        prev > 0 ? prev - 1 : pathHistory.length - 1
+      );
+    } else if (e.key === "Enter" && selectedHistoryIndex >= 0) {
+      e.preventDefault();
+      selectPath(pathHistory[selectedHistoryIndex]);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setShowPathHistory(false);
+      setSelectedHistoryIndex(-1);
+    }
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (pathHistoryRef.current && !pathHistoryRef.current.contains(event.target as Node)) {
+        setShowPathHistory(false);
+        setSelectedHistoryIndex(-1);
+      }
+    };
+
+    if (showPathHistory) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showPathHistory]);
+
   return (
     <Card className="border-blue-500/30 bg-blue-500/5">
       <CardContent className="space-y-3 pt-4">
@@ -513,6 +568,46 @@ export function TerminalPane({
               </Button>
             </div>
           ) : null}
+          {pathHistory.length > 0 && (
+            <div className="relative" ref={pathHistoryRef}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setShowPathHistory(!showPathHistory);
+                  setSelectedHistoryIndex(-1);
+                }}
+                onKeyDown={handlePathHistoryKeyDown}
+                className="flex items-center gap-1"
+              >
+                <History className="h-3 w-3" />
+                <span className="text-xs">
+                  {projectRoot && pathHistory.includes(projectRoot)
+                    ? projectRoot.split("/").pop()
+                    : "Recent Paths"}
+                </span>
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+              {showPathHistory && (
+                <div className="absolute left-0 top-full z-50 mt-1 max-h-60 w-64 overflow-auto rounded-md border bg-popover p-1 shadow-md">
+                  {pathHistory.map((path, index) => (
+                    <button
+                      key={index}
+                      onClick={() => selectPath(path)}
+                      onMouseEnter={() => setSelectedHistoryIndex(index)}
+                      className={`w-full rounded px-2 py-1.5 text-left text-sm transition-colors ${
+                        selectedHistoryIndex === index
+                          ? "bg-accent text-accent-foreground"
+                          : "hover:bg-accent/50"
+                      }`}
+                    >
+                      <div className="truncate font-mono">{path}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
         {requireProjectRoot && (!projectRoot || projectRoot.trim() === "") ? (
           <div className="text-xs text-muted-foreground">

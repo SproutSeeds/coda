@@ -25,6 +25,7 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
   const storageKey = useMemo(() => `coda:terminals:${ideaId}`, [ideaId]);
   const projectRootKey = useMemo(() => `coda:projectRoot:${ideaId}`, [ideaId]);
   const codexSessionKey = useMemo(() => `coda:codexSession:${ideaId}`, [ideaId]);
+  const pathHistoryKey = useMemo(() => `coda:pathHistory:${ideaId}`, [ideaId]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [combined, setCombined] = useState<CombinedLine[]>([]);
@@ -32,6 +33,7 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
   const [combinedRef, setCombinedRef] = useState<HTMLDivElement | null>(null);
   const [projectRoot, setProjectRoot] = useState<string>("");
   const [codexSession, setCodexSession] = useState<string>("");
+  const [pathHistory, setPathHistory] = useState<Record<string, string[]>>({});  // slotId -> paths[]
   const pickersRef = useRef<Record<string, () => void>>({});
   const [picking, setPicking] = useState(false);
   const [noRunner, setNoRunner] = useState(false);
@@ -78,8 +80,16 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
       setProjectRoot(pr);
       const cs = localStorage.getItem(codexSessionKey) || "";
       setCodexSession(cs);
+      const ph = localStorage.getItem(pathHistoryKey);
+      if (ph) {
+        try {
+          setPathHistory(JSON.parse(ph));
+        } catch {
+          setPathHistory({});
+        }
+      }
     } catch {}
-  }, [storageKey, projectRootKey, codexSessionKey, isClient]);
+  }, [storageKey, projectRootKey, codexSessionKey, pathHistoryKey, isClient]);
 
   const persist = (next: Session[]) => {
     setSessions(next);
@@ -89,6 +99,21 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
   const persistProjectRoot = (value: string) => {
     setProjectRoot(value);
     try { localStorage.setItem(projectRootKey, value); } catch {}
+  };
+
+  const addToPathHistory = (slotId: string, path: string) => {
+    if (!path || path.trim() === "") return;
+
+    setPathHistory((prev) => {
+      const existing = prev[slotId] || [];
+      // Add to front, remove duplicates, limit to 10 recent paths
+      const updated = [path, ...existing.filter(p => p !== path)].slice(0, 10);
+      const next = { ...prev, [slotId]: updated };
+      try {
+        localStorage.setItem(pathHistoryKey, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
   };
 
   const notifyRootSet = (path: string) => {
@@ -525,6 +550,8 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
                     autoAgent={s.mode === "agent"}
                     onCodexSessionDetected={(sid) => persistCodexSession(sid)}
                     autoConnect={true}
+                    pathHistory={pathHistory[s.slotId] || []}
+                    onPathSelected={(path) => addToPathHistory(s.slotId, path)}
                     onNoRunner={() => setNoRunner(true)}
                     onConnectionChange={(connected) => updateConnectionState(s.id, connected)}
                   />
