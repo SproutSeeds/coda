@@ -39,6 +39,7 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
   const [noRunner, setNoRunner] = useState(false);
   const [online, setOnline] = useState<boolean | null>(null);
   const [isClient, setIsClient] = useState(false);
+  const [showSlotSelector, setShowSlotSelector] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
@@ -243,7 +244,7 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
     }
   };
 
-  const addSession = (mode: "terminal" | "agent") => {
+  const addSession = (slotNumber?: number) => {
     // Enforce maximum of 7 terminals
     if (sessions.length >= 7) {
       toast.error("Maximum of 7 terminals per idea");
@@ -251,16 +252,21 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
     }
 
     const n = sessions.length + 1;
-    const label = mode === "agent" ? "Agent" : "Terminal";
+    const label = "Terminal";
 
-    // Find next available slot (1-7)
+    // Use provided slot number or find next available slot (1-7)
     const usedSlots = new Set(sessions.map(s => s.slotId));
     let nextSlot = "";
-    for (let i = 1; i <= 7; i++) {
-      const slotId = `slot-${i}`;
-      if (!usedSlots.has(slotId)) {
-        nextSlot = slotId;
-        break;
+
+    if (slotNumber) {
+      nextSlot = `slot-${slotNumber}`;
+    } else {
+      for (let i = 1; i <= 7; i++) {
+        const slotId = `slot-${i}`;
+        if (!usedSlots.has(slotId)) {
+          nextSlot = slotId;
+          break;
+        }
       }
     }
 
@@ -270,7 +276,7 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
       url: "",
       minimized: false,
       include: true,
-      mode,
+      mode: "terminal",
       slotId: nextSlot,
       connected: false
     };
@@ -352,14 +358,9 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
       <CardHeader>
         <CardTitle className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
           <span>Terminals</span>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" onClick={() => addSession("terminal")} className="gap-1" disabled={!projectRoot || online === false} title={!projectRoot ? "Pick a Project Root first" : online === false ? "Runner offline — Pair/Start it first" : undefined}>
-              <Plus className="h-4 w-4" /> Terminal
-            </Button>
-            <Button size="sm" onClick={() => addSession("agent")} className="gap-1" disabled={!projectRoot || online === false} title={!projectRoot ? "Pick a Project Root first" : online === false ? "Runner offline — Pair/Start it first" : undefined}>
-              <Plus className="h-4 w-4" /> Agent
-            </Button>
-          </div>
+          <Button size="sm" onClick={() => setShowSlotSelector(true)} className="gap-1" disabled={!projectRoot || online === false} title={!projectRoot ? "Pick a Project Root first" : online === false ? "Runner offline — Pair/Start it first" : undefined}>
+            <Plus className="h-4 w-4" /> Terminal
+          </Button>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 pt-2">
@@ -403,26 +404,6 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
                 className="whitespace-nowrap"
               >
                 {picking ? "Picking…" : "Pick Folder…"}
-              </Button>
-            </div>
-          </div>
-          <div className="flex flex-col gap-2">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Agent Session ID</div>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Input
-                value={codexSession}
-                onChange={(e) => persistCodexSession(e.target.value)}
-                placeholder="optional: sess_123..."
-                className="h-8 flex-1"
-              />
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => navigator.clipboard.writeText(codexSession)}
-                disabled={!codexSession}
-                className="whitespace-nowrap"
-              >
-                Copy
               </Button>
             </div>
           </div>
@@ -561,6 +542,49 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
           </div>
         ) : null}
       </CardContent>
+
+      {/* Slot Selector Dialog */}
+      {showSlotSelector && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowSlotSelector(false)}>
+          <div className="mx-4 w-full max-w-md rounded-lg border bg-card p-6 shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <h3 className="mb-4 text-lg font-semibold">Select Terminal Slot</h3>
+            <p className="mb-4 text-sm text-muted-foreground">
+              Choose which slot to use for this terminal (1-7)
+            </p>
+            <div className="grid grid-cols-7 gap-2">
+              {[1, 2, 3, 4, 5, 6, 7].map((num) => {
+                const slotId = `slot-${num}`;
+                const isUsed = sessions.some(s => s.slotId === slotId);
+                return (
+                  <Button
+                    key={num}
+                    variant={isUsed ? "outline" : "default"}
+                    disabled={isUsed}
+                    className="aspect-square p-0"
+                    onClick={() => {
+                      addSession(num);
+                      setShowSlotSelector(false);
+                    }}
+                  >
+                    {num}
+                  </Button>
+                );
+              })}
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowSlotSelector(false)}>
+                Cancel
+              </Button>
+              <Button onClick={() => {
+                addSession(); // Auto-select next available
+                setShowSlotSelector(false);
+              }}>
+                Auto-Select
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }
