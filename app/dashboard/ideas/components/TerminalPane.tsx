@@ -82,7 +82,7 @@ export function TerminalPane({
   const [showPathHistory, setShowPathHistory] = useState(false);
   const [selectedHistoryIndex, setSelectedHistoryIndex] = useState(-1);
   const pathHistoryRef = useRef<HTMLDivElement>(null);
-  const previousProjectRootRef = useRef<string | null | undefined>(projectRoot);
+  const userInitiatedPathChangeRef = useRef<boolean>(false);
 
   // Default URL: local dev, or derive from runnerId using a common pattern
   const defaultUrl = useMemo(() => {
@@ -122,28 +122,18 @@ export function TerminalPane({
     }
   }, [visible]);
 
-  // Detect when projectRoot changes and trigger reconnection
+  // Detect when user manually changes projectRoot via path history dropdown and trigger reconnection
   useEffect(() => {
-    const prevRoot = previousProjectRootRef.current;
-    previousProjectRootRef.current = projectRoot;
-
-    // Only reconnect if:
-    // 1. projectRoot actually changed
-    // 2. Terminal is currently connected
-    // 3. Terminal is visible
-    // 4. The new projectRoot is non-empty
-    if (
-      prevRoot !== projectRoot &&
-      connected &&
-      visible &&
-      projectRoot &&
-      projectRoot.trim() !== ""
-    ) {
+    // Only reconnect if this was a user-initiated change (not from server coda:cwd: updates)
+    if (userInitiatedPathChangeRef.current && connected && visible && projectRoot) {
+      console.log(`[TerminalPane] User selected new path: ${projectRoot}, reconnecting...`);
+      userInitiatedPathChangeRef.current = false; // Reset flag
       // Disconnect current session
       disconnect();
       // Reconnect with new projectRoot after brief delay
       setTimeout(() => {
         if (containerRef.current && !connecting) {
+          console.log(`[TerminalPane] Triggering reconnect with new projectRoot: ${projectRoot}`);
           void connect();
         }
       }, 150);
@@ -483,6 +473,8 @@ export function TerminalPane({
 
   // Handle path selection from history
   const selectPath = (path: string) => {
+    // Mark this as a user-initiated change to trigger reconnection
+    userInitiatedPathChangeRef.current = true;
     onProjectRootDetected?.(path);
     onPathSelected?.(path);
     setShowPathHistory(false);
