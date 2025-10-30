@@ -83,6 +83,7 @@ export function TerminalPane({
   const [selectedHistoryIndex, setSelectedHistoryIndex] = useState(-1);
   const pathHistoryRef = useRef<HTMLDivElement>(null);
   const userInitiatedPathChangeRef = useRef<boolean>(false);
+  const [isClient, setIsClient] = useState(false);
 
   // Default URL: local dev, or derive from runnerId using a common pattern
   const defaultUrl = useMemo(() => {
@@ -95,6 +96,10 @@ export function TerminalPane({
     }
     return "";
   }, [runnerId]);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
     if (!wsUrl && (initialUrl || defaultUrl)) {
@@ -604,7 +609,7 @@ export function TerminalPane({
               >
                 <History className="h-3 w-3" />
                 <span className="text-xs">
-                  {projectRoot && pathHistory.includes(projectRoot)
+                  {isClient && projectRoot && pathHistory.includes(projectRoot)
                     ? projectRoot.split("/").pop()
                     : "Recent Paths"}
                 </span>
