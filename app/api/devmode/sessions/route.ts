@@ -14,6 +14,7 @@ export async function POST(req: Request) {
       projectRoot?: string | null;
       sessionSlot?: string;
     };
+    console.log(`[API /devmode/sessions] Received ideaId: ${ideaId}, slot: ${sessionSlot}`);
     const sessionId = crypto.randomUUID();
     const token = await mintClientSessionToken({
       sessionId,

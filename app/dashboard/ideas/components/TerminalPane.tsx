@@ -189,6 +189,7 @@ export function TerminalPane({
       let relayUrl: string | null = null;
       const relayEnabled = process.env.NEXT_PUBLIC_DEVMODE_RELAY_ENABLED === "1";
       if (relayEnabled && ideaId) {
+        console.log(`[TerminalPane] Requesting session for ideaId: ${ideaId}, slot: ${sessionSlot}`);
         try {
           const res = await fetch("/api/devmode/sessions", {
             method: "POST",

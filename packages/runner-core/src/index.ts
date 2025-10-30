@@ -689,6 +689,7 @@ async function startRelayClient(ctx: RunnerCore, signal: AbortSignal, relay: Rel
         const sessionId = String(msg.sessionId ?? "");
         if (!sessionId) return;
         if (msg.type === "session-open") {
+          console.log(`[runner-core] session-open ideaId=${msg.ideaId}, sessionSlot=${msg.sessionSlot}, sessionId=${sessionId}`);
           // If no cwd/projectRoot is set, this is likely a picker session - don't spawn terminal yet
           const hasCwd = (typeof msg.cwd === "string" && msg.cwd.trim() !== "") ||
                         (ctx.options.tty.cwd && ctx.options.tty.cwd !== "/" && ctx.options.tty.cwd.trim() !== "");
@@ -725,6 +726,8 @@ async function startRelayClient(ctx: RunnerCore, signal: AbortSignal, relay: Rel
                 ? `-${msg.sessionSlot}`
                 : "";
 
+              console.log(`[runner-core] Building session name: ideaSuffix="${ideaSuffix}", slotSuffix="${slotSuffix}"`);
+
               // Use stable session names based on ideaId + slot for reliable reconnection
               // Format: {prefix}-{ideaId}-{slot} or {prefix}-{slot} if no ideaId
               const rawSessionName = staticName && staticName.length > 0
@@ -736,6 +739,7 @@ async function startRelayClient(ctx: RunnerCore, signal: AbortSignal, relay: Rel
               // Sanitize session name: tmux converts dots and other special chars to underscores
               // Do this manually to ensure consistency between creation and attachment
               sessionName = rawSessionName.replace(/[^a-zA-Z0-9_-]/g, "_");
+              console.log(`[runner-core] Final session name: ${sessionName}`);
 
               // First, ensure the tmux session exists by creating it detached if needed
               const { execSync } = await import("child_process");
