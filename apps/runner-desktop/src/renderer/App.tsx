@@ -354,74 +354,121 @@ export default function App() {
             <CardHeader className="space-y-1">
               <CardTitle className="flex items-center gap-2">
                 <ShieldIcon />
-                Pairing & Status
+                Setup & Status
               </CardTitle>
-              <CardDescription>Generate pairing codes, approve this device, and monitor connection state.</CardDescription>
+              <CardDescription>Follow the steps below to connect your local terminals to Coda</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between rounded-md border border-border/60 bg-card/80 px-4 py-3">
-                <div>
-                  <div className="text-sm font-medium text-muted-foreground">Current status</div>
-                  <div className={cn("mt-1 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium", toneClass(statusInfo.tone))}>
-                    <span className="size-2 rounded-full bg-current" />
-                    {statusInfo.label}
+              {/* Step-by-step guide */}
+              <div className="space-y-3">
+                <div className="flex items-start gap-3 rounded-lg border border-primary/40 bg-primary/5 p-3">
+                  <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+                    1
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div className="text-sm font-medium">Start the runner</div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        disabled={isStarting || snapshot?.status === "online"}
+                        onClick={handleStart}
+                      >
+                        <Play className="size-4" />
+                        {isStarting && snapshot?.status !== "online" ? "Starting…" : "Start Runner"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={isStarting || snapshot?.status === "stopped"}
+                        onClick={handleStop}
+                      >
+                        <StopCircle className="size-4" />
+                        Stop
+                      </Button>
+                      <div className={cn("ml-auto inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium", toneClass(statusInfo.tone))}>
+                        <span className="size-2 rounded-full bg-current" />
+                        {statusInfo.label}
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="default" disabled={isStarting || snapshot?.status === "online"} onClick={handleStart}>
-                    <Play className="size-4" />
-                    {isStarting && snapshot?.status !== "online" ? "Starting…" : "Start"}
-                  </Button>
-                  <Button variant="outline" disabled={isStarting || snapshot?.status === "stopped"} onClick={handleStop}>
-                    <StopCircle className="size-4" />
-                    Stop
-                  </Button>
+
+                <div className="flex items-start gap-3 rounded-lg border border-primary/40 bg-primary/5 p-3">
+                  <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+                    2
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div className="text-sm font-medium">Open Coda in your browser</div>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => {
+                        const url = pendingSettings?.baseUrl || "https://www.codacli.com";
+                        window.runner.openPairPage(url);
+                      }}
+                    >
+                      <ExternalLink className="size-4" />
+                      Open codacli.com
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 rounded-lg border border-primary/40 bg-primary/5 p-3">
+                  <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+                    3
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div className="text-sm font-medium">Pair this device</div>
+                    {snapshot?.pairingCode ? (
+                      <div className="space-y-2">
+                        <div className="text-xs text-muted-foreground">
+                          {snapshot.status === "online"
+                            ? "✓ Device paired successfully!"
+                            : "Copy this code and enter it in the browser:"}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 rounded-md border bg-background px-3 py-2 font-mono text-lg font-semibold tracking-wider">
+                            {snapshot.pairingCode.code}
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              if (snapshot.pairingCode?.code) {
+                                await navigator.clipboard.writeText(snapshot.pairingCode.code);
+                                setCopied(true);
+                                setTimeout(() => setCopied(false), 1500);
+                              }
+                            }}
+                          >
+                            {copied ? <Check className="size-4 text-emerald-500" /> : <Copy className="size-4" />}
+                            {copied ? "Copied!" : "Copy"}
+                          </Button>
+                        </div>
+                        {snapshot.status !== "online" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => pairingUrl && window.runner.openPairPage(pairingUrl)}
+                          >
+                            Open Pairing Page
+                            <ExternalLink className="size-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-xs text-muted-foreground">
+                        {snapshot?.status === "online"
+                          ? "✓ Device is already paired"
+                          : "Start the runner to generate a pairing code"}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {snapshot?.pairingCode ? (
-                <div className="rounded-lg border border-primary/40 bg-primary/10 px-4 py-4 text-center">
-                  <div className="flex items-center justify-center gap-2 text-sm font-medium text-primary">
-                    {snapshot.status === "online" ? "Last Pairing Code" : "Enter this code on the Dev Mode → Pair page"}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="app-no-drag size-7"
-                      onClick={async () => {
-                        if (snapshot.pairingCode?.code) {
-                          await navigator.clipboard.writeText(snapshot.pairingCode.code);
-                          setCopied(true);
-                          setTimeout(() => setCopied(false), 1500);
-                        }
-                      }}
-                      aria-label="Copy pairing code"
-                    >
-                      {copied ? <Check className="size-4 text-emerald-500" /> : <Copy className="size-4" />}
-                    </Button>
-                  </div>
-                  <div className="mt-2 flex items-center justify-center gap-2">
-                    <div className="text-3xl font-semibold tracking-[0.65rem] text-primary-foreground">{snapshot.pairingCode.code}</div>
-                    {snapshot.status === "online" && <span className="text-sm text-emerald-500">✓ Approved</span>}
-                  </div>
-                  <div className="mt-2 text-xs text-muted-foreground">
-                    {snapshot.status === "online"
-                      ? "Runner is paired and online"
-                      : `Expires at ${snapshot.pairingCode.expiresAt.toLocaleString?.() ?? snapshot.pairingCode.expiresAt.toString()}`}
-                  </div>
-                  {snapshot.status !== "online" && (
-                    <Button className="mt-4" variant="ghost" onClick={() => pairingUrl && window.runner.openPairPage(pairingUrl)}>
-                      Open Pairing Page
-                      <ExternalLink className="size-4" />
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
-                  {snapshot?.status === "online"
-                    ? "Paired and online. No pairing code needed."
-                    : "Pairing code will appear here when needed."}
-                </div>
-              )}
+              <Separator />
 
               <div className="rounded-md border border-muted/60 bg-muted/10 px-3 py-3 text-xs text-muted-foreground">
                 Resetting pairing will:
