@@ -84,12 +84,13 @@ export default function App() {
       setError(err instanceof Error ? err.message : String(err));
     });
 
-    const unsubStatus = window.runner.onStatus((status) =>
+    const unsubStatus = window.runner.onStatus((status) => {
+      console.log("[Renderer] Received status update:", status);
       setSnapshot((prev) => {
         if (!prev) return { status, logs: [], pairingCode: null, activeSessions: [] };
         return { ...prev, status };
-      }),
-    );
+      });
+    });
     const unsubLog = window.runner.onLog((entry) =>
       setSnapshot((prev) => {
         if (!prev) return { status: "stopped", logs: [entry], pairingCode: null, activeSessions: [] };
@@ -163,18 +164,24 @@ export default function App() {
   }
 
   async function handleStart() {
+    console.log("[Renderer] handleStart called");
     setIsStarting(true);
     setError(null);
     try {
       if (pendingSettings && settings && JSON.stringify(pendingSettings) !== JSON.stringify(settings)) {
+        console.log("[Renderer] Saving pending settings before start");
         await window.runner.saveSettings(pendingSettings);
         setSettings(pendingSettings);
       }
+      console.log("[Renderer] Calling window.runner.start()");
       const next = await window.runner.start();
+      console.log("[Renderer] window.runner.start() returned:", next);
       setSnapshot(next);
     } catch (err) {
+      console.error("[Renderer] Error in handleStart:", err);
       setError(err instanceof Error ? err.message : String(err));
     } finally {
+      console.log("[Renderer] handleStart completed, isStarting = false");
       setIsStarting(false);
     }
   }
@@ -233,9 +240,11 @@ export default function App() {
     try {
       const result = await window.runner.killAllTmuxSessions();
       if (result.success) {
-        setTmuxSessions([]);
+        const count = (result as any).killedCount || 0;
+        console.log(`Killed ${count} Coda tmux session(s)`);
+        await refreshTmuxSessions();
       } else {
-        setError(result.error || "Failed to kill all sessions");
+        setError(result.error || "Failed to kill Coda sessions");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -750,7 +759,7 @@ export default function App() {
                   variant="destructive"
                   size="sm"
                   onClick={() => {
-                    if (confirm("Kill ALL tmux sessions? This cannot be undone.")) {
+                    if (confirm("Kill all Coda-related tmux sessions? This will only affect sessions starting with 'coda-runner-' or 'coda-'. Your other tmux sessions will not be affected.")) {
                       killAllTmuxSessions();
                     }
                   }}
@@ -758,7 +767,7 @@ export default function App() {
                   className="flex-1"
                 >
                   <Trash2 className="size-4" />
-                  Kill All
+                  Kill All Coda Sessions
                 </Button>
               </div>
 

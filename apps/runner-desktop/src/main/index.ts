@@ -315,11 +315,9 @@ async function createWindow() {
 
 app.whenReady().then(async () => {
   await createWindow();
-  runnerManager
-    .start()
-    .catch((err) => {
-      console.error("Failed to start runner:", err);
-    });
+  // Don't auto-start the runner on app launch
+  // User must explicitly click "Start Runner" button
+  // This prevents duplicate tmux sessions on app restart
 
   app.on("activate", async () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -352,8 +350,11 @@ ipcMain.handle("runner:get-snapshot", async () => {
 });
 
 ipcMain.handle("runner:start", async () => {
+  console.log("[Main IPC] runner:start called");
   await runnerManager.start();
-  return runnerManager.getStatusSnapshot();
+  const snapshot = runnerManager.getStatusSnapshot();
+  console.log("[Main IPC] runner:start returning snapshot:", snapshot);
+  return snapshot;
 });
 
 ipcMain.handle("runner:stop", async () => {
@@ -410,10 +411,30 @@ ipcMain.handle("runner:kill-tmux-session", async (_event, sessionName: string) =
 ipcMain.handle("runner:kill-all-tmux-sessions", async () => {
   const { execSync } = await import("child_process");
   try {
-    execSync("tmux kill-server", {
-      stdio: "ignore",
-    });
-    return { success: true };
+    // Only kill Coda-related sessions, not all tmux sessions on the system
+    // List all sessions, filter for coda-runner prefix, and kill each one
+    const sessions = execSync("tmux list-sessions -F '#{session_name}'", {
+      encoding: "utf8",
+      stdio: ["pipe", "pipe", "ignore"],
+    }).trim();
+
+    const codaSessions = sessions
+      .split("\n")
+      .filter(name => name.startsWith("coda-runner-") || name.startsWith("coda-"));
+
+    let killedCount = 0;
+    for (const sessionName of codaSessions) {
+      try {
+        execSync(`tmux kill-session -t ${JSON.stringify(sessionName)}`, {
+          stdio: "ignore",
+        });
+        killedCount++;
+      } catch {
+        // Ignore errors for individual sessions that may have already closed
+      }
+    }
+
+    return { success: true, killedCount };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
