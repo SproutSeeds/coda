@@ -364,14 +364,26 @@ async function startTTYServer(ctx: RunnerCore, signal: AbortSignal): Promise<Asy
         if (qpCwd && qpCwd.trim() !== "") {
           cwd = qpCwd;
         }
+        // Read ideaId and sessionSlot from query parameters (for direct mode parity with relay mode)
+        const ideaId = url.searchParams.get("ideaId") || "";
+        const sessionSlot = url.searchParams.get("sessionSlot") || "";
         const useTmux = ctx.options.tty.sync === "tmux";
         let cmd = shell;
         let args: string[] = [];
         if (useTmux) {
           const staticName = ctx.options.tty.sessionName?.trim();
-          const sessionName = staticName && staticName.length > 0
-            ? staticName
-            : `${ctx.options.tty.sessionPrefix}-${Math.random().toString(36).slice(2, 8)}`;
+          const ideaSuffix = ideaId.trim() ? `-${ideaId}` : "";
+          const slotSuffix = sessionSlot.trim() ? `-${sessionSlot}` : "";
+
+          // Use deterministic session naming based on ideaId + slot (matching relay mode behavior)
+          const rawSessionName = staticName && staticName.length > 0
+            ? `${staticName}${ideaSuffix}${slotSuffix}`
+            : (ideaSuffix.length > 0 || slotSuffix.length > 0)
+              ? `${ctx.options.tty.sessionPrefix}${ideaSuffix}${slotSuffix}`
+              : `${ctx.options.tty.sessionPrefix}-${Math.random().toString(36).slice(2, 8)}`;
+
+          // Sanitize session name for tmux compatibility
+          const sessionName = rawSessionName.replace(/[^a-zA-Z0-9_-]/g, "_");
 
           // First, ensure the tmux session exists by creating it detached if needed
           const { execSync } = await import("child_process");

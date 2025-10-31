@@ -276,6 +276,13 @@ export function TerminalPane({
         if (projectRoot && !u.searchParams.get("cwd")) {
           u.searchParams.set("cwd", projectRoot);
         }
+        // Pass ideaId and sessionSlot for deterministic tmux session naming (even in direct mode)
+        if (ideaId && !u.searchParams.get("ideaId")) {
+          u.searchParams.set("ideaId", ideaId);
+        }
+        if (sessionSlot && !u.searchParams.get("sessionSlot")) {
+          u.searchParams.set("sessionSlot", sessionSlot);
+        }
         return u.toString();
       };
       const ws = new WebSocket(buildUrl(base));
