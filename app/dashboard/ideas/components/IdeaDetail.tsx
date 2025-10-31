@@ -137,7 +137,6 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
   const [showDevMode, setShowDevMode] = useState(false);
   const convertDropdownRef = useRef<HTMLDivElement | null>(null);
-const [isCoreExpanded, setIsCoreExpanded] = useState(false);
 const [isIdVisible, setIsIdVisible] = useState(false);
 const [deletedFeaturesState, setDeletedFeaturesState] = useState(deletedFeatures);
 const [isRestoringFeature, startRestoreFeatureTransition] = useTransition();
@@ -146,6 +145,12 @@ const [restoreTargetId, setRestoreTargetId] = useState<string | null>(null);
 const filterPanelRef = useRef<HTMLDivElement | null>(null);
 const filterTriggerRef = useRef<HTMLButtonElement | null>(null);
 const titleInputRef = useRef<HTMLInputElement | null>(null);
+  const corePlanPreview = useMemo(() => {
+    const text = (syncedIdea.notes ?? "").trim();
+    if (!text) return "";
+    if (text.length <= 200) return text;
+    return `${text.slice(0, 200)}…`;
+  }, [syncedIdea.notes]);
   const blurActiveElement = useCallback(() => {
     if (typeof document === "undefined") {
       return;
@@ -173,7 +178,6 @@ const titleInputRef = useRef<HTMLInputElement | null>(null);
     setLinkLabelDraft(idea.linkLabel ?? "GitHub Repository");
     setIdeaAutoState("idle");
     setGithubAutoState("idle");
-    setIsCoreExpanded(false);
     setIsIdVisible(false);
   }, [idea.githubUrl, idea.id, idea.linkLabel, idea.notes, idea.starred, idea.superStarred, idea.title, idea.updatedAt]);
 
@@ -668,12 +672,6 @@ const titleInputRef = useRef<HTMLInputElement | null>(null);
 
 useEffect(() => {
   if (!isEditing) {
-    setIsCoreExpanded(false);
-  }
-}, [isEditing]);
-
-useEffect(() => {
-  if (!isEditing) {
     return;
   }
   const frame = window.requestAnimationFrame(() => {
@@ -767,12 +765,6 @@ const handleConvert = () => {
         return;
       }
 
-      if (isCoreExpanded) {
-        setIsCoreExpanded(false);
-        blurActiveElement();
-        return;
-      }
-
       const activeComposer = document.querySelector('[data-testid="feature-composer-expanded"]');
       if (activeComposer) {
         window.dispatchEvent(new CustomEvent("coda:feature-composer:close", { detail: { ideaId: idea.id } }));
@@ -801,7 +793,6 @@ const handleConvert = () => {
     isConfirmingDelete,
     isEditing,
     isEditingGithub,
-    isCoreExpanded,
     resetDeleteConfirmation,
     router,
     syncedIdea.githubUrl,
@@ -962,7 +953,7 @@ const handleConvert = () => {
             >
               {isEditing ? <X className="size-4" /> : <Pencil className="size-4" />}
             </Button>
-            <DropdownMenu open={isActionsOpen} onOpenChange={setIsActionsOpen}>
+            <DropdownMenu open={isActionsOpen} onOpenChange={setIsActionsOpen} modal>
               <DropdownMenuTrigger asChild>
                 <Button
                   type="button"
@@ -997,10 +988,12 @@ const handleConvert = () => {
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="end"
-                className="w-56 border-border/60 bg-card text-sm text-muted-foreground shadow-xl"
+                className="z-[70] border-border/60 bg-card text-sm text-muted-foreground shadow-xl w-[calc(100vw-2.5rem)] max-w-sm sm:w-56"
               >
                 <DropdownMenuItem
-                  onSelect={() => {
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
                     handleExportIdea();
                   }}
                   disabled={isExporting}
@@ -1011,7 +1004,9 @@ const handleConvert = () => {
                   {isExporting ? <Loader2 className="size-3 animate-spin text-muted-foreground" /> : null}
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onSelect={() => {
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
                     handleToggleConvert();
                   }}
                   disabled={isConverting}
@@ -1028,9 +1023,11 @@ const handleConvert = () => {
                   >
                     <span>{showDevMode ? "Hide Dev Mode" : "Show Dev Mode"}</span>
                   </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="w-64 border-border/60 bg-card text-sm text-muted-foreground">
+                  <DropdownMenuSubContent className="z-[70] border-border/60 bg-card text-sm text-muted-foreground w-[calc(100vw-3rem)] max-w-sm sm:w-64">
                     <DropdownMenuItem
-                      onSelect={() => {
+                      onSelect={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
                         setShowDevMode((value) => !value);
                         setIsActionsOpen(false);
                       }}
@@ -1040,7 +1037,9 @@ const handleConvert = () => {
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
-                      onSelect={() => {
+                      onSelect={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
                         try {
                           router.push("/dashboard/devmode/pair");
                         } catch {}
@@ -1051,7 +1050,9 @@ const handleConvert = () => {
                       Enable Dev Mode (Pair Runner)
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                      onSelect={() => {
+                      onSelect={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
                         try {
                           router.push("/dashboard/devmode/devices");
                         } catch {}
@@ -1065,7 +1066,9 @@ const handleConvert = () => {
                 </DropdownMenuSub>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onSelect={() => {
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
                     handleDelete();
                   }}
                   disabled={isPending}
@@ -1077,6 +1080,12 @@ const handleConvert = () => {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            {isActionsOpen ? (
+              <div
+                className="fixed inset-0 z-[60] cursor-pointer bg-transparent"
+                onClick={() => setIsActionsOpen(false)}
+              />
+            ) : null}
           </div>
           {isConfirmingDelete ? (
             <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -1311,36 +1320,18 @@ const handleConvert = () => {
               </div>
             </div>
           ) : (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium text-muted-foreground">Core plan</h3>
-                <button
-                  type="button"
-                  className="inline-flex cursor-pointer items-center text-xs font-medium text-primary underline-offset-4 transition hover:underline"
-                  onClick={() => setIsCoreExpanded((previous) => !previous)}
-                >
-                  {isCoreExpanded ? "Hide details" : "Show details"}
-                </button>
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium text-muted-foreground">Core plan</h3>
+              <div className="rounded-xl border border-border/70 bg-card/70 p-4">
+                {corePlanPreview ? (
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm text-muted-foreground">A core plan is saved for this idea. Tap Edit to view or update it.</p>
+                    <span className="inline-flex w-fit items-center rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-600">Saved</span>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No core plan captured yet.</p>
+                )}
               </div>
-              <AnimatePresence initial={false} mode="wait">
-                {isCoreExpanded ? (
-                  <motion.div
-                    key="core-expanded"
-                    layout
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2, ease: "easeInOut" }}
-                    className="rounded-xl border border-border/70 bg-card/70 p-4"
-                  >
-                    {syncedIdea.notes.trim() ? (
-                      <p className="whitespace-pre-wrap text-base leading-relaxed text-muted-foreground">{syncedIdea.notes}</p>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">No core plan captured yet.</p>
-                    )}
-                  </motion.div>
-                ) : null}
-              </AnimatePresence>
             </div>
           )}
 

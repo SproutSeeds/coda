@@ -163,7 +163,7 @@ export async function updateIdea(userId: string, id: string, input: { title?: st
 
   const updates: Partial<typeof ideas.$inferInsert> = { updatedAt: new Date() };
   if (payload.title) updates.title = payload.title;
-  if (payload.notes) updates.notes = sanitizeIdeaNotes(payload.notes);
+  if (payload.notes !== undefined) updates.notes = sanitizeIdeaNotes(payload.notes);
   if (payload.githubUrl !== undefined) updates.githubUrl = payload.githubUrl;
   if (payload.linkLabel !== undefined) updates.linkLabel = payload.linkLabel ?? "GitHub Repository";
 

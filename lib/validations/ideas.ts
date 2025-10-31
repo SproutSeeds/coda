@@ -23,8 +23,7 @@ const ideaInputSchema = z.object({
     .min(1, "Title is required")
     .max(MAX_TITLE, `Title must be ≤ ${MAX_TITLE} characters`),
   notes: z
-    .string()
-    .min(1, "Notes are required"),
+    .string(),
   githubUrl: z
     .string()
     .trim()
