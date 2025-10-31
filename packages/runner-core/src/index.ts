@@ -969,6 +969,11 @@ async function startRelayClient(ctx: RunnerCore, signal: AbortSignal, relay: Rel
           }
           return;
         }
+        if (msg.type === "session-close") {
+          ctx.log("info", "[relay] Client requested session close", { sessionId });
+          await cleanupSession(sessionId);
+          return;
+        }
       });
 
       const abort = () => {

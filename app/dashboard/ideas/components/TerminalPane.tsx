@@ -431,7 +431,14 @@ export function TerminalPane({
 
   const disconnect = () => {
     try {
-      wsRef.current?.close();
+      const ws = wsRef.current;
+      // Send session-close message before closing WebSocket to cleanup tmux session
+      if (ws && ws.readyState === WebSocket.OPEN && usingRelayRef.current) {
+        try {
+          ws.send(JSON.stringify({ type: "session-close" }));
+        } catch {}
+      }
+      ws?.close();
     } catch {}
     try {
       termRef.current?.dispose?.();
