@@ -27,6 +27,7 @@ type TmuxSession = {
   name: string;
   created: number;
   attached: boolean;
+  attachedCount?: number;
 };
 
 const api = {

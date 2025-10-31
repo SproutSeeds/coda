@@ -373,24 +373,37 @@ ipcMain.handle("runner:clear-token", async () => {
 ipcMain.handle("runner:list-tmux-sessions", async () => {
   const { execSync } = await import("child_process");
   try {
-    const output = execSync("tmux list-sessions -F '#{session_name}|#{session_created}|#{session_attached}'", {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    });
+    const extendedPath = [
+      "/opt/homebrew/bin",
+      "/usr/local/bin",
+      "/usr/bin",
+      "/bin",
+      process.env.PATH || "",
+    ].filter(Boolean).join(":");
+    const execOptions = {
+      encoding: "utf8" as const,
+      stdio: ["ignore", "pipe", "pipe"] as ["ignore", "pipe", "pipe"],
+      env: { ...process.env, PATH: extendedPath },
+    };
+    const output = execSync("tmux list-sessions -F '#{session_name}|#{session_created}|#{session_attached}'", execOptions);
     const sessions = output
       .trim()
       .split("\n")
       .filter(Boolean)
       .map((line) => {
         const [name, created, attached] = line.split("|");
+        const attachedCount = Number(attached);
         return {
           name,
           created: parseInt(created, 10) * 1000, // Convert to milliseconds
-          attached: attached === "1",
+          attached: Number.isFinite(attachedCount) ? attachedCount > 0 : attached === "1",
+          attachedCount: Number.isFinite(attachedCount) ? attachedCount : undefined,
         };
       });
+    console.log("[main] list-tmux-sessions", sessions);
     return sessions;
   } catch (error) {
+    console.warn("[main] list-tmux-sessions failed", error);
     // No sessions or tmux not available
     return [];
   }

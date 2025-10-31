@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChevronDown, History } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { ChevronDown, History, Lock, Maximize2, Minimize2, Unlock } from "lucide-react";
 
 // Lazy import xterm to keep client bundle lean until needed
 let TerminalImpl: any;
@@ -43,6 +44,11 @@ export function TerminalPane({
   onConnectionChange,
   pathHistory = [],
   onPathSelected,
+  expanded = false,
+  fullscreen = false,
+  onToggleFullscreen,
+  scrollLocked = true,
+  onToggleScrollLock,
 }: {
   runnerId?: string | null;
   initialUrl?: string;
@@ -64,6 +70,11 @@ export function TerminalPane({
   onConnectionChange?: (connected: boolean) => void;
   pathHistory?: string[];
   onPathSelected?: (path: string) => void;
+  expanded?: boolean;
+  fullscreen?: boolean;
+  onToggleFullscreen?: () => void;
+  scrollLocked?: boolean;
+  onToggleScrollLock?: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [ready, setReady] = useState(false);
@@ -74,9 +85,13 @@ export function TerminalPane({
   const [sessionName, setSessionName] = useState<string | null>(null);
   const [sessionNameExpanded, setSessionNameExpanded] = useState(false);
   const [recordingJobId, setRecordingJobId] = useState<string | null>(null);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const termRef = useRef<any>(null);
   const fitRef = useRef<any>(null);
+  const connectingRef = useRef(false);
+  const lastDisconnectAtRef = useRef<number>(0);
+  const activeConnectTokenRef = useRef<symbol | null>(null);
   const awaitingSessionRef = useRef<boolean>(false);
   const usingRelayRef = useRef<boolean>(false);
   const lastConnectAtRef = useRef<number>(0);
@@ -86,6 +101,9 @@ export function TerminalPane({
   const pathHistoryRef = useRef<HTMLDivElement>(null);
   const userInitiatedPathChangeRef = useRef<boolean>(false);
   const [isClient, setIsClient] = useState(false);
+  // Track connection attempts that happen while we're still waiting for relay cleanup
+  const pendingConnectRef = useRef(false);
+  const disconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Default URL: local dev, or derive from runnerId using a common pattern
   const defaultUrl = useMemo(() => {
@@ -101,6 +119,15 @@ export function TerminalPane({
 
   useEffect(() => {
     setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (disconnectTimerRef.current) {
+        clearTimeout(disconnectTimerRef.current);
+        disconnectTimerRef.current = null;
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -173,7 +200,34 @@ export function TerminalPane({
   }, [visible, autoConnect, wsUrl, defaultUrl, connected, connecting, containerRef.current]);
 
   const connect = async () => {
-    if (connected || connecting) return;
+    if (connected || connectingRef.current) return;
+    if (isDisconnecting) {
+      pendingConnectRef.current = true;
+      return;
+    }
+    pendingConnectRef.current = false;
+    const connectToken = Symbol("connect");
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[TerminalPane] connect requested", {
+        ideaId,
+        sessionSlot,
+        isDisconnecting,
+        url: wsUrl,
+        usingRelay: usingRelayRef.current,
+      });
+    }
+    activeConnectTokenRef.current = connectToken;
+    const markIdle = () => {
+      if (activeConnectTokenRef.current === connectToken) {
+        connectingRef.current = false;
+      }
+    };
+    const clearToken = () => {
+      if (activeConnectTokenRef.current === connectToken) {
+        activeConnectTokenRef.current = null;
+      }
+    };
+    connectingRef.current = true;
     if (requireProjectRoot && (!projectRoot || projectRoot.trim() === "")) {
       // Soft guard: encourage setting Project Root first
       alert("Tip: Set the Project Root (use Pick Folder…) so new terminals open in the right directory.");
@@ -287,7 +341,17 @@ export function TerminalPane({
         }
         return u.toString();
       };
-      const ws = new WebSocket(buildUrl(base));
+      const connectUrl = buildUrl(base);
+      const start = Date.now();
+      const ws = new WebSocket(connectUrl);
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[TerminalPane] opening websocket", {
+          connectUrl,
+          relay: usingRelayRef.current,
+          token: sessionToken,
+          elapsedSinceDisconnect: start - lastDisconnectAtRef.current,
+        });
+      }
       ws.binaryType = "arraybuffer";
       wsRef.current = ws;
 
@@ -295,6 +359,7 @@ export function TerminalPane({
         setConnected(true);
         onConnectionChange?.(true);
         setConnecting(false);
+        markIdle();
         fit.fit();
         term.focus();
         // Do not print banners inside the terminal; keep the surface clean.
@@ -402,6 +467,16 @@ export function TerminalPane({
         setConnected(false);
         onConnectionChange?.(false);
         setConnecting(false);
+        markIdle();
+        clearToken();
+        if (process.env.NODE_ENV !== "production") {
+          console.log("[TerminalPane] websocket closed", {
+            code: ev.code,
+            reason: ev.reason,
+            wasClean: ev.wasClean,
+            relay: usingRelayRef.current,
+          });
+        }
         // Back off reconnects for common server-close reasons
         if (usingRelayRef.current && (ev.code === 1013 || ev.code === 1008 || ev.code === 1006)) {
           suppressReconnectUntilRef.current = Date.now() + 3000;
@@ -414,6 +489,13 @@ export function TerminalPane({
         setConnected(false);
         onConnectionChange?.(false);
         setConnecting(false);
+        markIdle();
+        clearToken();
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("[TerminalPane] websocket error", {
+            relay: usingRelayRef.current,
+          });
+        }
       };
 
       const onData = (data: string) => {
@@ -428,26 +510,83 @@ export function TerminalPane({
     } catch (err) {
       console.error(err);
       setConnecting(false);
+      markIdle();
+      clearToken();
+      if (process.env.NODE_ENV !== "production") {
+        console.error("[TerminalPane] connect failed", err);
+      }
     }
   };
 
+  useEffect(() => {
+    if (!isDisconnecting && pendingConnectRef.current) {
+      pendingConnectRef.current = false;
+      queueMicrotask(() => {
+        if (!isDisconnecting) void connect();
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDisconnecting]);
+
   const disconnect = () => {
+    setIsDisconnecting(true);
+    lastDisconnectAtRef.current = Date.now();
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[TerminalPane] disconnect requested", {
+        usingRelay: usingRelayRef.current,
+        readyState: wsRef.current?.readyState,
+      });
+    }
+    let awaitingFlush = false;
+    let finalized = false;
+    const finalizeDisconnect = () => {
+      if (finalized) return;
+      finalized = true;
+      if (disconnectTimerRef.current) {
+        clearTimeout(disconnectTimerRef.current);
+        disconnectTimerRef.current = null;
+      }
+      setIsDisconnecting(false);
+      activeConnectTokenRef.current = null;
+    };
+
     try {
       const ws = wsRef.current;
       // Send session-close message before closing WebSocket to cleanup tmux session
       if (ws && ws.readyState === WebSocket.OPEN && usingRelayRef.current) {
         try {
           ws.send(JSON.stringify({ type: "session-close" }));
-        } catch {}
+          awaitingFlush = true;
+          if (disconnectTimerRef.current) {
+            clearTimeout(disconnectTimerRef.current);
+          }
+          // Allow a short window for the relay to flush the session-close frame before closing
+          disconnectTimerRef.current = setTimeout(() => {
+            try { ws.close(); } catch {}
+            finalizeDisconnect();
+          }, 150);
+          if (process.env.NODE_ENV !== "production") {
+            console.log("[TerminalPane] session-close dispatched", {
+              relay: usingRelayRef.current,
+              slot: sessionSlot,
+            });
+          }
+        } catch {
+          ws?.close();
+        }
+      } else {
+        ws?.close();
       }
-      ws?.close();
     } catch {}
+
     try {
       termRef.current?.dispose?.();
     } catch {}
     setConnected(false);
     onConnectionChange?.(false);
     setConnecting(false);
+    connectingRef.current = false;
+    if (!awaitingFlush) finalizeDisconnect();
   };
 
   // Expose a picker trigger to the dock (uses active terminal connection)
@@ -550,29 +689,82 @@ export function TerminalPane({
   }, [showPathHistory]);
 
   return (
-    <Card className="border-blue-500/30 bg-blue-500/5">
-      <CardContent className="space-y-3 pt-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-          {process.env.NEXT_PUBLIC_DEVMODE_RELAY_ENABLED === "1" ? null : (
-            <Input
-              value={wsUrl}
-              onChange={(e) => {
-                setWsUrl(e.target.value);
-                onUrlChange?.(e.target.value);
-              }}
-              placeholder="ws://localhost:8787/tty or wss://dev-<runner>.codacli.com/tty"
-              className="sm:flex-1"
-            />
-          )}
-          {!connected ? (
-            <Button onClick={connect} disabled={connecting || (!wsUrl && process.env.NEXT_PUBLIC_DEVMODE_RELAY_ENABLED !== "1") } className="w-full sm:w-auto">
-              {connecting ? "Connecting…" : "Connect"}
+    <Card className={cn("border-blue-500/30 bg-blue-500/5", fullscreen && "h-full shadow-xl")}>
+      <CardContent className={cn("space-y-3 pt-4", fullscreen && "flex h-full flex-col")}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:flex-1">
+            {process.env.NEXT_PUBLIC_DEVMODE_RELAY_ENABLED === "1" ? null : (
+              <Input
+                value={wsUrl}
+                onChange={(e) => {
+                  setWsUrl(e.target.value);
+                  onUrlChange?.(e.target.value);
+                }}
+                placeholder="ws://localhost:8787/tty or wss://dev-<runner>.codacli.com/tty"
+                className="sm:flex-1"
+              />
+            )}
+            {!connected ? (
+              <Button
+                onClick={connect}
+                disabled={connecting || isDisconnecting || (!wsUrl && process.env.NEXT_PUBLIC_DEVMODE_RELAY_ENABLED !== "1") }
+                className="w-full sm:w-auto"
+              >
+                {connecting ? "Connecting…" : "Connect"}
+              </Button>
+            ) : (
+              <Button
+                variant="secondary"
+                onClick={disconnect}
+                disabled={isDisconnecting}
+                className="w-full sm:w-auto"
+              >
+                Disconnect
+              </Button>
+            )}
+          </div>
+          {onToggleFullscreen ? (
+            <Button
+              type="button"
+              variant={fullscreen ? "secondary" : "outline"}
+              size="sm"
+              className="w-full sm:w-auto"
+              onClick={onToggleFullscreen}
+            >
+              {fullscreen ? (
+                <>
+                  <Minimize2 className="mr-1 h-4 w-4" />
+                  Exit Fullscreen
+                </>
+              ) : (
+                <>
+                  <Maximize2 className="mr-1 h-4 w-4" />
+                  Fullscreen
+                </>
+              )}
             </Button>
-          ) : (
-            <Button variant="secondary" onClick={disconnect} className="w-full sm:w-auto">
-              Disconnect
+          ) : null}
+          {fullscreen && onToggleScrollLock ? (
+            <Button
+              type="button"
+              variant={scrollLocked ? "outline" : "secondary"}
+              size="sm"
+              className="w-full sm:w-auto"
+              onClick={onToggleScrollLock}
+            >
+              {scrollLocked ? (
+                <>
+                  <Unlock className="mr-1 h-4 w-4" />
+                  Unlock Scroll
+                </>
+              ) : (
+                <>
+                  <Lock className="mr-1 h-4 w-4" />
+                  Lock Scroll
+                </>
+              )}
             </Button>
-          )}
+          ) : null}
         </div>
 
         {/* Status indicators - stacked on mobile */}
@@ -667,7 +859,10 @@ export function TerminalPane({
         ) : null}
         <div
           ref={containerRef}
-          className="h-72 w-full overflow-hidden rounded border bg-black"
+          className={cn(
+            "w-full overflow-hidden rounded border bg-black",
+            fullscreen ? "flex-1 min-h-[18rem]" : expanded ? "h-[32rem]" : "h-72"
+          )}
           style={{ lineHeight: 1.2, opacity: ready ? 1 : 0 }}
         />
       </CardContent>

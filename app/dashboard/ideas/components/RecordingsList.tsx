@@ -27,6 +27,7 @@ export function RecordingsList({ ideaId }: { ideaId: string }) {
   const [combinedLogs, setCombinedLogs] = useState<Record<string, LogRow[]>>({});
   const [combinedLoading, setCombinedLoading] = useState(false);
   const [confirmDay, setConfirmDay] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState(false);
 
   const load = async (refreshOpen = false) => {
     try {
@@ -177,100 +178,117 @@ export function RecordingsList({ ideaId }: { ideaId: string }) {
   return (
     <Card className="border-amber-500/30 bg-amber-500/5">
       <CardHeader>
-        <CardTitle className="flex items-center justify-between">
+        <CardTitle className="flex items-center justify-between gap-3">
           <span>Session Logs</span>
-          <Button variant="secondary" size="sm" onClick={async () => { setReloading(true); try { await load(true); } finally { setReloading(false); }}}>
-            {reloading ? "Refreshing…" : "Refresh"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => setCollapsed((value) => !value)}
+            >
+              {collapsed ? "Expand" : "Minimize"}
+            </Button>
+            <Button variant="secondary" size="sm" onClick={async () => { setReloading(true); try { await load(true); } finally { setReloading(false); }}}>
+              {reloading ? "Refreshing…" : "Refresh"}
+            </Button>
+          </div>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
-        {byDay.length === 0 ? (
-          <div className="text-sm text-muted-foreground">No session logs yet. Open a terminal; logging starts automatically.</div>
-        ) : (
-          byDay.map(([day, jobsInDay]) => (
-            <div key={day} className="rounded border">
-              <div className="flex flex-col gap-3 p-3 text-sm sm:flex-row sm:items-center sm:justify-between" onClick={() => toggleDay(day)}>
-                <div className="flex items-center gap-3 cursor-pointer">
-                  <span className="rounded bg-muted px-2 py-0.5 text-xs">{day}</span>
-                  <span className="text-muted-foreground">{jobsInDay.length} session{jobsInDay.length > 1 ? "s" : ""}</span>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button size="sm" variant={combinedDay === day ? "secondary" : "default"} onClick={(e) => { e.stopPropagation(); void openCombined(day); }}>
-                    {combinedDay === day ? "Hide Combined" : "Combined Logs"}
-                  </Button>
-                  {combinedDay === day ? (
-                    <Button size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); downloadCombined(day); }}>Download</Button>
-                  ) : null}
-                  {confirmDay === day ? (
-                    <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">Delete all logs for {day}?</span>
-                      <Button size="sm" variant="secondary" onClick={() => setConfirmDay(null)}>Cancel</Button>
-                      <Button size="sm" variant="destructive" onClick={() => deleteDay(day, jobsInDay)}>Delete All</Button>
-                    </div>
-                  ) : (
-                    <Button size="sm" variant="destructive" onClick={(e) => { e.stopPropagation(); setConfirmDay(day); }}>Delete All</Button>
-                  )}
-                </div>
-              </div>
-              {combinedDay === day ? (
-                <div className="max-h-64 overflow-auto border-t bg-black p-2 font-mono text-xs text-green-300">
-                  {combinedLoading ? (
-                    <div className="p-2 text-muted-foreground">Loading…</div>
-                  ) : (
-                    (combinedLogs[day] || []).map((l, i) => (
-                      <div key={l.id || `${l.seq}-${i}`}>
-                        <span className="text-blue-300">[{new Date(l.ts).toLocaleTimeString()}]</span> {l.text}
+      {collapsed ? (
+        <CardContent className="pt-0 text-xs text-muted-foreground">
+          Session logs hidden. Expand to review recording history.
+        </CardContent>
+      ) : (
+        <CardContent className="space-y-3">
+          {byDay.length === 0 ? (
+            <div className="text-sm text-muted-foreground">No session logs yet. Open a terminal; logging starts automatically.</div>
+          ) : (
+            byDay.map(([day, jobsInDay]) => (
+              <div key={day} className="rounded border">
+                <div className="flex flex-col gap-3 p-3 text-sm sm:flex-row sm:items-center sm:justify-between" onClick={() => toggleDay(day)}>
+                  <div className="flex items-center gap-3 cursor-pointer">
+                    <span className="rounded bg-muted px-2 py-0.5 text-xs">{day}</span>
+                    <span className="text-muted-foreground">{jobsInDay.length} session{jobsInDay.length > 1 ? "s" : ""}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button size="sm" variant={combinedDay === day ? "secondary" : "default"} onClick={(e) => { e.stopPropagation(); void openCombined(day); }}>
+                      {combinedDay === day ? "Hide Combined" : "Combined Logs"}
+                    </Button>
+                    {combinedDay === day ? (
+                      <Button size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); downloadCombined(day); }}>Download</Button>
+                    ) : null}
+                    {confirmDay === day ? (
+                      <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">Delete all logs for {day}?</span>
+                        <Button size="sm" variant="secondary" onClick={() => setConfirmDay(null)}>Cancel</Button>
+                        <Button size="sm" variant="destructive" onClick={() => deleteDay(day, jobsInDay)}>Delete All</Button>
                       </div>
-                    ))
-                  )}
+                    ) : (
+                      <Button size="sm" variant="destructive" onClick={(e) => { e.stopPropagation(); setConfirmDay(day); }}>Delete All</Button>
+                    )}
+                  </div>
                 </div>
-              ) : null}
-              {openDays[day] ? (
-                <div className="divide-y">
-                  {jobsInDay.map((j) => (
-                    <div key={j.id} className="">
-                      <div className="flex items-center justify-between gap-2 p-2 text-sm">
-                        <div className="flex items-center gap-3">
-                          <span className="rounded bg-muted px-2 py-0.5 text-xs">{j.intent}</span>
-                          <span className="text-muted-foreground">{fmt(j.createdAt)}</span>
-                          <code className="rounded bg-muted px-1">{j.id.slice(0, 8)}…</code>
-                          <span className="rounded bg-muted px-1 text-xs">{j.state}</span>
+                {combinedDay === day ? (
+                  <div className="max-h-64 overflow-auto border-t bg-black p-2 font-mono text-xs text-green-300">
+                    {combinedLoading ? (
+                      <div className="p-2 text-muted-foreground">Loading…</div>
+                    ) : (
+                      (combinedLogs[day] || []).map((l, i) => (
+                        <div key={l.id || `${l.seq}-${i}`}>
+                          <span className="text-blue-300">[{new Date(l.ts).toLocaleTimeString()}]</span> {l.text}
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Button size="sm" onClick={() => openLogs(j.id)}>{openId === j.id ? "Hide Logs" : "View Logs"}</Button>
-                          {confirmId === j.id ? (
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground">Delete this recording?</span>
-                              <Button size="sm" variant="secondary" onClick={() => setConfirmId(null)}>Cancel</Button>
-                              <Button size="sm" variant="destructive" onClick={() => del(j.id)}>Delete</Button>
-                            </div>
-                          ) : (
-                            <Button size="sm" variant="destructive" onClick={() => setConfirmId(j.id)}>Delete</Button>
-                          )}
-                        </div>
-                      </div>
-                      {openId === j.id ? (
-                        <div className="max-h-64 overflow-auto border-t bg-black p-2 font-mono text-xs text-green-300">
-                          {loading ? (
-                            <div className="p-2 text-muted-foreground">Loading…</div>
-                          ) : (
-                            (logs[j.id] || []).map((l, i) => (
-                              <div key={l.id || `${l.seq}-${i}`}>
-                                <span className="text-blue-300">[{l.level}]</span> {l.text}
+                      ))
+                    )}
+                  </div>
+                ) : null}
+                {openDays[day] ? (
+                  <div className="divide-y">
+                    {jobsInDay.map((j) => (
+                      <div key={j.id} className="">
+                        <div className="flex items-center justify-between gap-2 p-2 text-sm">
+                          <div className="flex items-center gap-3">
+                            <span className="rounded bg-muted px-2 py-0.5 text-xs">{j.intent}</span>
+                            <span className="text-muted-foreground">{fmt(j.createdAt)}</span>
+                            <code className="rounded bg-muted px-1">{j.id.slice(0, 8)}…</code>
+                            <span className="rounded bg-muted px-1 text-xs">{j.state}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button size="sm" onClick={() => openLogs(j.id)}>{openId === j.id ? "Hide Logs" : "View Logs"}</Button>
+                            {confirmId === j.id ? (
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground">Delete this recording?</span>
+                                <Button size="sm" variant="secondary" onClick={() => setConfirmId(null)}>Cancel</Button>
+                                <Button size="sm" variant="destructive" onClick={() => del(j.id)}>Delete</Button>
                               </div>
-                            ))
-                          )}
+                            ) : (
+                              <Button size="sm" variant="destructive" onClick={() => setConfirmId(j.id)}>Delete</Button>
+                            )}
+                          </div>
                         </div>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          ))
-        )}
-      </CardContent>
+                        {openId === j.id ? (
+                          <div className="max-h-64 overflow-auto border-t bg-black p-2 font-mono text-xs text-green-300">
+                            {loading ? (
+                              <div className="p-2 text-muted-foreground">Loading…</div>
+                            ) : (
+                              (logs[j.id] || []).map((l, i) => (
+                                <div key={l.id || `${l.seq}-${i}`}>
+                                  <span className="text-blue-300">[{l.level}]</span> {l.text}
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ))
+          )}
+        </CardContent>
+      )}
     </Card>
   );
 }

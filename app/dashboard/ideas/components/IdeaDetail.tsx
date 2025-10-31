@@ -24,6 +24,16 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
@@ -127,7 +137,6 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
   const [showDevMode, setShowDevMode] = useState(false);
   const convertDropdownRef = useRef<HTMLDivElement | null>(null);
-const actionsMenuRef = useRef<HTMLDivElement | null>(null);
 const [isCoreExpanded, setIsCoreExpanded] = useState(false);
 const [isIdVisible, setIsIdVisible] = useState(false);
 const [deletedFeaturesState, setDeletedFeaturesState] = useState(deletedFeatures);
@@ -657,28 +666,6 @@ const titleInputRef = useRef<HTMLInputElement | null>(null);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [isConvertDropdownOpen]);
 
-  useEffect(() => {
-    if (!isActionsOpen) {
-      return;
-    }
-    const handleClick = (event: MouseEvent) => {
-      if (!actionsMenuRef.current?.contains(event.target as Node)) {
-        setIsActionsOpen(false);
-      }
-    };
-    const handleKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsActionsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClick);
-    document.addEventListener("keydown", handleKey);
-    return () => {
-      document.removeEventListener("mousedown", handleClick);
-      document.removeEventListener("keydown", handleKey);
-    };
-  }, [isActionsOpen]);
-
 useEffect(() => {
   if (!isEditing) {
     setIsCoreExpanded(false);
@@ -975,103 +962,121 @@ const handleConvert = () => {
             >
               {isEditing ? <X className="size-4" /> : <Pencil className="size-4" />}
             </Button>
-            <div className="relative" ref={actionsMenuRef}>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className={cn(
-                  "interactive-btn flex items-center gap-2 px-3 py-1.5 text-xs font-medium hover:bg-transparent",
-                  isActionsOpen && "bg-muted/30",
-                )}
-                onClick={() => setIsActionsOpen((previous) => !previous)}
-                aria-haspopup="menu"
-                aria-expanded={isActionsOpen}
-                data-testid="idea-actions-button"
-              >
-                Actions
-                {isOnline !== null ? (
-                  <span
-                    className={cn(
-                      "ml-1 inline-block h-2 w-2 rounded-full",
-                      isOnline ? "bg-green-500" : "bg-gray-400",
-                    )}
-                    aria-label={isOnline ? "Runner online" : "Runner offline"}
-                  />
-                ) : null}
-                <ChevronDown
+            <DropdownMenu open={isActionsOpen} onOpenChange={setIsActionsOpen}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
                   className={cn(
-                    "size-3 transition-transform text-muted-foreground",
-                    isActionsOpen ? "rotate-180" : "rotate-0",
+                    "interactive-btn flex items-center gap-2 px-3 py-1.5 text-xs font-medium hover:bg-transparent",
+                    isActionsOpen && "bg-muted/30",
                   )}
-                  aria-hidden="true"
-                />
-              </Button>
-              {isActionsOpen ? (
-                <div
-                  className="absolute right-0 z-50 mt-2 w-52 overflow-hidden rounded-lg border border-border/60 bg-card shadow-xl"
-                  role="menu"
-                  aria-label="Idea actions"
+                  aria-haspopup="menu"
+                  aria-expanded={isActionsOpen}
+                  data-testid="idea-actions-button"
                 >
-                  <div className="py-1 text-sm text-muted-foreground">
-                    <button
-                      type="button"
-                      className="flex w-full items-center justify-between px-3 py-2 transition-colors hover:bg-muted/30 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-                      onClick={handleExportIdea}
-                      disabled={isExporting}
-                      data-testid="idea-export-button"
-                    >
-                      <span>Export idea</span>
-                      {isExporting ? <Loader2 className="size-3 animate-spin text-muted-foreground" /> : null}
-                    </button>
-                    <button
-                      type="button"
-                      className="flex w-full items-center justify-between px-3 py-2 transition-colors hover:bg-muted/30 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-                      onClick={handleToggleConvert}
-                      disabled={isConverting}
-                      data-testid="idea-convert-toggle"
-                    >
-                      <span>{isConvertOpen ? "Close convert panel" : "Convert to feature"}</span>
-                      {isConverting ? <Loader2 className="size-3 animate-spin text-muted-foreground" /> : null}
-                    </button>
-                    <button
-                      type="button"
-                      className="flex w-full items-center justify-between px-3 py-2 transition-colors hover:bg-muted/30 hover:text-foreground"
-                      onClick={() => { setShowDevMode((v) => !v); setIsActionsOpen(false); }}
+                  Actions
+                  {isOnline !== null ? (
+                    <span
+                      className={cn(
+                        "ml-1 inline-block h-2 w-2 rounded-full",
+                        isOnline ? "bg-green-500" : "bg-gray-400",
+                      )}
+                      aria-label={isOnline ? "Runner online" : "Runner offline"}
+                    />
+                  ) : null}
+                  <ChevronDown
+                    className={cn(
+                      "size-3 transition-transform text-muted-foreground",
+                      isActionsOpen ? "rotate-180" : "rotate-0",
+                    )}
+                    aria-hidden="true"
+                  />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="w-56 border-border/60 bg-card text-sm text-muted-foreground shadow-xl"
+              >
+                <DropdownMenuItem
+                  onSelect={() => {
+                    handleExportIdea();
+                  }}
+                  disabled={isExporting}
+                  className="flex items-center justify-between"
+                  data-testid="idea-export-button"
+                >
+                  <span>Export idea</span>
+                  {isExporting ? <Loader2 className="size-3 animate-spin text-muted-foreground" /> : null}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    handleToggleConvert();
+                  }}
+                  disabled={isConverting}
+                  className="flex items-center justify-between"
+                  data-testid="idea-convert-toggle"
+                >
+                  <span>{isConvertOpen ? "Close convert panel" : "Convert to feature"}</span>
+                  {isConverting ? <Loader2 className="size-3 animate-spin text-muted-foreground" /> : null}
+                </DropdownMenuItem>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger
+                    className="flex w-full items-center justify-between"
+                    data-testid="idea-devmode-submenu"
+                  >
+                    <span>{showDevMode ? "Hide Dev Mode" : "Show Dev Mode"}</span>
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="w-64 border-border/60 bg-card text-sm text-muted-foreground">
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        setShowDevMode((value) => !value);
+                        setIsActionsOpen(false);
+                      }}
                       data-testid="idea-devmode-toggle"
                     >
-                      <span>{showDevMode ? "Hide Dev Mode" : "Show Dev Mode"}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="flex w-full items-center justify-between px-3 py-2 transition-colors hover:bg-muted/30 hover:text-foreground"
-                      onClick={() => { try { router.push("/dashboard/devmode/pair"); } catch {} setIsActionsOpen(false); }}
+                      {showDevMode ? "Hide Dev Mode panel" : "Show Dev Mode panel"}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        try {
+                          router.push("/dashboard/devmode/pair");
+                        } catch {}
+                        setIsActionsOpen(false);
+                      }}
                       data-testid="idea-devmode-pair"
                     >
-                      <span>Enable Dev Mode (Pair Runner)</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="flex w-full items-center justify-between px-3 py-2 transition-colors hover:bg-muted/30 hover:text-foreground"
-                      onClick={() => { try { router.push("/dashboard/devmode/devices"); } catch {} setIsActionsOpen(false); }}
+                      Enable Dev Mode (Pair Runner)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        try {
+                          router.push("/dashboard/devmode/devices");
+                        } catch {}
+                        setIsActionsOpen(false);
+                      }}
                       data-testid="idea-devmode-devices"
                     >
-                      <span>Manage Paired Devices</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="flex w-full items-center justify-between px-3 py-2 text-destructive transition-colors hover:bg-destructive/10 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-60"
-                      onClick={handleDelete}
-                      disabled={isPending}
-                      data-testid="idea-delete-button"
-                    >
-                      <span>Delete idea</span>
-                      {isPending ? <Loader2 className="size-3 animate-spin" /> : null}
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-            </div>
+                      Manage Paired Devices
+                    </DropdownMenuItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={() => {
+                    handleDelete();
+                  }}
+                  disabled={isPending}
+                  className="flex items-center justify-between text-destructive focus:text-destructive"
+                  data-testid="idea-delete-button"
+                >
+                  <span>Delete idea</span>
+                  {isPending ? <Loader2 className="size-3 animate-spin" /> : null}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           {isConfirmingDelete ? (
             <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">

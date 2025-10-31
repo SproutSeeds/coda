@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import { TerminalPane } from "./TerminalPane";
 import { X, Minus, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -41,10 +42,51 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
   const [online, setOnline] = useState<boolean | null>(null);
   const [isClient, setIsClient] = useState(false);
   const [showSlotSelector, setShowSlotSelector] = useState(false);
+  const [combinedCollapsed, setCombinedCollapsed] = useState(false);
+  const [fullscreenSessionId, setFullscreenSessionId] = useState<string | null>(null);
+  const [scrollLocked, setScrollLocked] = useState(true);
+  const previousOverflowRef = useRef<string>("");
+
+  const normalizeSessions = useCallback((list: Session[]) => {
+    const seenSlots = new Set<string>();
+    const unique: Session[] = [];
+    for (let i = list.length - 1; i >= 0; i -= 1) {
+      const session = list[i];
+      const slotKey = session.slotId || session.id;
+      if (seenSlots.has(slotKey)) continue;
+      seenSlots.add(slotKey);
+      unique.push(session);
+    }
+    return unique.reverse();
+  }, []);
 
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  useEffect(() => {
+    if (!fullscreenSessionId) {
+      return;
+    }
+    const session = sessions.find((s) => s.id === fullscreenSessionId);
+    if (!session || session.minimized || activeId !== fullscreenSessionId) {
+      setFullscreenSessionId(null);
+      setScrollLocked(true);
+    }
+  }, [sessions, fullscreenSessionId, activeId]);
+
+  useEffect(() => {
+    if (!isClient) return;
+    if (fullscreenSessionId && scrollLocked) {
+      previousOverflowRef.current = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = previousOverflowRef.current;
+    }
+    return () => {
+      document.body.style.overflow = previousOverflowRef.current;
+    };
+  }, [fullscreenSessionId, scrollLocked, isClient]);
 
   useEffect(() => {
     if (!isClient) return;
@@ -75,8 +117,12 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
           slotId: (s as any).slotId || `slot-${index + 1}`, // Migrate old sessions without slotId
           ...s
         })) as Session[];
-        setSessions(parsed);
-        if (parsed.length) setActiveId(parsed[0].id);
+        const normalized = normalizeSessions(parsed);
+        setSessions(normalized);
+        if (normalized.length) setActiveId(normalized[0].id);
+        if (normalized.length !== parsed.length) {
+          try { localStorage.setItem(storageKey, JSON.stringify(normalized)); } catch {}
+        }
       }
       const pr = localStorage.getItem(projectRootKey) || "";
       setProjectRoot(pr);
@@ -91,11 +137,25 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
         }
       }
     } catch {}
-  }, [storageKey, projectRootKey, codexSessionKey, pathHistoryKey, isClient]);
+  }, [storageKey, projectRootKey, codexSessionKey, pathHistoryKey, isClient, normalizeSessions]);
+
+  useEffect(() => {
+    if (combinedCollapsed) {
+      setFollow(false);
+    }
+  }, [combinedCollapsed]);
 
   const persist = (next: Session[]) => {
-    setSessions(next);
-    try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch {}
+    const normalized = normalizeSessions(next);
+    const ids = new Set(normalized.map((s) => s.id));
+    for (const key of Object.keys(disconnectRef.current)) {
+      if (!ids.has(key)) delete disconnectRef.current[key];
+    }
+    for (const key of Object.keys(pickersRef.current)) {
+      if (!ids.has(key)) delete pickersRef.current[key];
+    }
+    setSessions(normalized);
+    try { localStorage.setItem(storageKey, JSON.stringify(normalized)); } catch {}
   };
 
   const persistProjectRoot = (value: string) => {
@@ -252,11 +312,12 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
       return;
     }
 
-    const n = sessions.length + 1;
+    const available = normalizeSessions(sessions);
+    const n = available.length + 1;
     const label = "Terminal";
 
     // Use provided slot number or find next available slot (1-7)
-    const usedSlots = new Set(sessions.map(s => s.slotId));
+    const usedSlots = new Set(available.map(s => s.slotId));
     let nextSlot = "";
 
     if (slotNumber) {
@@ -271,6 +332,13 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
       }
     }
 
+    if (!nextSlot) {
+      toast.error("All terminal slots are already in use");
+      return;
+    }
+
+    const withoutDuplicate = available.filter((s) => s.slotId !== nextSlot);
+
     const s: Session = {
       id: crypto.randomUUID(),
       title: `${label} ${n}`,
@@ -281,7 +349,7 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
       slotId: nextSlot,
       connected: false
     };
-    const next = [...sessions, s];
+    const next = [...withoutDuplicate, s];
     persist(next);
     setActiveId(s.id);
   };
@@ -298,10 +366,17 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
     } catch {}
     const next = sessions.filter((s) => s.id !== id);
     persist(next);
+    if (fullscreenSessionId === id) {
+      setFullscreenSessionId(null);
+    }
     if (activeId === id) setActiveId(next[0]?.id ?? null);
   };
 
   const toggleMin = (id: string) => {
+    const current = sessions.find((s) => s.id === id);
+    if (current && !current.minimized && fullscreenSessionId === id) {
+      setFullscreenSessionId(null);
+    }
     const next = sessions.map((s) => (s.id === id ? { ...s, minimized: !s.minimized } : s));
     persist(next);
   };
@@ -319,6 +394,22 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
   const toggleInclude = (id: string) => {
     const next = sessions.map((s) => (s.id === id ? { ...s, include: !s.include } : s));
     persist(next);
+  };
+
+  const toggleFullscreen = (sessionId: string) => {
+    setFullscreenSessionId((current) => {
+      if (current === sessionId) {
+        setScrollLocked(true);
+        return null;
+      }
+      setActiveId(sessionId);
+      setScrollLocked(true);
+      return sessionId;
+    });
+  };
+
+  const toggleScrollLock = () => {
+    setScrollLocked((value) => !value);
   };
 
   const onOutput = (id: string, text: string) => {
@@ -417,47 +508,68 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
         {/* Combined Logs Controls */}
         {sessions.length > 0 ? (
           <div className="rounded border p-3">
-            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Combined Logs</div>
-              <div className="flex items-center gap-3">
-                <label className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} className="accent-primary" />
-                  Follow
-                </label>
-                <Button variant="secondary" size="sm" onClick={() => setCombined([])}>Clear</Button>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Combined Logs</div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => setCombinedCollapsed((value) => !value)}
+                >
+                  {combinedCollapsed ? "Expand" : "Minimize"}
+                </Button>
               </div>
+              {!combinedCollapsed ? (
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} className="accent-primary" />
+                    Follow
+                  </label>
+                  <Button variant="secondary" size="sm" onClick={() => setCombined([])}>Clear</Button>
+                </div>
+              ) : null}
             </div>
-            <div className="mb-2 flex flex-wrap gap-3">
-              {sessions.map((s) => (
-                <label key={s.id} className="flex items-center gap-1 text-xs">
-                  <input type="checkbox" checked={s.include} onChange={() => toggleInclude(s.id)} className="accent-primary" />
-                  <span className="rounded bg-muted px-1.5 py-0.5">{s.title || "Terminal"}</span>
-                </label>
-              ))}
-            </div>
-            <div
-              ref={(el) => setCombinedRef(el)}
-              onScroll={() => {
-                // Disable follow when user scrolls up
-                const el = combinedRef as unknown as HTMLDivElement | null;
-                if (!el) return;
-                const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 8;
-                if (!atBottom && follow) setFollow(false);
-              }}
-              className="h-40 overflow-auto rounded border bg-black p-2 font-mono text-xs text-green-300"
-              style={{ overscrollBehavior: "contain" }}
-            >
-              {combined
-                .filter((l) => sessions.find((s) => s.id === l.sessionId)?.include)
-                .map((l, i) => {
-                  const title = sessions.find((s) => s.id === l.sessionId)?.title || "Terminal";
-                  return (
-                    <div key={i}>
-                      <span className="text-blue-300">[{title}]</span> {l.text}
-                    </div>
-                  );
-                })}
-            </div>
+            {!combinedCollapsed ? (
+              <>
+                <div className="mb-2 mt-3 flex flex-wrap gap-3">
+                  {sessions.map((s) => (
+                    <label key={s.id} className="flex items-center gap-1 text-xs">
+                      <input type="checkbox" checked={s.include} onChange={() => toggleInclude(s.id)} className="accent-primary" />
+                      <span className="rounded bg-muted px-1.5 py-0.5">{s.title || "Terminal"}</span>
+                    </label>
+                  ))}
+                </div>
+                <div
+                  ref={(el) => setCombinedRef(el)}
+                  onScroll={() => {
+                    // Disable follow when user scrolls up
+                    const el = combinedRef as unknown as HTMLDivElement | null;
+                    if (!el) return;
+                    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 8;
+                    if (!atBottom && follow) setFollow(false);
+                  }}
+                  className="h-40 overflow-auto rounded border bg-black p-2 font-mono text-xs text-green-300"
+                  style={{ overscrollBehavior: "contain" }}
+                >
+                  {combined
+                    .filter((l) => sessions.find((s) => s.id === l.sessionId)?.include)
+                    .map((l, i) => {
+                      const title = sessions.find((s) => s.id === l.sessionId)?.title || "Terminal";
+                      return (
+                        <div key={i}>
+                          <span className="text-blue-300">[{title}]</span> {l.text}
+                        </div>
+                      );
+                    })}
+                </div>
+              </>
+            ) : (
+              <div className="mt-3 rounded border border-dashed border-muted-foreground/30 bg-muted/30 p-2 text-xs text-muted-foreground">
+                Combined log stream hidden. Expand to resume live output.
+              </div>
+            )}
           </div>
         ) : null}
         {/* Tabs Bar */}
@@ -510,41 +622,56 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
         {/* Render all terminals to keep connections alive; show one at a time */}
         {sessions.length > 0 ? (
           <div className="relative">
-            {sessions.map((s) => (
-              <div
-                key={s.id}
-                className={activeId === s.id && !s.minimized ? "block" : "hidden"}
-              >
-                {s.minimized ? (
-                  <div className="rounded border p-3 text-sm text-muted-foreground">
-                    {s.title} is minimized. Click its tab to restore.
-                  </div>
-                ) : (
-                  <TerminalPane
-                    runnerId={runnerId}
-                    initialUrl={s.url}
-                    onUrlChange={(url) => changeUrl(s.id, url)}
-                    visible={activeId === s.id}
-                    onOutput={(text) => onOutput(s.id, text)}
-                    ideaId={ideaId}
-                    sessionSlot={s.slotId}
-                    projectRoot={projectRoot || null}
-                    codexSessionId={codexSession || null}
-                    onProjectRootDetected={(path) => notifyRootSet(path)}
-                    onRegisterPicker={(fn) => { pickersRef.current[s.id] = fn; }}
-                    onRegisterDisconnect={(fn) => { disconnectRef.current[s.id] = fn; }}
-                    requireProjectRoot={true}
-                    autoAgent={s.mode === "agent"}
-                    onCodexSessionDetected={(sid) => persistCodexSession(sid)}
-                    autoConnect={true}
-                    pathHistory={pathHistory[s.slotId] || []}
-                    onPathSelected={(path) => addToPathHistory(s.slotId, path)}
-                    onNoRunner={() => setNoRunner(true)}
-                    onConnectionChange={(connected) => updateConnectionState(s.id, connected)}
-                  />
-                )}
-              </div>
-            ))}
+            {sessions.map((s) => {
+              const isActive = activeId === s.id;
+              const isFullscreen = fullscreenSessionId === s.id;
+              return (
+                <div
+                  key={s.id}
+                  className={cn(
+                    isFullscreen
+                      ? "fixed inset-0 z-50 flex flex-col overflow-auto bg-background/95 p-4 sm:p-6"
+                      : isActive
+                        ? "block"
+                        : "hidden"
+                  )}
+                >
+                  {s.minimized ? (
+                    <div className="rounded border p-3 text-sm text-muted-foreground">
+                      {s.title} is minimized. Click its tab to restore.
+                    </div>
+                  ) : (
+                    <TerminalPane
+                      runnerId={runnerId}
+                      initialUrl={s.url}
+                      onUrlChange={(url) => changeUrl(s.id, url)}
+                      visible={isActive}
+                      onOutput={(text) => onOutput(s.id, text)}
+                      ideaId={ideaId}
+                      sessionSlot={s.slotId}
+                      projectRoot={projectRoot || null}
+                      codexSessionId={codexSession || null}
+                      onProjectRootDetected={(path) => notifyRootSet(path)}
+                      onRegisterPicker={(fn) => { pickersRef.current[s.id] = fn; }}
+                      onRegisterDisconnect={(fn) => { disconnectRef.current[s.id] = fn; }}
+                      requireProjectRoot={true}
+                      autoAgent={s.mode === "agent"}
+                      onCodexSessionDetected={(sid) => persistCodexSession(sid)}
+                      autoConnect={true}
+                      pathHistory={pathHistory[s.slotId] || []}
+                      onPathSelected={(path) => addToPathHistory(s.slotId, path)}
+                      onNoRunner={() => setNoRunner(true)}
+                      onConnectionChange={(connected) => updateConnectionState(s.id, connected)}
+                      expanded={combinedCollapsed}
+                      fullscreen={isFullscreen}
+                      onToggleFullscreen={() => toggleFullscreen(s.id)}
+                      scrollLocked={isFullscreen ? scrollLocked : true}
+                      onToggleScrollLock={isFullscreen ? toggleScrollLock : undefined}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
         ) : null}
       </CardContent>
