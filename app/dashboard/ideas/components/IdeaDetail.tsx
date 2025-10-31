@@ -824,52 +824,11 @@ const handleConvert = () => {
         </div>
       </div>
 
-      <Card
-        data-testid="idea-card"
-        className={cn(!isEditing && "cursor-text")}
-        onClick={(event) => {
-          // Ignore clicks originating from controls that manage their own behavior.
-          const target = event.target as HTMLElement;
-          if (target.closest("button, a, input, textarea")) {
-            return;
-          }
-          beginEditing();
-        }}
-        onKeyDown={(event) => {
-          if (isEditing) {
-            return;
-          }
-          if (event.key === "Enter" || event.key === " ") {
-            const target = event.target as HTMLElement;
-            if (target.closest("button, a, input, textarea")) {
-              return;
-            }
-            event.preventDefault();
-            beginEditing();
-          }
-        }}
-        tabIndex={isEditing ? -1 : 0}
-        role="group"
-      >
+      <Card data-testid="idea-card">
         <CardHeader className="flex flex-row items-start justify-between gap-4">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-3">
-              <CardTitle
-                role="button"
-                tabIndex={isEditing ? -1 : 0}
-                onClick={beginEditing}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    beginEditing();
-                  }
-                }}
-                className={cn(
-                  "text-2xl font-semibold text-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                  !isEditing && "cursor-text hover:text-primary",
-                  isEditing && "cursor-default",
-                )}
-              >
+              <CardTitle className="text-2xl font-semibold text-foreground">
                 {syncedIdea.title}
               </CardTitle>
               <button
@@ -1320,7 +1279,7 @@ const handleConvert = () => {
               </div>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-2" data-core-plan-preview="">
               <h3 className="text-sm font-medium text-muted-foreground">Core plan</h3>
               <div className="rounded-xl border border-border/70 bg-card/70 p-4">
                 {corePlanPreview ? (
