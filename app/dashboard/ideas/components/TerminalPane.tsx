@@ -33,6 +33,7 @@ export function TerminalPane({
   codexSessionId,
   onProjectRootDetected,
   onRegisterPicker,
+  onRegisterDisconnect,
   requireProjectRoot = true,
   autoAgent = false,
   onCodexSessionDetected,
@@ -53,6 +54,7 @@ export function TerminalPane({
   codexSessionId?: string | null;
   onProjectRootDetected?: (path: string) => void;
   onRegisterPicker?: (fn: () => void) => void;
+  onRegisterDisconnect?: (fn: () => void) => void;
   requireProjectRoot?: boolean;
   autoAgent?: boolean;
   onCodexSessionDetected?: (id: string) => void;
@@ -461,6 +463,13 @@ export function TerminalPane({
     onRegisterPicker(trigger);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onRegisterPicker, wsRef.current, connected]);
+
+  // Expose disconnect function to the dock
+  useEffect(() => {
+    if (!onRegisterDisconnect) return;
+    onRegisterDisconnect(disconnect);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onRegisterDisconnect]);
 
   // Send resize messages to PTY only when terminal dimensions actually change
   useEffect(() => {

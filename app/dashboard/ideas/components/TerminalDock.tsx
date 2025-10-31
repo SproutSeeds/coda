@@ -35,6 +35,7 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
   const [codexSession, setCodexSession] = useState<string>("");
   const [pathHistory, setPathHistory] = useState<Record<string, string[]>>({});  // slotId -> paths[]
   const pickersRef = useRef<Record<string, () => void>>({});
+  const disconnectRef = useRef<Record<string, () => void>>({});
   const [picking, setPicking] = useState(false);
   const [noRunner, setNoRunner] = useState(false);
   const [online, setOnline] = useState<boolean | null>(null);
@@ -291,6 +292,10 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
   };
 
   const closeSession = (id: string) => {
+    // Disconnect terminal before removing it
+    try {
+      disconnectRef.current[id]?.();
+    } catch {}
     const next = sessions.filter((s) => s.id !== id);
     persist(next);
     if (activeId === id) setActiveId(next[0]?.id ?? null);
@@ -527,6 +532,7 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
                     codexSessionId={codexSession || null}
                     onProjectRootDetected={(path) => notifyRootSet(path)}
                     onRegisterPicker={(fn) => { pickersRef.current[s.id] = fn; }}
+                    onRegisterDisconnect={(fn) => { disconnectRef.current[s.id] = fn; }}
                     requireProjectRoot={true}
                     autoAgent={s.mode === "agent"}
                     onCodexSessionDetected={(sid) => persistCodexSession(sid)}
