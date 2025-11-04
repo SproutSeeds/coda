@@ -33,9 +33,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -220,6 +217,7 @@ export function IdeaDetail({
   const [isExporting, startExportTransition] = useTransition();
   const [isConvertDropdownOpen, setIsConvertDropdownOpen] = useState(false);
   const [isActionsOpen, setIsActionsOpen] = useState(false);
+  const [isDevModeExpanded, setIsDevModeExpanded] = useState(false);
   const [isJoinOpen, setIsJoinOpen] = useState(false);
   const [joinMessage, setJoinMessage] = useState("");
   const [joinRequest, setJoinRequest] = useState<JoinRequest | null>(viewerJoinRequest);
@@ -360,6 +358,12 @@ export function IdeaDetail({
       setIsActionsOpen(false);
     }
   }, [canWrite, isActionsOpen, isConvertOpen, isEditing, isEditingGithub]);
+
+  useEffect(() => {
+    if (!isActionsOpen) {
+      setIsDevModeExpanded(false);
+    }
+  }, [isActionsOpen]);
 
   useEffect(() => {
     setDeletedFeaturesState(deletedFeatures);
@@ -1032,6 +1036,7 @@ export function IdeaDetail({
             if (!(requestId in previous)) {
               return previous;
             }
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { [requestId]: _removed, ...rest } = previous;
             return rest;
           });
@@ -1039,6 +1044,7 @@ export function IdeaDetail({
             if (!(requestId in previous)) {
               return previous;
             }
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { [requestId]: _removed, ...rest } = previous;
             return rest;
           });
@@ -1070,6 +1076,7 @@ export function IdeaDetail({
             if (!(requestId in previous)) {
               return previous;
             }
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { [requestId]: _removed, ...rest } = previous;
             return rest;
           });
@@ -1077,6 +1084,7 @@ export function IdeaDetail({
             if (!(requestId in previous)) {
               return previous;
             }
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { [requestId]: _removed, ...rest } = previous;
             return rest;
           });
@@ -1466,7 +1474,16 @@ export function IdeaDetail({
             ) : null}
             {canWrite ? (
               <>
-                <DropdownMenu open={isActionsOpen} onOpenChange={setIsActionsOpen} modal>
+                <DropdownMenu
+                  open={isActionsOpen}
+                  onOpenChange={(open) => {
+                    setIsActionsOpen(open);
+                    if (!open) {
+                      setIsDevModeExpanded(false);
+                    }
+                  }}
+                  modal
+                >
                   <DropdownMenuTrigger asChild>
                     <Button
                       type="button"
@@ -1529,14 +1546,28 @@ export function IdeaDetail({
                       <span>{isConvertOpen ? "Close convert panel" : "Convert to feature"}</span>
                       {isConverting ? <Loader2 className="size-3 animate-spin text-muted-foreground" /> : null}
                     </DropdownMenuItem>
-                    <DropdownMenuSub>
-                      <DropdownMenuSubTrigger
-                        className="flex w-full items-center justify-between"
-                        data-testid="idea-devmode-submenu"
-                      >
-                        <span>{showDevMode ? "Hide Dev Mode" : "Show Dev Mode"}</span>
-                      </DropdownMenuSubTrigger>
-                      <DropdownMenuSubContent className="z-[70] border-border/60 bg-card text-sm text-muted-foreground w-[calc(100vw-3rem)] max-w-sm sm:w-64">
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onSelect={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setIsDevModeExpanded((previous) => !previous);
+                      }}
+                      className="flex items-center justify-between"
+                      aria-expanded={isDevModeExpanded}
+                      data-testid="idea-devmode-disclosure"
+                    >
+                      <span>Dev Mode</span>
+                      <ChevronDown
+                        className={cn(
+                          "size-3 transition-transform text-muted-foreground",
+                          isDevModeExpanded ? "rotate-180 text-foreground" : "rotate-0",
+                        )}
+                        aria-hidden="true"
+                      />
+                    </DropdownMenuItem>
+                    {isDevModeExpanded ? (
+                      <>
                         <DropdownMenuItem
                           onSelect={(event) => {
                             event.preventDefault();
@@ -1544,11 +1575,11 @@ export function IdeaDetail({
                             setShowDevMode((value) => !value);
                             setIsActionsOpen(false);
                           }}
+                          className="pl-8 text-xs text-muted-foreground"
                           data-testid="idea-devmode-toggle"
                         >
                           {showDevMode ? "Hide Dev Mode panel" : "Show Dev Mode panel"}
                         </DropdownMenuItem>
-                        <DropdownMenuSeparator />
                         <DropdownMenuItem
                           onSelect={(event) => {
                             event.preventDefault();
@@ -1558,6 +1589,7 @@ export function IdeaDetail({
                             } catch {}
                             setIsActionsOpen(false);
                           }}
+                          className="pl-8 text-xs text-muted-foreground"
                           data-testid="idea-devmode-pair"
                         >
                           Enable Dev Mode (Pair Runner)
@@ -1571,12 +1603,13 @@ export function IdeaDetail({
                             } catch {}
                             setIsActionsOpen(false);
                           }}
+                          className="pl-8 text-xs text-muted-foreground"
                           data-testid="idea-devmode-devices"
                         >
                           Manage Paired Devices
                         </DropdownMenuItem>
-                      </DropdownMenuSubContent>
-                    </DropdownMenuSub>
+                      </>
+                    ) : null}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onSelect={(event) => {

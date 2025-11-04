@@ -51,7 +51,7 @@ export function PublicIdeaGallery({ ideas, viewerId }: PublicIdeaGalleryProps) {
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {ideas.map(({ idea, owner }) => {
         const ownerLabel = getOwnerLabel(owner);
         const updatedLabel = formatTimestamp(idea.updatedAt ?? idea.createdAt);
@@ -62,9 +62,11 @@ export function PublicIdeaGallery({ ideas, viewerId }: PublicIdeaGalleryProps) {
             key={idea.id}
             className="flex flex-col justify-between border-border/60 bg-card/40 backdrop-blur supports-[backdrop-filter]:bg-card/60"
           >
-            <CardHeader className="space-y-3">
+            <CardHeader className="space-y-2 sm:space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <CardTitle className="text-base font-semibold text-foreground">{idea.title}</CardTitle>
+                <CardTitle className="text-sm font-semibold leading-snug tracking-wide text-foreground sm:text-base">
+                  {idea.title}
+                </CardTitle>
                 <span
                   className={cn(
                     "rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
@@ -80,8 +82,8 @@ export function PublicIdeaGallery({ ideas, viewerId }: PublicIdeaGalleryProps) {
                 Shared by <span className="font-semibold text-foreground">{ownerLabel}</span> • Updated {updatedLabel}
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="line-clamp-5 text-sm text-muted-foreground">
+            <CardContent className="space-y-3 sm:space-y-4">
+              <p className="line-clamp-5 text-sm leading-relaxed text-muted-foreground">
                 {idea.notes && idea.notes.trim().length > 0 ? idea.notes : "No summary yet—open the idea to explore details."}
               </p>
               <div className="flex justify-end">
