@@ -56,7 +56,7 @@ export function IdeaSharePanel({ ideaId, open, canManage, visibility, onClose, o
   const [isUpdatingVisibility, startVisibilityTransition] = useTransition();
   const [emailLookup, setEmailLookup] = useState<EmailLookupState>({ kind: "idle" });
   const [directoryMatches, setDirectoryMatches] = useState<UserDirectoryMatch[]>([]);
-  const [isLookupPending, startLookupTransition] = useTransition();
+  const [, startLookupTransition] = useTransition();
   const [isDirectoryPending, startDirectoryTransition] = useTransition();
   const lookupDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastLookupEmailRef = useRef<string>("");

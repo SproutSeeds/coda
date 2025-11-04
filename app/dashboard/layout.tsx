@@ -9,10 +9,10 @@ import { PasswordReminder } from "./components/PasswordReminder";
 import { UserMenu } from "./components/UserMenu";
 import { AppInstallReminder } from "./components/AppInstallReminder";
 
-const discoverColors: CSSProperties = {
+const discoverColors = {
   "--discover": "#f9a8d4",
   "--discover-hover": "#f472b6",
-};
+} satisfies CSSProperties;
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
