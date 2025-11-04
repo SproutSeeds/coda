@@ -1036,6 +1036,7 @@ export function IdeaDetail({
             if (!(requestId in previous)) {
               return previous;
             }
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { [requestId]: _removed, ...rest } = previous;
             return rest;
           });
@@ -1043,6 +1044,7 @@ export function IdeaDetail({
             if (!(requestId in previous)) {
               return previous;
             }
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { [requestId]: _removed, ...rest } = previous;
             return rest;
           });
@@ -1074,6 +1076,7 @@ export function IdeaDetail({
             if (!(requestId in previous)) {
               return previous;
             }
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { [requestId]: _removed, ...rest } = previous;
             return rest;
           });
@@ -1081,6 +1084,7 @@ export function IdeaDetail({
             if (!(requestId in previous)) {
               return previous;
             }
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { [requestId]: _removed, ...rest } = previous;
             return rest;
           });
