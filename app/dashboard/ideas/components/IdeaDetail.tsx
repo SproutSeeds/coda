@@ -12,12 +12,16 @@ import {
   Clock,
   Copy,
   Funnel,
+  Globe2,
   Link as LinkIcon,
   Loader2,
   Pencil,
   Sparkles,
+  Users,
   Star,
   StarOff,
+  Lock,
+  Share2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -49,12 +53,43 @@ import {
   restoreIdeaAction,
   cycleIdeaStarAction,
   updateIdeaAction,
+  submitJoinRequestAction,
+  listJoinRequestsAction,
+  markJoinRequestsSeenAction,
+  resolveJoinRequestAction,
+  archiveJoinRequestAction,
 } from "../actions";
 import { FeatureComposer } from "./FeatureComposer";
 import { FeatureList } from "./FeatureList";
 import { showUndoToast } from "./UndoSnackbar";
-import type { Feature, Idea } from "./types";
+import type { Feature, Idea, JoinRequest, JoinRequestCounts } from "./types";
 import { IdeaDevPanel } from "./IdeaDevPanel";
+import { IdeaSharePanel } from "./IdeaSharePanel";
+import { useOthers, useUpdateMyPresence } from "@liveblocks/react/suspense";
+import type { IdeaUserMetadata } from "@/lib/liveblocks/types";
+
+let didWarnMissingLiveblocks = false;
+
+function useOptionalIdeaCollaboration(enabled: boolean) {
+  try {
+    const updatePresence = useUpdateMyPresence();
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const others = useOthers();
+    if (!enabled) {
+      return null;
+    }
+    return { updatePresence, others } as const;
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      const isMissingProvider = error instanceof Error && error.message.includes("RoomProvider is missing");
+      if (!isMissingProvider && !didWarnMissingLiveblocks) {
+        console.warn("[IdeaDetail] Liveblocks unavailable, collaboration features disabled.", error);
+        didWarnMissingLiveblocks = true;
+      }
+    }
+    return null;
+  }
+}
 
 function formatDateTime(value: string) {
   try {
@@ -93,10 +128,60 @@ const featureFilterOptions: Array<{ value: "all" | "completed" | "starred" | "un
   { value: "unstarred", label: "Unstarred" },
 ];
 
+type LiveblocksMember = {
+  id: string;
+  info?: unknown;
+  presence?: Record<string, unknown> | null | undefined;
+};
+
+const EMPTY_OTHERS: LiveblocksMember[] = [];
+
 const AUTOSAVE_DELAY = 10_000;
 
-export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; features: Feature[]; deletedFeatures: Feature[] }) {
+function getCollaboratorDisplayName(meta?: IdeaUserMetadata | null) {
+  if (!meta) {
+    return "Collaborator";
+  }
+  if (meta.name && meta.name.trim().length > 0) {
+    return meta.name.trim();
+  }
+  if (meta.email && meta.email.trim().length > 0) {
+    return meta.email.trim();
+  }
+  return "Collaborator";
+}
+
+function getInitials(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "?";
+  }
+  const parts = trimmed.split(/\s+/);
+  if (parts.length === 1) {
+    return parts[0]!.slice(0, 2).toUpperCase();
+  }
+  return (parts[0]![0] ?? "").concat(parts[1]![0] ?? "").toUpperCase();
+}
+
+export function IdeaDetail({
+  idea,
+  features,
+  deletedFeatures,
+  viewerJoinRequest,
+  collaborationEnabled,
+  ownerJoinRequestCounts,
+}: {
+  idea: Idea;
+  features: Feature[];
+  deletedFeatures: Feature[];
+  viewerJoinRequest: JoinRequest | null;
+  collaborationEnabled: boolean;
+  ownerJoinRequestCounts: JoinRequestCounts | null;
+}) {
   const router = useRouter();
+  const collaboration = useOptionalIdeaCollaboration(collaborationEnabled);
+  const updatePresence = collaboration?.updatePresence;
+  const others = (collaboration?.others as LiveblocksMember[] | undefined) ?? EMPTY_OTHERS;
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState(idea.title);
   const [notes, setNotes] = useState(idea.notes);
@@ -119,6 +204,7 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
     updatedAt: idea.updatedAt,
     starred: idea.starred,
     superStarred: idea.superStarred,
+    visibility: idea.visibility,
   });
   const ideaAutoTimer = useRef<number | null>(null);
   const githubAutoTimer = useRef<number | null>(null);
@@ -134,17 +220,63 @@ export function IdeaDetail({ idea, features, deletedFeatures }: { idea: Idea; fe
   const [isExporting, startExportTransition] = useTransition();
   const [isConvertDropdownOpen, setIsConvertDropdownOpen] = useState(false);
   const [isActionsOpen, setIsActionsOpen] = useState(false);
+  const [isJoinOpen, setIsJoinOpen] = useState(false);
+  const [joinMessage, setJoinMessage] = useState("");
+  const [joinRequest, setJoinRequest] = useState<JoinRequest | null>(viewerJoinRequest);
+  const [isJoinSubmitting, startJoinRequestTransition] = useTransition();
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
   const [showDevMode, setShowDevMode] = useState(false);
   const convertDropdownRef = useRef<HTMLDivElement | null>(null);
-const [isIdVisible, setIsIdVisible] = useState(false);
-const [deletedFeaturesState, setDeletedFeaturesState] = useState(deletedFeatures);
-const [isRestoringFeature, startRestoreFeatureTransition] = useTransition();
-const [isStarPending, startStarTransition] = useTransition();
-const [restoreTargetId, setRestoreTargetId] = useState<string | null>(null);
-const filterPanelRef = useRef<HTMLDivElement | null>(null);
-const filterTriggerRef = useRef<HTMLButtonElement | null>(null);
-const titleInputRef = useRef<HTMLInputElement | null>(null);
+  const [isIdVisible, setIsIdVisible] = useState(false);
+  const [deletedFeaturesState, setDeletedFeaturesState] = useState(deletedFeatures);
+  const [isRestoringFeature, startRestoreFeatureTransition] = useTransition();
+  const [isStarPending, startStarTransition] = useTransition();
+  const [restoreTargetId, setRestoreTargetId] = useState<string | null>(null);
+  const filterPanelRef = useRef<HTMLDivElement | null>(null);
+  const filterTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
+  const [isShareOpen, setIsShareOpen] = useState(false);
+  const [isJoinQueueOpen, setIsJoinQueueOpen] = useState(false);
+  const [joinRequestCounts, setJoinRequestCounts] = useState<JoinRequestCounts | null>(ownerJoinRequestCounts);
+  const [ownerJoinRequests, setOwnerJoinRequests] = useState<JoinRequest[] | null>(null);
+  const ownerJoinRequestsRef = useRef<JoinRequest[] | null>(ownerJoinRequests);
+  const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
+  const [roleDrafts, setRoleDrafts] = useState<Record<string, "editor" | "commenter" | "viewer">>({});
+  const [resolvingRequestId, setResolvingRequestId] = useState<string | null>(null);
+  const [resolvingAction, setResolvingAction] = useState<"approve" | "reject" | "archive" | null>(null);
+  const [isLoadingJoinRequests, startLoadJoinRequests] = useTransition();
+  const [isResolvingJoinRequest, startResolveJoinRequest] = useTransition();
+  const canWrite = idea.isOwner || idea.accessRole === "editor";
+  const canManageCollaborators = idea.isOwner;
+  const joinRequestStatus = joinRequest?.status ?? null;
+  const hasPendingJoinRequest = joinRequestStatus === "pending";
+  const hasApprovedJoinRequest = joinRequestStatus === "approved";
+  const canRequestToJoin =
+    !canWrite && !idea.isOwner && idea.accessRole === "viewer" && idea.visibility === "public";
+  const joinQueuePending = joinRequestCounts?.pending ?? 0;
+  const joinQueueUnseen = joinRequestCounts?.unseen ?? 0;
+  const showJoinQueueIndicator = canManageCollaborators && (joinQueuePending > 0 || joinQueueUnseen > 0);
+  const joinMessageTrimmed = joinMessage.trim();
+  const joinMessageLength = joinMessageTrimmed.length;
+  const joinMessageTooShort = joinMessageLength > 0 && joinMessageLength < 20;
+  const joinMessageTooLong = joinMessageLength > 1000;
+  const collaboratorAvatars = useMemo(() =>
+    others.map((member) => {
+      const info = member.info as IdeaUserMetadata | null | undefined;
+      const name = getCollaboratorDisplayName(info);
+      return {
+        id: member.id,
+        name,
+        initials: getInitials(name),
+        status:
+          typeof member.presence === "object" && member.presence && "status" in member.presence
+            ? ((member.presence as { status?: string | null }).status ?? "viewing")
+            : "viewing",
+      };
+    }),
+  [others]);
+  const visibleAvatars = collaboratorAvatars.slice(0, 4);
+  const extraCollaborators = collaboratorAvatars.length - visibleAvatars.length;
   const corePlanPreview = useMemo(() => {
     const text = (syncedIdea.notes ?? "").trim();
     if (!text) return "";
@@ -174,12 +306,60 @@ const titleInputRef = useRef<HTMLInputElement | null>(null);
       updatedAt: idea.updatedAt,
       starred: idea.starred,
       superStarred: idea.superStarred,
+      visibility: idea.visibility,
     });
     setLinkLabelDraft(idea.linkLabel ?? "GitHub Repository");
     setIdeaAutoState("idle");
     setGithubAutoState("idle");
     setIsIdVisible(false);
-  }, [idea.githubUrl, idea.id, idea.linkLabel, idea.notes, idea.starred, idea.superStarred, idea.title, idea.updatedAt]);
+  }, [idea.githubUrl, idea.id, idea.linkLabel, idea.notes, idea.starred, idea.superStarred, idea.title, idea.updatedAt, idea.visibility]);
+
+  useEffect(() => {
+    if (!updatePresence) {
+      return;
+    }
+    updatePresence({
+      status: isEditing ? "editing" : "viewing",
+      focus: isEditing ? { type: "idea" } : null,
+      role: idea.accessRole,
+    });
+  }, [idea.accessRole, isEditing, updatePresence]);
+
+  useEffect(() => {
+    setIsShareOpen(false);
+  }, [idea.id]);
+
+  useEffect(() => {
+    if (!canManageCollaborators && isShareOpen) {
+      setIsShareOpen(false);
+    }
+  }, [canManageCollaborators, isShareOpen]);
+
+  useEffect(() => {
+    setJoinRequest(viewerJoinRequest);
+    if (viewerJoinRequest?.status === "pending") {
+      setIsJoinOpen(false);
+      setJoinMessage("");
+    }
+  }, [viewerJoinRequest]);
+
+  useEffect(() => {
+    if (canWrite) {
+      return;
+    }
+    if (isEditing) {
+      setIsEditing(false);
+    }
+    if (isEditingGithub) {
+      setIsEditingGithub(false);
+    }
+    if (isConvertOpen) {
+      setIsConvertOpen(false);
+    }
+    if (isActionsOpen) {
+      setIsActionsOpen(false);
+    }
+  }, [canWrite, isActionsOpen, isConvertOpen, isEditing, isEditingGithub]);
 
   useEffect(() => {
     setDeletedFeaturesState(deletedFeatures);
@@ -287,6 +467,7 @@ const titleInputRef = useRef<HTMLInputElement | null>(null);
           updatedAt: updated.updatedAt,
           starred: updated.starred,
           superStarred: updated.superStarred,
+          visibility: updated.visibility,
         }));
         if (!isEditing) {
           setTitle((prev) => (prev === updated.title ? prev : updated.title));
@@ -305,7 +486,13 @@ const titleInputRef = useRef<HTMLInputElement | null>(null);
   }, [idea.id, isEditing, isEditingGithub, startStarTransition]);
 
   const saveIdea = useCallback(
-    async (fields: { title?: string; notes?: string; githubUrl?: string | null; linkLabel?: string | null }) => {
+    async (fields: {
+      title?: string;
+      notes?: string;
+      githubUrl?: string | null;
+      linkLabel?: string | null;
+      visibility?: "private" | "public";
+    }) => {
       ideaSaveInFlight.current = true;
       try {
         const updated = await updateIdeaAction({
@@ -315,6 +502,7 @@ const titleInputRef = useRef<HTMLInputElement | null>(null);
         });
         const nextGithub = updated.githubUrl ?? "";
         const nextLinkLabel = updated.linkLabel ?? "GitHub Repository";
+        const nextVisibility = updated.visibility;
         setSyncedIdea({
           title: updated.title,
           notes: updated.notes,
@@ -323,6 +511,7 @@ const titleInputRef = useRef<HTMLInputElement | null>(null);
           updatedAt: updated.updatedAt,
           starred: updated.starred,
           superStarred: updated.superStarred,
+          visibility: nextVisibility,
         });
         setTitle((previous) => (previous === updated.title ? previous : updated.title));
         setNotes((previous) => (previous === updated.notes ? previous : updated.notes));
@@ -334,6 +523,13 @@ const titleInputRef = useRef<HTMLInputElement | null>(null);
       }
     },
     [idea.id, syncedIdea.updatedAt],
+  );
+
+  const handleVisibilityChange = useCallback(
+    async (nextVisibility: "private" | "public") => {
+      await saveIdea({ visibility: nextVisibility });
+    },
+    [saveIdea],
   );
 
   useEffect(() => {
@@ -520,7 +716,11 @@ const titleInputRef = useRef<HTMLInputElement | null>(null);
   }, [featureFilter, featureQuery, featureSort, features]);
 
   const canReorderFeatures =
-    featureView === "active" && featureFilter === "all" && featureQuery.trim().length === 0 && featureSort === "priority";
+    canWrite &&
+    featureView === "active" &&
+    featureFilter === "all" &&
+    featureQuery.trim().length === 0 &&
+    featureSort === "priority";
 
   const resetDeleteConfirmation = useCallback(() => {
     setIsConfirmingDelete(false);
@@ -536,6 +736,9 @@ const titleInputRef = useRef<HTMLInputElement | null>(null);
   }, [syncedIdea.githubUrl, syncedIdea.notes, syncedIdea.title]);
 
   const handleUpdate = () => {
+    if (!canWrite) {
+      return;
+    }
     if (notesLimitExceeded) {
       toast.error(`Keep the elevator pitch under ${IDEA_NOTES_CHARACTER_LIMIT} characters.`);
       return;
@@ -560,6 +763,9 @@ const titleInputRef = useRef<HTMLInputElement | null>(null);
   };
 
   const handleGithubSave = () => {
+    if (!canWrite) {
+      return;
+    }
     if (!githubDirty) {
       setIsEditingGithub(false);
       return;
@@ -581,6 +787,9 @@ const titleInputRef = useRef<HTMLInputElement | null>(null);
   };
 
   const beginEditing = useCallback(() => {
+    if (!canWrite) {
+      return;
+    }
     if (isEditing) {
       return;
     }
@@ -592,6 +801,7 @@ const titleInputRef = useRef<HTMLInputElement | null>(null);
     setIsEditingGithub(true);
     setIsEditing(true);
   }, [
+    canWrite,
     isEditing,
     resetDeleteConfirmation,
     setGithubAutoState,
@@ -603,12 +813,18 @@ const titleInputRef = useRef<HTMLInputElement | null>(null);
   ]);
 
   const handleToggleConvert = () => {
+    if (!canWrite) {
+      return;
+    }
     setConvertError(null);
     setIsConvertOpen((previous) => !previous);
     setIsActionsOpen(false);
   };
 
   const handleExportIdea = () => {
+    if (!canWrite) {
+      return;
+    }
     setIsActionsOpen(false);
     startExportTransition(async () => {
       try {
@@ -631,6 +847,250 @@ const titleInputRef = useRef<HTMLInputElement | null>(null);
     });
   };
 
+  const handleJoinSubmit = useCallback(() => {
+    if (!canRequestToJoin) {
+      return;
+    }
+    if (joinMessageTrimmed.length < 20) {
+      toast.error("Share a little more detail so the team knows how you can help.");
+      return;
+    }
+    if (joinMessageTrimmed.length > 1000) {
+      toast.error("Keep your note under 1000 characters.");
+      return;
+    }
+    startJoinRequestTransition(async () => {
+      try {
+        const result = await submitJoinRequestAction({ ideaId: idea.id, message: joinMessageTrimmed });
+        if (result.success) {
+          setJoinRequest(result.request);
+          setJoinMessage("");
+          setIsJoinOpen(false);
+          toast.success("Request sent! The team will get back to you soon.");
+        } else {
+          if (result.request) {
+            setJoinRequest(result.request);
+          }
+          if (result.code === "request-exists") {
+            toast.error("You already have a pending request.");
+            setIsJoinOpen(false);
+          } else if (result.code === "already-on-team") {
+            toast.error("You’re already on this idea.");
+          } else if (result.code === "not-public") {
+            toast.error("This idea is no longer open to the public.");
+          } else {
+            toast.error(result.error);
+          }
+        }
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Unable to send your request right now.");
+      }
+    });
+  }, [canRequestToJoin, idea.id, joinMessageTrimmed, startJoinRequestTransition]);
+
+  const handleJoinCancel = useCallback(() => {
+    setIsJoinOpen(false);
+    setJoinMessage("");
+  }, []);
+
+  useEffect(() => {
+    setJoinRequestCounts(ownerJoinRequestCounts);
+    setOwnerJoinRequests(null);
+    setIsJoinQueueOpen(false);
+    setNoteDrafts({});
+    setRoleDrafts({});
+    setResolvingRequestId(null);
+    setResolvingAction(null);
+  }, [idea.id, ownerJoinRequestCounts]);
+
+  useEffect(() => {
+    if (!canManageCollaborators) {
+      return;
+    }
+    if (!ownerJoinRequestCounts || ownerJoinRequestCounts.unseen === 0) {
+      return;
+    }
+    toast.info(
+      ownerJoinRequestCounts.unseen === 1
+        ? "You have 1 new join request waiting."
+        : `You have ${ownerJoinRequestCounts.unseen} new join requests waiting.`,
+      { id: `join-requests-${idea.id}` },
+    );
+  }, [canManageCollaborators, idea.id, ownerJoinRequestCounts]);
+
+  useEffect(() => {
+    ownerJoinRequestsRef.current = ownerJoinRequests;
+  }, [ownerJoinRequests]);
+
+  const loadJoinRequests = useCallback(
+    (force = false) => {
+      if (!canManageCollaborators) {
+        return;
+      }
+      if (!force && (ownerJoinRequestsRef.current !== null || isLoadingJoinRequests)) {
+        return;
+      }
+      if (force) {
+        setOwnerJoinRequests(null);
+      }
+      startLoadJoinRequests(async () => {
+        try {
+          const result = await listJoinRequestsAction(idea.id);
+          let requests = result.requests;
+          let counts = result.counts;
+          const unseenIds = requests.filter((request) => !request.ownerSeenAt).map((request) => request.id);
+          if (unseenIds.length > 0) {
+            try {
+              const updatedCounts = await markJoinRequestsSeenAction({ ideaId: idea.id, requestIds: unseenIds });
+              counts = updatedCounts;
+              const seenStamp = new Date().toISOString();
+              requests = requests.map((request) =>
+                unseenIds.includes(request.id)
+                  ? { ...request, ownerSeenAt: request.ownerSeenAt ?? seenStamp }
+                  : request,
+              );
+            } catch (error) {
+              toast.error(error instanceof Error ? error.message : "Unable to mark requests as seen.");
+            }
+          }
+          setOwnerJoinRequests(requests);
+          setJoinRequestCounts(counts);
+          setRoleDrafts((previous) => {
+            const next = { ...previous };
+            requests
+              .filter((request) => request.status === "pending")
+              .forEach((request) => {
+                if (!(request.id in next)) {
+                  next[request.id] = "editor";
+                }
+              });
+            return next;
+          });
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : "Unable to load join requests.");
+        }
+      });
+    },
+    [canManageCollaborators, idea.id, isLoadingJoinRequests, startLoadJoinRequests],
+  );
+
+  useEffect(() => {
+    if (!isJoinQueueOpen) {
+      return;
+    }
+    setIsShareOpen(false);
+    loadJoinRequests(false);
+  }, [isJoinQueueOpen, loadJoinRequests]);
+
+  const handleToggleJoinQueue = useCallback(() => {
+    setIsJoinQueueOpen((previous) => !previous);
+  }, []);
+
+  const handleRefreshJoinRequests = useCallback(() => {
+    loadJoinRequests(true);
+  }, [loadJoinRequests]);
+
+  const handleNoteChange = useCallback((requestId: string, value: string) => {
+    setNoteDrafts((previous) => ({ ...previous, [requestId]: value }));
+  }, []);
+
+  const handleRoleDraftChange = useCallback((requestId: string, role: "editor" | "commenter" | "viewer") => {
+    setRoleDrafts((previous) => ({ ...previous, [requestId]: role }));
+  }, []);
+
+  const handleResolveJoinRequest = useCallback(
+    (requestId: string, status: "approved" | "rejected") => {
+      if (!canManageCollaborators) {
+        return;
+      }
+      const note = (noteDrafts[requestId] ?? "").trim();
+      const grantRole = status === "approved" ? roleDrafts[requestId] ?? "editor" : undefined;
+
+      setResolvingRequestId(requestId);
+      setResolvingAction(status === "approved" ? "approve" : "reject");
+      startResolveJoinRequest(async () => {
+        try {
+          const result = await resolveJoinRequestAction({
+            requestId,
+            status,
+            note: note.length > 0 ? note : null,
+            grantRole,
+          });
+          setOwnerJoinRequests((previous) => {
+            if (!previous) {
+              return previous;
+            }
+            return previous.map((request) => (request.id === requestId ? result.request : request));
+          });
+          setJoinRequestCounts(result.counts);
+          if (status === "approved") {
+            toast.success("Request approved—access granted.");
+          } else {
+            toast.success("Request declined.");
+          }
+          setNoteDrafts((previous) => {
+            if (!(requestId in previous)) {
+              return previous;
+            }
+            const { [requestId]: _removed, ...rest } = previous;
+            return rest;
+          });
+          setRoleDrafts((previous) => {
+            if (!(requestId in previous)) {
+              return previous;
+            }
+            const { [requestId]: _removed, ...rest } = previous;
+            return rest;
+          });
+          router.refresh();
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : "Unable to update request.");
+        } finally {
+          setResolvingRequestId(null);
+          setResolvingAction(null);
+        }
+      });
+    },
+    [canManageCollaborators, noteDrafts, roleDrafts, router, startResolveJoinRequest],
+  );
+
+  const handleArchiveJoinRequest = useCallback(
+    (requestId: string) => {
+      if (!canManageCollaborators) {
+        return;
+      }
+      setResolvingRequestId(requestId);
+      setResolvingAction("archive");
+      startResolveJoinRequest(async () => {
+        try {
+          const result = await archiveJoinRequestAction(requestId);
+          setOwnerJoinRequests((previous) => (previous ? previous.filter((request) => request.id !== requestId) : previous));
+          setJoinRequestCounts(result.counts);
+          setNoteDrafts((previous) => {
+            if (!(requestId in previous)) {
+              return previous;
+            }
+            const { [requestId]: _removed, ...rest } = previous;
+            return rest;
+          });
+          setRoleDrafts((previous) => {
+            if (!(requestId in previous)) {
+              return previous;
+            }
+            const { [requestId]: _removed, ...rest } = previous;
+            return rest;
+          });
+          toast.success("Request archived.");
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : "Unable to archive request.");
+        } finally {
+          setResolvingRequestId(null);
+          setResolvingAction(null);
+        }
+      });
+    },
+    [canManageCollaborators, startResolveJoinRequest],
+  );
   useEffect(() => {
     if (!isConvertOpen) {
       setSelectedConvertId("");
@@ -670,20 +1130,23 @@ const titleInputRef = useRef<HTMLInputElement | null>(null);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [isConvertDropdownOpen]);
 
-useEffect(() => {
-  if (!isEditing) {
-    return;
-  }
-  const frame = window.requestAnimationFrame(() => {
-    if (titleInputRef.current) {
-      titleInputRef.current.focus();
-      titleInputRef.current.select();
+  useEffect(() => {
+    if (!isEditing) {
+      return;
     }
-  });
-  return () => window.cancelAnimationFrame(frame);
-}, [isEditing]);
+    const frame = window.requestAnimationFrame(() => {
+      if (titleInputRef.current) {
+        titleInputRef.current.focus();
+        titleInputRef.current.select();
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [isEditing]);
 
-const handleConvert = () => {
+  const handleConvert = () => {
+    if (!canWrite) {
+      return;
+    }
     if (!selectedConvertId) {
       setConvertError("Choose a destination idea.");
       return;
@@ -831,6 +1294,24 @@ const handleConvert = () => {
               <CardTitle className="text-2xl font-semibold text-foreground">
                 {syncedIdea.title}
               </CardTitle>
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide",
+                  syncedIdea.visibility === "public"
+                    ? "border-emerald-400/60 bg-emerald-500/10 text-emerald-200"
+                    : "border-slate-600 bg-slate-900 text-slate-200",
+                )}
+              >
+                {syncedIdea.visibility === "public" ? (
+                  <>
+                    <Globe2 className="size-3" /> Public
+                  </>
+                ) : (
+                  <>
+                    <Lock className="size-3" /> Private
+                  </>
+                )}
+              </span>
               <button
                 type="button"
                 className="inline-flex cursor-pointer items-center text-xs font-medium text-primary underline-offset-4 transition hover:underline"
@@ -869,181 +1350,256 @@ const handleConvert = () => {
             </AnimatePresence>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className={cn(
-                "interactive-btn text-muted-foreground hover:text-foreground",
-                starState === "star" && "text-yellow-400 hover:text-yellow-300",
-                starState === "super" && "text-amber-300 drop-shadow-[0_0_8px_rgba(251,191,36,0.55)] hover:text-amber-200",
-              )}
-              onClick={handleStarToggle}
-              aria-label={starLabel}
-              data-testid="idea-star-toggle"
-              disabled={isStarPending}
-            >
-              {starState === "super" ? (
-                <span className="relative inline-flex items-center justify-center">
+            {collaboratorAvatars.length > 0 ? (
+              <div className="flex items-center gap-1 pr-2">
+                {visibleAvatars.map((member) => (
+                  <span
+                    key={member.id}
+                    title={`${member.name}${member.status === "editing" ? " • editing" : ""}`}
+                    className={cn(
+                      "flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground",
+                      member.status === "editing" && "ring-2 ring-primary/70 ring-offset-1 ring-offset-background",
+                    )}
+                  >
+                    {member.initials}
+                  </span>
+                ))}
+                {extraCollaborators > 0 ? (
+                  <span className="text-xs text-muted-foreground">+{extraCollaborators}</span>
+                ) : null}
+              </div>
+            ) : null}
+            {canWrite ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className={cn(
+                  "interactive-btn text-muted-foreground hover:text-foreground",
+                  starState === "star" && "text-yellow-400 hover:text-yellow-300",
+                  starState === "super" && "text-amber-300 drop-shadow-[0_0_8px_rgba(251,191,36,0.55)] hover:text-amber-200",
+                )}
+                onClick={handleStarToggle}
+                aria-label={starLabel}
+                data-testid="idea-star-toggle"
+                disabled={isStarPending}
+              >
+                {starState === "super" ? (
+                  <span className="relative inline-flex items-center justify-center">
+                    <Star className="size-4 fill-current" />
+                    <Sparkles className="absolute -top-2 -right-2 size-3 text-amber-200" aria-hidden="true" />
+                  </span>
+                ) : starState === "star" ? (
                   <Star className="size-4 fill-current" />
-                  <Sparkles className="absolute -top-2 -right-2 size-3 text-amber-200" aria-hidden="true" />
-                </span>
-              ) : starState === "star" ? (
-                <Star className="size-4 fill-current" />
-              ) : (
-                <StarOff className="size-4" />
-              )}
-            </Button>
-            <Button
-              type="button"
-              variant={isEditing ? "secondary" : "ghost"}
-              size="icon-sm"
-              className="interactive-btn text-muted-foreground hover:text-foreground"
-              onClick={() => {
-                if (isEditing) {
-                  exitEditingState();
-                  resetDeleteConfirmation();
-                  return;
-                }
-                beginEditing();
-              }}
-              aria-label={isEditing ? "Cancel editing" : "Edit idea"}
-              data-testid="idea-edit-toggle"
-            >
-              {isEditing ? <X className="size-4" /> : <Pencil className="size-4" />}
-            </Button>
-            <DropdownMenu open={isActionsOpen} onOpenChange={setIsActionsOpen} modal>
-              <DropdownMenuTrigger asChild>
+                ) : (
+                  <StarOff className="size-4" />
+                )}
+              </Button>
+            ) : null}
+            {canWrite ? (
+              <Button
+                type="button"
+                variant={isEditing ? "secondary" : "ghost"}
+                size="icon-sm"
+                className="interactive-btn text-muted-foreground hover:text-foreground"
+                onClick={() => {
+                  if (isEditing) {
+                    exitEditingState();
+                    resetDeleteConfirmation();
+                    return;
+                  }
+                  beginEditing();
+                }}
+                aria-label={isEditing ? "Cancel editing" : "Edit idea"}
+                data-testid="idea-edit-toggle"
+              >
+                {isEditing ? <X className="size-4" /> : <Pencil className="size-4" />}
+              </Button>
+            ) : null}
+            {canManageCollaborators ? (
+              <>
                 <Button
                   type="button"
-                  variant="outline"
+                  variant={isJoinQueueOpen ? "secondary" : "outline"}
                   size="sm"
                   className={cn(
                     "interactive-btn flex items-center gap-2 px-3 py-1.5 text-xs font-medium hover:bg-transparent",
-                    isActionsOpen && "bg-muted/30",
+                    isJoinQueueOpen && "bg-muted/30",
                   )}
-                  aria-haspopup="menu"
-                  aria-expanded={isActionsOpen}
-                  data-testid="idea-actions-button"
+                  onClick={handleToggleJoinQueue}
+                  aria-expanded={isJoinQueueOpen}
+                  data-testid="idea-join-requests-button"
                 >
-                  Actions
-                  {isOnline !== null ? (
+                  <Users className="size-4" />
+                  Requests
+                  {showJoinQueueIndicator ? (
                     <span
                       className={cn(
-                        "ml-1 inline-block h-2 w-2 rounded-full",
-                        isOnline ? "bg-green-500" : "bg-gray-400",
+                        "ml-1 inline-flex min-w-[1.75rem] items-center justify-center rounded-full bg-amber-500/80 px-1.5 py-0.5 text-[10px] font-semibold text-amber-50 shadow-sm",
+                        joinQueueUnseen > 0 && "animate-pulse",
                       )}
-                      aria-label={isOnline ? "Runner online" : "Runner offline"}
-                    />
+                    >
+                      {joinQueueUnseen > 0 ? `${joinQueueUnseen} new` : joinQueuePending}
+                    </span>
                   ) : null}
-                  <ChevronDown
-                    className={cn(
-                      "size-3 transition-transform text-muted-foreground",
-                      isActionsOpen ? "rotate-180" : "rotate-0",
-                    )}
-                    aria-hidden="true"
-                  />
+                  {isLoadingJoinRequests && ownerJoinRequests === null ? (
+                    <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+                  ) : null}
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                className="z-[70] border-border/60 bg-card text-sm text-muted-foreground shadow-xl w-[calc(100vw-2.5rem)] max-w-sm sm:w-56"
-              >
-                <DropdownMenuItem
-                  onSelect={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    handleExportIdea();
+                <Button
+                  type="button"
+                  variant={isShareOpen ? "secondary" : "outline"}
+                  size="sm"
+                  className="interactive-btn flex items-center gap-2 px-3 py-1.5 text-xs font-medium hover:bg-transparent"
+                  onClick={() => {
+                    setIsShareOpen((previous) => !previous);
+                    setIsActionsOpen(false);
+                    setIsJoinQueueOpen(false);
                   }}
-                  disabled={isExporting}
-                  className="flex items-center justify-between"
-                  data-testid="idea-export-button"
+                  aria-expanded={isShareOpen}
+                  data-testid="idea-share-button"
                 >
-                  <span>Export idea</span>
-                  {isExporting ? <Loader2 className="size-3 animate-spin text-muted-foreground" /> : null}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    handleToggleConvert();
-                  }}
-                  disabled={isConverting}
-                  className="flex items-center justify-between"
-                  data-testid="idea-convert-toggle"
-                >
-                  <span>{isConvertOpen ? "Close convert panel" : "Convert to feature"}</span>
-                  {isConverting ? <Loader2 className="size-3 animate-spin text-muted-foreground" /> : null}
-                </DropdownMenuItem>
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger
-                    className="flex w-full items-center justify-between"
-                    data-testid="idea-devmode-submenu"
+                  <Share2 className="size-4" />
+                  Share
+                </Button>
+              </>
+            ) : null}
+            {canWrite ? (
+              <>
+                <DropdownMenu open={isActionsOpen} onOpenChange={setIsActionsOpen} modal>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className={cn(
+                        "interactive-btn flex items-center gap-2 px-3 py-1.5 text-xs font-medium hover:bg-transparent",
+                        isActionsOpen && "bg-muted/30",
+                      )}
+                      aria-haspopup="menu"
+                      aria-expanded={isActionsOpen}
+                      data-testid="idea-actions-button"
+                    >
+                      Actions
+                      {isOnline !== null ? (
+                        <span
+                          className={cn(
+                            "ml-1 inline-block h-2 w-2 rounded-full",
+                            isOnline ? "bg-green-500" : "bg-gray-400",
+                          )}
+                          aria-label={isOnline ? "Runner online" : "Runner offline"}
+                        />
+                      ) : null}
+                      <ChevronDown
+                        className={cn(
+                          "size-3 transition-transform text-muted-foreground",
+                          isActionsOpen ? "rotate-180" : "rotate-0",
+                        )}
+                        aria-hidden="true"
+                      />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    className="z-[70] border-border/60 bg-card text-sm text-muted-foreground shadow-xl w-[calc(100vw-2.5rem)] max-w-sm sm:w-56"
                   >
-                    <span>{showDevMode ? "Hide Dev Mode" : "Show Dev Mode"}</span>
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="z-[70] border-border/60 bg-card text-sm text-muted-foreground w-[calc(100vw-3rem)] max-w-sm sm:w-64">
                     <DropdownMenuItem
                       onSelect={(event) => {
                         event.preventDefault();
                         event.stopPropagation();
-                        setShowDevMode((value) => !value);
-                        setIsActionsOpen(false);
+                        handleExportIdea();
                       }}
-                      data-testid="idea-devmode-toggle"
+                      disabled={isExporting}
+                      className="flex items-center justify-between"
+                      data-testid="idea-export-button"
                     >
-                      {showDevMode ? "Hide Dev Mode panel" : "Show Dev Mode panel"}
+                      <span>Export idea</span>
+                      {isExporting ? <Loader2 className="size-3 animate-spin text-muted-foreground" /> : null}
                     </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        handleToggleConvert();
+                      }}
+                      disabled={isConverting}
+                      className="flex items-center justify-between"
+                      data-testid="idea-convert-toggle"
+                    >
+                      <span>{isConvertOpen ? "Close convert panel" : "Convert to feature"}</span>
+                      {isConverting ? <Loader2 className="size-3 animate-spin text-muted-foreground" /> : null}
+                    </DropdownMenuItem>
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger
+                        className="flex w-full items-center justify-between"
+                        data-testid="idea-devmode-submenu"
+                      >
+                        <span>{showDevMode ? "Hide Dev Mode" : "Show Dev Mode"}</span>
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent className="z-[70] border-border/60 bg-card text-sm text-muted-foreground w-[calc(100vw-3rem)] max-w-sm sm:w-64">
+                        <DropdownMenuItem
+                          onSelect={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            setShowDevMode((value) => !value);
+                            setIsActionsOpen(false);
+                          }}
+                          data-testid="idea-devmode-toggle"
+                        >
+                          {showDevMode ? "Hide Dev Mode panel" : "Show Dev Mode panel"}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onSelect={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            try {
+                              router.push("/dashboard/devmode/pair");
+                            } catch {}
+                            setIsActionsOpen(false);
+                          }}
+                          data-testid="idea-devmode-pair"
+                        >
+                          Enable Dev Mode (Pair Runner)
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            try {
+                              router.push("/dashboard/devmode/devices");
+                            } catch {}
+                            setIsActionsOpen(false);
+                          }}
+                          data-testid="idea-devmode-devices"
+                        >
+                          Manage Paired Devices
+                        </DropdownMenuItem>
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onSelect={(event) => {
                         event.preventDefault();
                         event.stopPropagation();
-                        try {
-                          router.push("/dashboard/devmode/pair");
-                        } catch {}
-                        setIsActionsOpen(false);
+                        handleDelete();
                       }}
-                      data-testid="idea-devmode-pair"
+                      disabled={isPending}
+                      className="flex items-center justify-between text-destructive focus:text-destructive"
+                      data-testid="idea-delete-button"
                     >
-                      Enable Dev Mode (Pair Runner)
+                      <span>Delete idea</span>
+                      {isPending ? <Loader2 className="size-3 animate-spin" /> : null}
                     </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        try {
-                          router.push("/dashboard/devmode/devices");
-                        } catch {}
-                        setIsActionsOpen(false);
-                      }}
-                      data-testid="idea-devmode-devices"
-                    >
-                      Manage Paired Devices
-                    </DropdownMenuItem>
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onSelect={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    handleDelete();
-                  }}
-                  disabled={isPending}
-                  className="flex items-center justify-between text-destructive focus:text-destructive"
-                  data-testid="idea-delete-button"
-                >
-                  <span>Delete idea</span>
-                  {isPending ? <Loader2 className="size-3 animate-spin" /> : null}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {isActionsOpen ? (
-              <div
-                className="fixed inset-0 z-[60] cursor-pointer bg-transparent"
-                onClick={() => setIsActionsOpen(false)}
-              />
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                {isActionsOpen ? (
+                  <div
+                    className="fixed inset-0 z-[60] cursor-pointer bg-transparent"
+                    onClick={() => setIsActionsOpen(false)}
+                  />
+                ) : null}
+              </>
             ) : null}
           </div>
           {isConfirmingDelete ? (
@@ -1088,10 +1644,308 @@ const handleConvert = () => {
               </Button>
             </div>
           ) : null}
+          {canManageCollaborators && isJoinQueueOpen ? (
+            <div className="rounded-lg border border-border/70 bg-card/70 p-4" data-testid="idea-join-requests-panel">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-semibold text-foreground">Join requests</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Review applications from the community and decide who can collaborate.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/80 px-2 py-1 font-semibold">
+                    {joinQueuePending === 0 ? "No pending requests" : `${joinQueuePending} pending`}
+                    {joinQueueUnseen > 0 ? <span className="ml-1 text-amber-200">({joinQueueUnseen} new)</span> : null}
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="interactive-btn"
+                    onClick={handleRefreshJoinRequests}
+                    disabled={isLoadingJoinRequests}
+                  >
+                    {isLoadingJoinRequests ? <Loader2 className="mr-1 size-3 animate-spin" /> : null}
+                    Refresh
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="interactive-btn"
+                    onClick={() => setIsJoinQueueOpen(false)}
+                  >
+                    Close
+                  </Button>
+                </div>
+              </div>
+              <Separator className="my-4" />
+              {isLoadingJoinRequests && ownerJoinRequests === null ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                  Loading join requests…
+                </div>
+              ) : null}
+              {ownerJoinRequests && ownerJoinRequests.length === 0 ? (
+                <div className="rounded-md border border-border/60 bg-muted/10 px-3 py-4 text-sm text-muted-foreground">
+                  No requests yet. Once someone asks to collaborate, they’ll appear here.
+                </div>
+              ) : null}
+              {ownerJoinRequests && ownerJoinRequests.length > 0 ? (
+                <div className="space-y-4">
+                  {ownerJoinRequests.map((request) => {
+                    const status = request.status;
+                    const applicantName = request.applicant?.name?.trim() || "Unknown collaborator";
+                    const applicantEmail = request.applicant?.email?.trim() || null;
+                    const statusLabel = status === "pending" ? "Pending" : status === "approved" ? "Approved" : "Declined";
+                    const statusStyle =
+                      status === "pending"
+                        ? "border-amber-500/40 bg-amber-500/10 text-amber-200"
+                        : status === "approved"
+                          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
+                          : "border-rose-500/40 bg-rose-500/10 text-rose-200";
+                    const noteValue = noteDrafts[request.id] ?? "";
+                    const roleValue = roleDrafts[request.id] ?? "editor";
+                    const isProcessing = isResolvingJoinRequest && resolvingRequestId === request.id;
+                    return (
+                      <div key={request.id} className="rounded-md border border-border/60 bg-muted/5 p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-sm font-semibold text-foreground">{applicantName}</span>
+                              {applicantEmail ? (
+                                <a
+                                  href={`mailto:${applicantEmail}`}
+                                  className="text-xs text-primary hover:underline"
+                                >
+                                  {applicantEmail}
+                                </a>
+                              ) : null}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Requested {formatDateTime(request.createdAt)}
+                            </p>
+                          </div>
+                          <span className={cn("inline-flex items-center rounded-full border px-2 py-1 text-[11px] font-semibold uppercase tracking-wide", statusStyle)}>
+                            {statusLabel}
+                          </span>
+                        </div>
+                        <div className="mt-3 rounded-md border border-border/60 bg-background/80 px-3 py-2 text-sm text-foreground">
+                          <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">{request.message}</pre>
+                        </div>
+                        {status === "pending" ? (
+                          <div className="mt-4 space-y-3">
+                            <div className="flex flex-wrap items-center gap-3">
+                              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                Grant role
+                              </label>
+                              <select
+                                value={roleValue}
+                                onChange={(event) => handleRoleDraftChange(request.id, event.target.value as "editor" | "commenter" | "viewer")}
+                                className="h-8 rounded-md border border-border/60 bg-background px-2 text-xs font-medium text-foreground shadow-sm"
+                              >
+                                <option value="editor">Editor</option>
+                                <option value="commenter">Commenter</option>
+                                <option value="viewer">Viewer</option>
+                              </select>
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground" htmlFor={`join-request-note-${request.id}`}>
+                                Note to applicant (optional)
+                              </label>
+                              <Textarea
+                                id={`join-request-note-${request.id}`}
+                                value={noteValue}
+                                onChange={(event) => handleNoteChange(request.id, event.target.value)}
+                                rows={2}
+                                maxLength={1000}
+                                className="resize-none border-border/60 bg-background/80"
+                                placeholder="Share any context about the approval or next steps."
+                              />
+                              <div className="flex justify-between text-[11px] text-muted-foreground">
+                                <span>{noteValue.trim().length}/1000</span>
+                                <span>Applicants see this note in their confirmation email.</span>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                className="interactive-btn"
+                                onClick={() => handleResolveJoinRequest(request.id, "approved")}
+                                disabled={isProcessing}
+                              >
+                                {isProcessing && resolvingAction === "approve" ? (
+                                  <Loader2 className="mr-1 size-4 animate-spin" />
+                                ) : null}
+                                Approve &amp; add collaborator
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="interactive-btn"
+                                onClick={() => handleResolveJoinRequest(request.id, "rejected")}
+                                disabled={isProcessing}
+                              >
+                                {isProcessing && resolvingAction === "reject" ? (
+                                  <Loader2 className="mr-1 size-4 animate-spin" />
+                                ) : null}
+                                Decline
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="mt-4 space-y-2 text-sm text-muted-foreground">
+                            {request.resolutionNote ? (
+                              <div className="rounded-md border border-border/60 bg-background/70 px-3 py-2 text-sm text-foreground">
+                                <span className="text-xs uppercase tracking-wide text-muted-foreground">Resolution note</span>
+                                <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">{request.resolutionNote}</p>
+                              </div>
+                            ) : null}
+                            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                              <span>Processed {request.processedAt ? formatDateTime(request.processedAt) : "just now"}</span>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="interactive-btn"
+                                onClick={() => handleArchiveJoinRequest(request.id)}
+                                disabled={isProcessing}
+                              >
+                                {isProcessing && resolvingAction === "archive" ? (
+                                  <Loader2 className="mr-1 size-3 animate-spin" />
+                                ) : null}
+                                Archive
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </CardHeader>
         <Separator />
         <CardContent className="pt-6 space-y-6">
-          {isConvertOpen ? (
+          {canRequestToJoin ? (
+            <div className="rounded-xl border border-border/60 bg-gradient-to-br from-background/70 via-background/60 to-background/30 p-4 shadow-inner">
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground">Ready to join forces?</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Introduce yourself and request edit access from the idea’s owner.
+                    </p>
+                  </div>
+                  {!hasPendingJoinRequest && !hasApprovedJoinRequest && !isJoinOpen ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className={cn(
+                        "join-forces-button interactive-btn relative overflow-hidden px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em]",
+                        "text-slate-50",
+                      )}
+                      onClick={() => setIsJoinOpen(true)}
+                    >
+                      <span className="join-forces-glow" aria-hidden="true" />
+                      <Sparkles
+                        aria-hidden="true"
+                        className="size-4 text-amber-200 drop-shadow-[0_0_6px_rgba(251,191,36,0.6)]"
+                      />
+                      Join Forces
+                      <Sparkles
+                        aria-hidden="true"
+                        className="size-4 text-amber-200 drop-shadow-[0_0_6px_rgba(251,191,36,0.6)]"
+                      />
+                    </Button>
+                  ) : null}
+                </div>
+                {hasApprovedJoinRequest ? (
+                  <div className="rounded-lg border border-emerald-400/50 bg-emerald-500/10 px-3 py-2">
+                    <p className="text-sm font-medium text-emerald-100">You’re already on the shortlist.</p>
+                    <p className="text-xs text-emerald-100/80">
+                      Keep an eye on your inbox—an invite is on the way.
+                    </p>
+                  </div>
+                ) : hasPendingJoinRequest ? (
+                  <div className="rounded-lg border border-emerald-400/50 bg-emerald-500/10 px-3 py-2">
+                    <p className="text-sm font-medium text-emerald-100">Request sent</p>
+                    <p className="text-xs text-emerald-100/80">
+                      The idea owner will reach out once they review your note.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    {joinRequestStatus === "rejected" ? (
+                      <p className="text-xs text-amber-200">
+                        This team hasn’t accepted your last request. Update your pitch and try again.
+                      </p>
+                    ) : null}
+                    {isJoinOpen ? (
+                      <div className="space-y-3">
+                        <Textarea
+                          value={joinMessage}
+                          onChange={(event) => setJoinMessage(event.target.value)}
+                          placeholder="Share how you can help bring this idea to life…"
+                          rows={4}
+                          className="resize-none border-border/60 bg-background/80"
+                          maxLength={1000}
+                          data-testid="join-forces-message"
+                        />
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                          <span>{joinMessageLength}/1000 characters</span>
+                          {joinMessageTooShort ? (
+                            <span className="text-amber-300">Add a bit more detail to help the team evaluate.</span>
+                          ) : null}
+                          {joinMessageTooLong ? (
+                            <span className="text-destructive">Trim your note to stay under 1000 characters.</span>
+                          ) : null}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            type="button"
+                            onClick={handleJoinSubmit}
+                            disabled={
+                              isJoinSubmitting ||
+                              joinMessageTrimmed.length === 0 ||
+                              joinMessageTooShort ||
+                              joinMessageTooLong
+                            }
+                          >
+                            {isJoinSubmitting ? "Sending…" : "Send request"}
+                          </Button>
+                          <Button type="button" variant="ghost" onClick={handleJoinCancel}>
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        Tell the team how you can help and they’ll review your request to collaborate.
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          ) : null}
+          {canManageCollaborators ? (
+            <IdeaSharePanel
+              ideaId={idea.id}
+              open={isShareOpen}
+              canManage={canManageCollaborators}
+              visibility={syncedIdea.visibility}
+              onClose={() => setIsShareOpen(false)}
+              onVisibilityChange={handleVisibilityChange}
+            />
+          ) : null}
+          {canWrite && isConvertOpen ? (
             <div className="rounded-lg border border-border/70 bg-card/70 p-4" data-testid="idea-convert-panel">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div className="flex-1 space-y-2">
@@ -1300,33 +2154,38 @@ const handleConvert = () => {
                 <LinkIcon className="size-4" /> {linkLabelDisplay}
               </div>
             <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="interactive-btn h-8 w-8 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-foreground focus-visible:ring-0"
-                onClick={() => {
-                  if (isEditingGithub) {
-                    setGithubDraft(syncedIdea.githubUrl);
-                    setLinkLabelDraft(syncedIdea.linkLabel);
-                    setIsEditingGithub(false);
-                    setGithubAutoState("idle");
-                    return;
-                  }
-                  setGithubDraft(syncedIdea.githubUrl);
-                  setLinkLabelDraft(syncedIdea.linkLabel);
-                  setGithubAutoState("idle");
-                  setIsEditingGithub(true);
-                }}
-                aria-label={isEditingGithub ? "Cancel edit" : "Edit repository link"}
-                  data-testid="github-edit-button"
-                >
-                  {isEditingGithub ? <X className="size-4" /> : <Pencil className="size-4" />}
-                </Button>
+              {canWrite ? (
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
+                  className="interactive-btn h-8 w-8 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-foreground focus-visible:ring-0"
+                  onClick={() => {
+                    if (!canWrite) {
+                      return;
+                    }
+                    if (isEditingGithub) {
+                      setGithubDraft(syncedIdea.githubUrl);
+                      setLinkLabelDraft(syncedIdea.linkLabel);
+                      setIsEditingGithub(false);
+                      setGithubAutoState("idle");
+                      return;
+                    }
+                    setGithubDraft(syncedIdea.githubUrl);
+                    setLinkLabelDraft(syncedIdea.linkLabel);
+                    setGithubAutoState("idle");
+                    setIsEditingGithub(true);
+                  }}
+                  aria-label={isEditingGithub ? "Cancel edit" : "Edit repository link"}
+                  data-testid="github-edit-button"
+                >
+                  {isEditingGithub ? <X className="size-4" /> : <Pencil className="size-4" />}
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
                   className="interactive-btn h-8 w-8 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-foreground focus-visible:ring-0"
                   onClick={handleCopyGithub}
                   aria-label="Copy repository link"
@@ -1537,7 +2396,7 @@ const handleConvert = () => {
           </div>
         </div>
 
-        <FeatureComposer ideaId={idea.id} />
+        {canWrite ? <FeatureComposer ideaId={idea.id} /> : null}
 
         {showFilters ? (
           <div
@@ -1636,6 +2495,7 @@ const handleConvert = () => {
             emptyLabel={totalFeatures === 0 ? undefined : "No features match your filters."}
             canReorder={canReorderFeatures}
             showCompletedSection={featureFilter !== "completed"}
+            canEdit={canWrite}
           />
         ) : (
           <DeletedFeatureList

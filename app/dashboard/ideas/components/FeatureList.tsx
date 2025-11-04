@@ -79,12 +79,14 @@ export function FeatureList({
   emptyLabel,
   canReorder = true,
   showCompletedSection = true,
+  canEdit = true,
 }: {
   ideaId: string;
   features: Feature[];
   emptyLabel?: string;
   canReorder?: boolean;
   showCompletedSection?: boolean;
+  canEdit?: boolean;
 }) {
   const [activeItems, setActiveItems] = useState(() =>
     showCompletedSection ? features.filter((feature) => !feature.completed) : features,
@@ -444,6 +446,7 @@ export function FeatureList({
               superStarTotal={superStarTotal}
               onSuperStarCountChange={adjustSuperStarTotal}
               isDragging={false}
+              canEdit={canEdit}
             />
           ))}
           {hasMoreActive ? <div ref={activeSentinelRef} className="h-6" aria-hidden /> : null}
@@ -504,6 +507,7 @@ export function FeatureList({
                 superStarTotal={superStarTotal}
                 onSuperStarCountChange={adjustSuperStarTotal}
                 isDragging={false}
+                canEdit={canEdit}
               />
             ))}
           </motion.div>
@@ -527,6 +531,7 @@ export function FeatureList({
       superStarTotal={superStarTotal}
       onSuperStarCountChange={adjustSuperStarTotal}
       isDragging={false}
+      canEdit={canEdit}
     />
   );
 
@@ -553,6 +558,7 @@ export function FeatureList({
       onSuperStarCountChange={adjustSuperStarTotal}
       isSaving={isPending}
       prefersReducedMotion={prefersReducedMotion}
+      canEdit={canEdit}
     />
   );
   const sortableIds = renderedActiveFeatures.map((item) => item.id);
@@ -587,6 +593,7 @@ function SortableFeatureCard({
   onSuperStarCountChange,
   isSaving,
   prefersReducedMotion,
+  canEdit,
 }: {
   feature: Feature;
   ideaId: string;
@@ -594,6 +601,7 @@ function SortableFeatureCard({
   onSuperStarCountChange: (delta: number) => void;
   isSaving: boolean;
   prefersReducedMotion: boolean;
+  canEdit: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: feature.id });
 
@@ -624,6 +632,7 @@ function SortableFeatureCard({
         onSuperStarCountChange={onSuperStarCountChange}
         dragHandle={handle}
         isDragging={isDragging}
+        canEdit={canEdit}
       />
     </div>
   );

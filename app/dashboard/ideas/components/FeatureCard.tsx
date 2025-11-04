@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { useRouter } from "next/navigation";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, CheckCircle2, ChevronDown, ChevronUp, Circle, Copy, MoreHorizontal, Plus, Sparkles, Star, StarOff, Trash2, X } from "lucide-react";
+import { Check, CheckCircle2, ChevronDown, ChevronUp, Circle, Copy, Lock, MoreHorizontal, Plus, Sparkles, Star, StarOff, Trash2, Unlock, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -101,6 +101,7 @@ export function FeatureCard({
   dragHandle,
   isDragging = false,
   style,
+  canEdit = true,
 }: {
   feature: Feature;
   ideaId: string;
@@ -109,6 +110,7 @@ export function FeatureCard({
   dragHandle?: ReactNode;
   isDragging?: boolean;
   style?: CSSProperties;
+  canEdit?: boolean;
 }) {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
@@ -128,6 +130,7 @@ export function FeatureCard({
     completedAt: feature.completedAt,
     starred: feature.starred,
     superStarred: feature.superStarred,
+    visibility: feature.visibility,
   });
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [deleteInput, setDeleteInput] = useState("");
@@ -138,6 +141,11 @@ export function FeatureCard({
       : starState === "star"
         ? "Promote to super star"
         : "Star feature";
+  const isPrivate = syncedFeature.visibility === "private";
+  const visibilityLabel = isPrivate
+    ? "Feature visible only to owners and editors"
+    : "Feature visible to collaborators";
+  const readOnly = !canEdit;
   const [featureAutoState, setFeatureAutoState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const featureAutoTimer = useRef<number | null>(null);
   const featureSaveInFlight = useRef(false);
@@ -223,6 +231,7 @@ export function FeatureCard({
         completedAt: feature.completedAt,
         starred: feature.starred,
         superStarred: feature.superStarred,
+        visibility: feature.visibility,
       });
       setIsCompleted(Boolean(feature.completed));
       setCompletedAt(feature.completedAt ?? null);
@@ -361,6 +370,7 @@ export function FeatureCard({
           completedAt: updated.completedAt,
           starred: updated.starred,
           superStarred: updated.superStarred,
+          visibility: updated.visibility,
         });
         setStarState(deriveStarState(updated));
         setIsCompleted(Boolean(updated.completed));
@@ -437,6 +447,9 @@ export function FeatureCard({
   };
 
   const handleDelete = () => {
+    if (readOnly) {
+      return;
+    }
     setIsConfirmingDelete(true);
     setDeleteInput("");
   };
@@ -476,6 +489,9 @@ export function FeatureCard({
   ]);
 
   const handleCycleStar = () => {
+    if (readOnly) {
+      return;
+    }
     const previousState = starState;
     const wasEditing = isEditing;
     const wasExpanded = isExpanded;
@@ -540,7 +556,34 @@ export function FeatureCard({
     });
   };
 
+  const toggleVisibility = useCallback(() => {
+    if (readOnly) {
+      return;
+    }
+    const nextVisibility = syncedFeature.visibility === "private" ? "inherit" : "private";
+    startMutate(async () => {
+      try {
+        const updated = await updateFeatureAction({
+          id: feature.id,
+          ideaId,
+          visibility: nextVisibility,
+        });
+        setSyncedFeature((current) => ({
+          ...current,
+          visibility: updated.visibility,
+          updatedAt: updated.updatedAt,
+        }));
+        toast.success(updated.visibility === "private" ? "Feature hidden from viewers" : "Feature visible to collaborators");
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Unable to update feature visibility");
+      }
+    });
+  }, [feature.id, ideaId, readOnly, startMutate, syncedFeature.visibility]);
+
   const handleToggleCompleted = () => {
+    if (readOnly) {
+      return;
+    }
     const next = !isCompleted;
     const wasSuperBeforeToggle = starState === "super";
     startCompletionTransition(async () => {
@@ -558,6 +601,7 @@ export function FeatureCard({
           completedAt: updated.completedAt,
           starred: updated.starred,
           superStarred: updated.superStarred,
+          visibility: updated.visibility,
         });
         const resolvedState = deriveStarState(updated);
         setStarState(resolvedState);
@@ -673,6 +717,9 @@ export function FeatureCard({
     if (isEditing || isConfirmingDelete) {
       return;
     }
+    if (readOnly) {
+      return;
+    }
     setFeatureAutoState("idle");
     setIsEditing(true);
     setIsConfirmingConvert(false);
@@ -681,6 +728,9 @@ export function FeatureCard({
   const handleCardKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
+      if (readOnly) {
+        return;
+      }
       handleCardClick();
     }
   };
@@ -736,6 +786,11 @@ export function FeatureCard({
                 >
                   {currentTitle}
                 </CardTitle>
+                {isPrivate ? (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-muted/30 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <Lock className="size-3" /> Private
+                  </span>
+                ) : null}
                 {isCompleted ? (
                   <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wider text-emerald-700">
                     <Check className="size-3" /> Completed
@@ -970,6 +1025,23 @@ export function FeatureCard({
               >
                 <Copy className="size-4" />
               </Button>
+              {canEdit ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="interactive-btn h-8 w-8 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-foreground focus-visible:ring-0"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    toggleVisibility();
+                  }}
+                  disabled={isMutating}
+                  aria-label={isPrivate ? "Make feature visible to collaborators" : "Hide feature from viewers"}
+                  title={visibilityLabel}
+                >
+                  {isPrivate ? <Lock className="size-4" /> : <Unlock className="size-4" />}
+                </Button>
+              ) : null}
               <Button
                 type="button"
                 variant="ghost"
@@ -982,7 +1054,7 @@ export function FeatureCard({
                   event.stopPropagation();
                   handleToggleCompleted();
                 }}
-                disabled={isCompletionPending}
+                disabled={isCompletionPending || readOnly}
                 aria-label={isCompleted ? "Mark feature as in progress" : "Mark feature as completed"}
                 data-testid="feature-complete-button"
               >
@@ -1001,7 +1073,7 @@ export function FeatureCard({
                   event.stopPropagation();
                   handleCycleStar();
                 }}
-                disabled={isStarPending}
+                disabled={isStarPending || readOnly}
                 aria-label={starLabel}
                 aria-pressed={starState !== "none"}
                 data-testid="feature-star-button"
@@ -1027,7 +1099,7 @@ export function FeatureCard({
                   event.stopPropagation();
                   handleDelete();
                 }}
-                disabled={isMutating}
+                disabled={isMutating || readOnly}
                 aria-label="Delete feature"
                 data-testid="feature-delete-button"
               >

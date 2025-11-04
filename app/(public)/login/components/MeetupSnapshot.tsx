@@ -1,13 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
-import { AUTH_INPUT_STYLE } from "./EmailSignInForm";
 import { checkInToMeetupAction } from "../actions";
 
 function isCheckInOpen(now: Date) {
@@ -21,7 +20,7 @@ function isCheckInOpen(now: Date) {
 }
 
 export function MeetupSnapshot({ isAuthenticated }: { isAuthenticated: boolean }) {
-  const [email, setEmail] = useState("");
+  const router = useRouter();
   const [didCheckIn, setDidCheckIn] = useState(false);
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -31,19 +30,21 @@ export function MeetupSnapshot({ isAuthenticated }: { isAuthenticated: boolean }
     setOpen(isCheckInOpen(new Date()));
   }, []);
 
-  const handleCheckIn = (event: React.FormEvent<HTMLFormElement> | React.MouseEvent<HTMLButtonElement>) => {
+  const handleCheckIn = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     if (!open || isPending) return;
 
     startTransition(async () => {
       try {
-        const result = await checkInToMeetupAction(isAuthenticated ? undefined : email);
+        const result = await checkInToMeetupAction();
 
         if (result.success) {
           setDidCheckIn(true);
           toast.success(result.message ?? "Successfully checked in!");
+        } else if (result.error) {
+          toast.error(result.error);
         } else {
-          toast.error(result.error ?? "Unable to check in");
+          toast.error("Unable to check in right now.");
         }
       } catch (error) {
         console.error("[MeetupSnapshot] Check-in failed:", error);
@@ -64,28 +65,19 @@ export function MeetupSnapshot({ isAuthenticated }: { isAuthenticated: boolean }
           {isPending ? "Checking in…" : didCheckIn ? "You're checked in" : open ? "Check in here" : "Check-in opens Saturdays 11 AM CT"}
         </Button>
       ) : (
-        <form onSubmit={handleCheckIn} className="space-y-3">
-          <label className="text-xs font-semibold uppercase tracking-wide text-white/55" htmlFor="meetup-email">
-            Email address
-          </label>
-          <Input
-            id="meetup-email"
-            type="email"
-            required
-            placeholder="you@example.com"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            className={AUTH_INPUT_STYLE}
-            disabled={didCheckIn || isPending}
-          />
-          <Button
-            type="submit"
-            disabled={!open || didCheckIn || isPending}
-            className="interactive-btn cursor-pointer w-full border border-white/12 bg-slate-950/80 text-white hover:bg-slate-950"
-          >
-            {isPending ? "Checking in…" : didCheckIn ? "You're checked in" : open ? "Email me the link" : "Check-in opens Saturdays 11 AM CT"}
-          </Button>
-        </form>
+        <Button
+          type="button"
+          onClick={() => {
+            toast.info("Sign in to Coda to check in to the meetings.", {
+              description: "We’ll bring you right back here once you’re in.",
+            });
+            router.push("/login?redirect=/check-in&focus=meetup-checkin");
+          }}
+          disabled={isPending}
+          className="interactive-btn cursor-pointer w-full border border-white/12 bg-slate-950/80 text-white hover:bg-slate-950"
+        >
+          {open ? "Sign in to check in" : "Sign in to be ready when check-in opens"}
+        </Button>
       )}
       <Link
         href="https://www.meetup.com/building-ai-with-ai/"

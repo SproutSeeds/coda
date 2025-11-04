@@ -7,6 +7,7 @@ export type IdeaInput = {
   notes: string;
   githubUrl?: string | null;
   linkLabel?: string | null;
+  visibility?: "private" | "public";
 };
 
 export type IdeaUpdateInput = Partial<IdeaInput> & { id: string };
@@ -23,7 +24,8 @@ const ideaInputSchema = z.object({
     .min(1, "Title is required")
     .max(MAX_TITLE, `Title must be ≤ ${MAX_TITLE} characters`),
   notes: z
-    .string(),
+    .string()
+    .refine((value) => value.trim().length > 0, "Notes are required"),
   githubUrl: z
     .string()
     .trim()
@@ -37,6 +39,7 @@ const ideaInputSchema = z.object({
     .min(1, "Link title is required")
     .max(MAX_LINK_LABEL, `Link title must be ≤ ${MAX_LINK_LABEL} characters`)
     .optional(),
+  visibility: z.enum(["private", "public"]).optional(),
 });
 
 const ideaUpdateSchema = ideaInputSchema
@@ -49,7 +52,8 @@ const ideaUpdateSchema = ideaInputSchema
       value.title !== undefined ||
       value.notes !== undefined ||
       value.githubUrl !== undefined ||
-      value.linkLabel !== undefined,
+      value.linkLabel !== undefined ||
+      value.visibility !== undefined,
     {
       message: "At least one field must be provided",
     },
@@ -79,6 +83,7 @@ export function validateIdeaInput(input: IdeaInput): IdeaInput {
       input.linkLabel === undefined || input.linkLabel === null || input.linkLabel.trim() === ""
         ? undefined
         : input.linkLabel.trim(),
+    visibility: input.visibility,
   };
   if (sanitized.notes.length > ideaNotesCharacterLimit) {
     throw new Error(`Notes must be ≤ ${ideaNotesCharacterLimit} characters`);
@@ -104,6 +109,7 @@ export function validateIdeaUpdate(input: IdeaUpdateInput): IdeaUpdateInput {
         : input.linkLabel === null || input.linkLabel.trim() === ""
           ? undefined
           : input.linkLabel.trim(),
+    visibility: input.visibility,
   };
 
   if (sanitized.notes !== undefined && sanitized.notes.length > ideaNotesCharacterLimit) {

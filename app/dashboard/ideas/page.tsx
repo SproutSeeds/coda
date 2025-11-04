@@ -21,7 +21,13 @@ export default async function IdeasPage({
   return (
     <section className="space-y-6">
       <IdeaComposerLauncher />
-      <IdeaBoard ideas={data.items} deleted={deleted} query={params.q} sort={sortParam ?? "priority"} />
+      <IdeaBoard
+        ideas={data.items}
+        deleted={deleted}
+        query={params.q}
+        sort={sortParam ?? "priority"}
+        viewerId={data.viewerId}
+      />
       {data.nextCursor ? <LoadMore cursor={data.nextCursor} /> : null}
     </section>
   );

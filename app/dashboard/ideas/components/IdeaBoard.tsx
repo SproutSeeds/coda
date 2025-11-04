@@ -28,11 +28,13 @@ export function IdeaBoard({
   deleted,
   query,
   sort,
+  viewerId,
 }: {
   ideas: Idea[];
   deleted: Idea[];
   query?: string;
   sort: string;
+  viewerId: string;
 }) {
   const [view, setView] = useState<"active" | "deleted">("active");
   const router = useRouter();
@@ -41,9 +43,18 @@ export function IdeaBoard({
   const filterPanelRef = useRef<HTMLDivElement | null>(null);
   const filterTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [ideaFilter, setIdeaFilter] = useState<"all" | "starred" | "unstarred">("all");
+  const [visibilityFilter, setVisibilityFilter] = useState<"all" | "public" | "private">("all");
   const [isExportingAll, startExportAllTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const userId = ideas[0]?.userId ?? deleted[0]?.userId ?? undefined;
+  const userId = viewerId;
+  const ownedSource = useMemo(
+    () => ideas.filter((idea) => idea.isOwner),
+    [ideas],
+  );
+  const sharedSource = useMemo(
+    () => ideas.filter((idea) => !idea.isOwner),
+    [ideas],
+  );
 
   const {
     handleFileChange: handleImportFileChange,
@@ -124,20 +135,56 @@ export function IdeaBoard({
   };
 
   const canReorder = currentSort === "priority" && !(query && query.trim().length > 0);
-  const totalIdeas = ideas.length;
-  const starredIdeas = useMemo(() => ideas.filter((idea) => idea.starred).length, [ideas]);
-  const superStarCount = useMemo(() => ideas.filter((idea) => idea.superStarred).length, [ideas]);
-  const unstarredIdeas = totalIdeas - starredIdeas;
+  const ownedCount = ownedSource.length;
+  const sharedCount = sharedSource.length;
+  const starredOwned = useMemo(
+    () => ownedSource.filter((idea) => idea.starred).length,
+    [ownedSource],
+  );
+  const superStarCount = useMemo(
+    () => ownedSource.filter((idea) => idea.superStarred).length,
+    [ownedSource],
+  );
+  const unstarredOwned = ownedCount - starredOwned;
+  const visibilityCounts = useMemo(() => {
+    return ideas.reduce(
+      (acc, idea) => {
+        if (idea.visibility === "public") {
+          acc.public += 1;
+        } else {
+          acc.private += 1;
+        }
+        return acc;
+      },
+      { public: 0, private: 0 },
+    );
+  }, [ideas]);
+
   const filteredIdeas = useMemo(() => {
+    let next = ideas;
     switch (ideaFilter) {
       case "starred":
-        return ideas.filter((idea) => idea.starred);
+        next = next.filter((idea) => idea.starred);
+        break;
       case "unstarred":
-        return ideas.filter((idea) => !idea.starred);
+        next = next.filter((idea) => !idea.starred);
+        break;
       default:
-        return ideas;
+        break;
     }
-  }, [ideaFilter, ideas]);
+    if (visibilityFilter !== "all") {
+      next = next.filter((idea) => idea.visibility === visibilityFilter);
+    }
+    return next;
+  }, [ideaFilter, ideas, visibilityFilter]);
+  const filteredOwned = useMemo(
+    () => filteredIdeas.filter((idea) => idea.isOwner),
+    [filteredIdeas],
+  );
+  const filteredShared = useMemo(
+    () => filteredIdeas.filter((idea) => !idea.isOwner),
+    [filteredIdeas],
+  );
 
   const handleExportAll = () => {
     startExportAllTransition(async () => {
@@ -168,7 +215,7 @@ export function IdeaBoard({
         <div className="flex flex-col items-center gap-1 sm:items-start">
           <span className="text-sm font-semibold tracking-wide text-foreground">Ideas</span>
           <p className="text-xs text-muted-foreground">
-            Keep ’em coming! <span aria-hidden="true">•</span> Super stars {superStarCount}/3
+            My ideas {ownedCount} <span aria-hidden="true">•</span> Shared with me {sharedCount} <span aria-hidden="true">•</span> Super stars {superStarCount}/3
           </p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
@@ -262,9 +309,9 @@ export function IdeaBoard({
           {view === "active" ? (
             <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Filter ideas">
               {[
-                { value: "all", label: "All", count: totalIdeas },
-                { value: "starred", label: "Starred", count: starredIdeas },
-                { value: "unstarred", label: "Unstarred", count: unstarredIdeas },
+                { value: "all", label: "All", count: ownedCount },
+                { value: "starred", label: "Starred", count: starredOwned },
+                { value: "unstarred", label: "Unstarred", count: unstarredOwned },
               ].map((option) => {
                 const isActive = ideaFilter === option.value;
                 return (
@@ -279,6 +326,36 @@ export function IdeaBoard({
                     )}
                     onClick={() => {
                       setIdeaFilter(option.value as typeof ideaFilter);
+                      setIsFilterOpen(false);
+                    }}
+                    disabled={option.value !== "all" && option.count === 0}
+                  >
+                    {option.count > 0 ? `${option.label} (${option.count})` : option.label}
+                  </Button>
+                );
+              })}
+            </div>
+          ) : null}
+          {view === "active" ? (
+            <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Filter ideas by visibility">
+              {[
+                { value: "all", label: "All visibility", count: ideas.length },
+                { value: "public", label: "Public", count: visibilityCounts.public },
+                { value: "private", label: "Private", count: visibilityCounts.private },
+              ].map((option) => {
+                const isActive = visibilityFilter === option.value;
+                return (
+                  <Button
+                    key={option.value}
+                    type="button"
+                    variant={isActive ? "default" : "outline"}
+                    size="sm"
+                    className={cn(
+                      "interactive-btn rounded-full px-4 py-1.5 text-xs font-semibold uppercase",
+                      isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted/30",
+                    )}
+                    onClick={() => {
+                      setVisibilityFilter(option.value as typeof visibilityFilter);
                       setIsFilterOpen(false);
                     }}
                     disabled={option.value !== "all" && option.count === 0}
@@ -314,7 +391,45 @@ export function IdeaBoard({
       ) : null}
 
       {view === "active" ? (
-        <IdeaList ideas={filteredIdeas} query={query} canReorder={canReorder} userId={userId} />
+        <div className="space-y-10">
+          <section className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground">My ideas</h2>
+              <span className="text-xs text-muted-foreground">{filteredOwned.length} visible</span>
+            </div>
+            {filteredOwned.length > 0 ? (
+              <IdeaList ideas={filteredOwned} query={query} canReorder={canReorder} userId={userId} />
+            ) : ownedCount > 0 ? (
+              <p className="rounded-md border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+                No ideas match the current filters. Update the filters or clear the search to see your ideas again.
+              </p>
+            ) : (
+              <p className="rounded-md border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+                You haven&apos;t created any ideas yet. Start sketching by using the composer above.
+              </p>
+            )}
+          </section>
+
+          <section className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground">Shared with me</h2>
+              <span className="text-xs text-muted-foreground">
+                {filteredShared.length}/{sharedSource.length} visible
+              </span>
+            </div>
+            {sharedSource.length === 0 ? (
+              <p className="rounded-md border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+                When teammates share ideas with you, they&apos;ll appear here.
+              </p>
+            ) : filteredShared.length === 0 ? (
+              <p className="rounded-md border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+                No shared ideas match the current filters. Adjust the filters to see collaborators&apos; ideas.
+              </p>
+            ) : (
+              <IdeaList ideas={filteredShared} query={query} canReorder={false} userId={userId} />
+            )}
+          </section>
+        </div>
       ) : (
         <DeletedIdeaList ideas={deleted} />
       )}

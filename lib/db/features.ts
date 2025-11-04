@@ -1,4 +1,4 @@
-"use server";
+import "server-only";
 
 import { randomUUID } from "node:crypto";
 
@@ -6,7 +6,7 @@ import { and, asc, desc, eq, isNull, isNotNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { getDb } from "@/lib/db";
-import { ideaFeatures, ideas } from "@/lib/db/schema";
+import { ideaFeatures } from "@/lib/db/schema";
 import { FEATURE_SUPER_STAR_LIMIT } from "@/lib/constants/features";
 import {
   validateFeatureInput,
@@ -17,10 +17,41 @@ import {
 } from "@/lib/validations/features";
 import { FeatureSuperStarLimitError } from "@/lib/errors/feature-super-star-limit";
 import { ensureSuperStarPlacement } from "@/lib/utils/super-star-ordering";
+import { requireIdeaAccess, type IdeaAccessRecord } from "@/lib/db/access";
 
 export type FeatureStarState = "none" | "star" | "super";
 
-function getFeatureStarState(row: Pick<typeof ideaFeatures.$inferSelect, "starred" | "superStarred">): FeatureStarState {
+type FeatureRow = typeof ideaFeatures.$inferSelect;
+
+type StoredFeatureDetail = {
+  id: string;
+  label: string;
+  body: string;
+  position: number;
+};
+
+const PRIVATE_FEATURE_ROLES = new Set<IdeaAccessRecord["accessRole"]>(["owner", "editor"]);
+
+function canSeePrivateFeatures(access: IdeaAccessRecord) {
+  return access.isOwner || PRIVATE_FEATURE_ROLES.has(access.accessRole);
+}
+
+function ensurePrivateVisibilityAllowed(access: IdeaAccessRecord, visibility: FeatureRow["visibility"]) {
+  if (visibility === "private" && !canSeePrivateFeatures(access)) {
+    throw new Error("Insufficient permissions");
+  }
+}
+
+async function loadFeature(featureId: string) {
+  const db = getDb();
+  const [row] = await db.select().from(ideaFeatures).where(eq(ideaFeatures.id, featureId)).limit(1);
+  if (!row) {
+    throw new Error("Feature not found");
+  }
+  return { row, db } as const;
+}
+
+function getFeatureStarState(row: Pick<FeatureRow, "starred" | "superStarred">): FeatureStarState {
   if (row.superStarred) {
     return "super";
   }
@@ -41,20 +72,17 @@ function resolveFeatureStarFlags(state: FeatureStarState) {
 }
 
 export async function listFeatures(userId: string, ideaId: string) {
+  const access = await requireIdeaAccess(userId, ideaId, "read", { allowPublic: true });
   const db = getDb();
 
+  const visibilityFilter = canSeePrivateFeatures(access)
+    ? and(eq(ideaFeatures.ideaId, ideaId), isNull(ideaFeatures.deletedAt))
+    : and(eq(ideaFeatures.ideaId, ideaId), isNull(ideaFeatures.deletedAt), eq(ideaFeatures.visibility, "inherit"));
+
   const rows = await db
-    .select({ feature: ideaFeatures })
+    .select()
     .from(ideaFeatures)
-    .innerJoin(ideas, eq(ideas.id, ideaFeatures.ideaId))
-    .where(
-      and(
-        eq(ideas.userId, userId),
-        eq(ideaFeatures.ideaId, ideaId),
-        isNull(ideas.deletedAt),
-        isNull(ideaFeatures.deletedAt),
-      ),
-    )
+    .where(visibilityFilter)
     .orderBy(
       asc(ideaFeatures.completed),
       desc(ideaFeatures.superStarred),
@@ -63,56 +91,45 @@ export async function listFeatures(userId: string, ideaId: string) {
       desc(ideaFeatures.createdAt),
     );
 
-  return rows.map((row) => normalizeFeature(row.feature));
+  return rows.map(normalizeFeature);
 }
 
 export async function listDeletedFeatures(userId: string, ideaId: string) {
-  const db = getDb();
+  const access = await requireIdeaAccess(userId, ideaId, "write");
+  if (!canSeePrivateFeatures(access)) {
+    return [];
+  }
 
+  const db = getDb();
   const rows = await db
-    .select({ feature: ideaFeatures })
+    .select()
     .from(ideaFeatures)
-    .innerJoin(ideas, eq(ideas.id, ideaFeatures.ideaId))
-    .where(
-      and(
-        eq(ideas.userId, userId),
-        eq(ideaFeatures.ideaId, ideaId),
-        isNull(ideas.deletedAt),
-        isNotNull(ideaFeatures.deletedAt),
-      ),
-    )
+    .where(and(eq(ideaFeatures.ideaId, ideaId), isNotNull(ideaFeatures.deletedAt)))
     .orderBy(desc(ideaFeatures.deletedAt))
     .limit(50);
 
-  return rows.map((row) => normalizeFeature(row.feature));
+  return rows.map(normalizeFeature);
 }
 
 export async function createFeature(userId: string, input: FeatureInput) {
   const payload = validateFeatureInput(input);
+  const access = await requireIdeaAccess(userId, payload.ideaId, "write");
+  ensurePrivateVisibilityAllowed(access, payload.visibility);
+
   const db = getDb();
 
-  const [owner] = await db
-    .select({ id: ideas.id })
-    .from(ideas)
-    .where(and(eq(ideas.id, payload.ideaId), eq(ideas.userId, userId), isNull(ideas.deletedAt)))
-    .limit(1);
-
-  if (!owner) {
-    throw new Error("Idea not found");
-  }
-
-    if (payload.superStarred) {
-      const [{ count }] = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(ideaFeatures)
-        .where(
-          and(
-            eq(ideaFeatures.ideaId, payload.ideaId),
-            eq(ideaFeatures.superStarred, true),
-            eq(ideaFeatures.completed, false),
-            isNull(ideaFeatures.deletedAt),
-          ),
-        );
+  if (payload.superStarred) {
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(ideaFeatures)
+      .where(
+        and(
+          eq(ideaFeatures.ideaId, payload.ideaId),
+          eq(ideaFeatures.superStarred, true),
+          eq(ideaFeatures.completed, false),
+          isNull(ideaFeatures.deletedAt),
+        ),
+      );
 
     if (Number(count) >= FEATURE_SUPER_STAR_LIMIT) {
       throw new FeatureSuperStarLimitError();
@@ -145,6 +162,7 @@ export async function createFeature(userId: string, input: FeatureInput) {
       starred,
       superStarred,
       superStarredAt: superStarred ? new Date() : null,
+      visibility: payload.visibility,
     })
     .returning();
 
@@ -158,50 +176,35 @@ export async function createFeature(userId: string, input: FeatureInput) {
 
 export async function updateFeature(userId: string, input: FeatureUpdateInput) {
   const payload = validateFeatureUpdate(input);
-  const db = getDb();
+  const { row: existing, db } = await loadFeature(payload.id);
+  const access = await requireIdeaAccess(userId, existing.ideaId, "write");
 
-  const [existing] = await db
-    .select({
-      id: ideaFeatures.id,
-      ideaId: ideaFeatures.ideaId,
-      updatedAt: ideaFeatures.updatedAt,
-      starred: ideaFeatures.starred,
-      superStarred: ideaFeatures.superStarred,
-    })
-    .from(ideaFeatures)
-    .innerJoin(ideas, eq(ideas.id, ideaFeatures.ideaId))
-    .where(and(eq(ideaFeatures.id, payload.id), eq(ideas.userId, userId), isNull(ideas.deletedAt)))
-    .limit(1);
-
-  if (!existing || existing.ideaId !== payload.ideaId) {
+  if (existing.ideaId !== payload.ideaId) {
     throw new Error("Feature not found");
   }
+
+  ensurePrivateVisibilityAllowed(access, payload.visibility ?? existing.visibility);
 
   const updates: Partial<typeof ideaFeatures.$inferInsert> = { updatedAt: new Date() };
   if (payload.title !== undefined) updates.title = payload.title;
   if (payload.notes !== undefined) updates.notes = payload.notes;
-  const currentStarState = getFeatureStarState({
-    starred: existing.starred,
-    superStarred: existing.superStarred,
-  });
 
-  const superFlag = payload.superStarred;
-  const starFlag = payload.starred;
+  const currentState = getFeatureStarState(existing);
   let targetState: FeatureStarState | undefined;
 
-  if (superFlag !== undefined) {
-    targetState = superFlag ? "super" : "none";
+  if (payload.superStarred !== undefined) {
+    targetState = payload.superStarred ? "super" : "none";
   }
-  if (starFlag !== undefined) {
-    targetState = starFlag ? "star" : "none";
+  if (payload.starred !== undefined) {
+    targetState = payload.starred ? "star" : "none";
   }
-  if (superFlag === true) {
+  if (payload.superStarred === true) {
     targetState = "super";
-  } else if (superFlag === false && starFlag === true) {
+  } else if (payload.superStarred === false && payload.starred === true) {
     targetState = "star";
   }
 
-  if (targetState !== undefined && targetState !== currentStarState) {
+  if (targetState !== undefined && targetState !== currentState) {
     if (targetState === "super" && !existing.superStarred) {
       const [{ count }] = await db
         .select({ count: sql<number>`count(*)` })
@@ -234,6 +237,10 @@ export async function updateFeature(userId: string, input: FeatureUpdateInput) {
     updates.detailLabel = primary?.label ?? "Detail";
   }
 
+  if (payload.visibility !== undefined) {
+    updates.visibility = payload.visibility;
+  }
+
   const [updated] = await db
     .update(ideaFeatures)
     .set(updates)
@@ -249,60 +256,48 @@ export async function updateFeature(userId: string, input: FeatureUpdateInput) {
 }
 
 export async function setFeatureStarState(userId: string, id: string, state: FeatureStarState) {
-  const db = getDb();
+  const { row: existing, db } = await loadFeature(id);
+  const access = await requireIdeaAccess(userId, existing.ideaId, "write");
+  ensurePrivateVisibilityAllowed(access, existing.visibility);
 
-  const updated = await db.transaction(async (tx) => {
-    const [existing] = await tx
-      .select({
-        feature: ideaFeatures,
-        ideaId: ideaFeatures.ideaId,
-      })
+  if (existing.deletedAt) {
+    throw new Error("Feature not found");
+  }
+
+  const currentState = getFeatureStarState(existing);
+  if (state === currentState) {
+    return normalizeFeature(existing);
+  }
+
+  if (state === "super" && !existing.superStarred) {
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)` })
       .from(ideaFeatures)
-      .innerJoin(ideas, eq(ideas.id, ideaFeatures.ideaId))
-      .where(and(eq(ideaFeatures.id, id), eq(ideas.userId, userId), isNull(ideas.deletedAt)))
-      .limit(1);
+      .where(
+        and(
+          eq(ideaFeatures.ideaId, existing.ideaId),
+          eq(ideaFeatures.superStarred, true),
+          eq(ideaFeatures.completed, false),
+          isNull(ideaFeatures.deletedAt),
+        ),
+      );
 
-    if (!existing) {
-      throw new Error("Feature not found");
+    if (Number(count) >= FEATURE_SUPER_STAR_LIMIT) {
+      throw new FeatureSuperStarLimitError();
     }
+  }
 
-    const currentState = getFeatureStarState(existing.feature);
-    if (state === currentState) {
-      return existing.feature;
-    }
-
-    if (state === "super" && !existing.feature.superStarred) {
-      const [{ count }] = await tx
-        .select({ count: sql<number>`count(*)` })
-        .from(ideaFeatures)
-        .where(
-          and(
-            eq(ideaFeatures.ideaId, existing.ideaId),
-            eq(ideaFeatures.superStarred, true),
-            eq(ideaFeatures.completed, false),
-            isNull(ideaFeatures.deletedAt),
-          ),
-        );
-
-      if (Number(count) >= FEATURE_SUPER_STAR_LIMIT) {
-        throw new FeatureSuperStarLimitError();
-      }
-    }
-
-    const flags = resolveFeatureStarFlags(state);
-    const [next] = await tx
-      .update(ideaFeatures)
-      .set({
-        starred: flags.starred,
-        superStarred: flags.superStarred,
-        superStarredAt: flags.superStarredAt,
-        updatedAt: new Date(),
-      })
-      .where(eq(ideaFeatures.id, id))
-      .returning();
-
-    return next;
-  });
+  const flags = resolveFeatureStarFlags(state);
+  const [updated] = await db
+    .update(ideaFeatures)
+    .set({
+      starred: flags.starred,
+      superStarred: flags.superStarred,
+      superStarredAt: flags.superStarredAt,
+      updatedAt: new Date(),
+    })
+    .where(eq(ideaFeatures.id, id))
+    .returning();
 
   const feature = normalizeFeature(updated);
 
@@ -313,63 +308,53 @@ export async function setFeatureStarState(userId: string, id: string, state: Fea
 }
 
 export async function cycleFeatureStarState(userId: string, id: string) {
-  const db = getDb();
-  const [existing] = await db
-    .select({
-      feature: ideaFeatures,
-      ideaId: ideaFeatures.ideaId,
-    })
-    .from(ideaFeatures)
-    .innerJoin(ideas, eq(ideas.id, ideaFeatures.ideaId))
-    .where(and(eq(ideaFeatures.id, id), eq(ideas.userId, userId), isNull(ideas.deletedAt)))
-    .limit(1);
+  const { row: existing } = await loadFeature(id);
+  const next: FeatureStarState = (() => {
+    const current = getFeatureStarState(existing);
+    switch (current) {
+      case "none":
+        return "star";
+      case "star":
+        return "super";
+      case "super":
+      default:
+        return "none";
+    }
+  })();
 
-  if (!existing) {
-    throw new Error("Feature not found");
-  }
-
-  const currentState = getFeatureStarState(existing.feature);
-  const nextState: FeatureStarState =
-    currentState === "none" ? "star" : currentState === "star" ? "super" : "none";
-
-  return setFeatureStarState(userId, id, nextState);
+  return setFeatureStarState(userId, id, next);
 }
 
 export async function deleteFeature(userId: string, id: string) {
-  const db = getDb();
+  const { row: existing, db } = await loadFeature(id);
+  const access = await requireIdeaAccess(userId, existing.ideaId, "write");
+  ensurePrivateVisibilityAllowed(access, existing.visibility);
 
-  const [existing] = await db
-    .select({ id: ideaFeatures.id, ideaId: ideaFeatures.ideaId })
-    .from(ideaFeatures)
-    .innerJoin(ideas, eq(ideas.id, ideaFeatures.ideaId))
-    .where(and(eq(ideaFeatures.id, id), eq(ideas.userId, userId), isNull(ideas.deletedAt)))
-    .limit(1);
-
-  if (!existing) {
-    throw new Error("Feature not found");
+  if (existing.deletedAt) {
+    return normalizeFeature(existing);
   }
 
-  await db
+  const [updated] = await db
     .update(ideaFeatures)
     .set({ deletedAt: new Date(), updatedAt: new Date() })
-    .where(eq(ideaFeatures.id, id));
+    .where(eq(ideaFeatures.id, id))
+    .returning();
 
-  revalidatePath(`/dashboard/ideas/${existing.ideaId}`);
+  const feature = normalizeFeature(updated);
+
+  revalidatePath(`/dashboard/ideas/${feature.ideaId}`);
   revalidatePath("/dashboard/ideas");
+
+  return feature;
 }
 
 export async function restoreFeature(userId: string, id: string) {
-  const db = getDb();
+  const { row: existing, db } = await loadFeature(id);
+  const access = await requireIdeaAccess(userId, existing.ideaId, "write");
+  ensurePrivateVisibilityAllowed(access, existing.visibility);
 
-  const [existing] = await db
-    .select({ id: ideaFeatures.id, ideaId: ideaFeatures.ideaId })
-    .from(ideaFeatures)
-    .innerJoin(ideas, eq(ideas.id, ideaFeatures.ideaId))
-    .where(and(eq(ideaFeatures.id, id), eq(ideas.userId, userId), isNull(ideas.deletedAt)))
-    .limit(1);
-
-  if (!existing) {
-    throw new Error("Feature not found");
+  if (!existing.deletedAt) {
+    return normalizeFeature(existing);
   }
 
   const [updated] = await db
@@ -380,28 +365,18 @@ export async function restoreFeature(userId: string, id: string) {
 
   const feature = normalizeFeature(updated);
 
-  revalidatePath(`/dashboard/ideas/${existing.ideaId}`);
+  revalidatePath(`/dashboard/ideas/${feature.ideaId}`);
   revalidatePath("/dashboard/ideas");
 
   return feature;
 }
 
 export async function setFeatureCompletion(userId: string, id: string, completed: boolean) {
-  const db = getDb();
+  const { row: existing, db } = await loadFeature(id);
+  const access = await requireIdeaAccess(userId, existing.ideaId, "write");
+  ensurePrivateVisibilityAllowed(access, existing.visibility);
 
-  const [existing] = await db
-    .select({
-      id: ideaFeatures.id,
-      ideaId: ideaFeatures.ideaId,
-      starred: ideaFeatures.starred,
-      superStarred: ideaFeatures.superStarred,
-    })
-    .from(ideaFeatures)
-    .innerJoin(ideas, eq(ideas.id, ideaFeatures.ideaId))
-    .where(and(eq(ideaFeatures.id, id), eq(ideas.userId, userId), isNull(ideas.deletedAt)))
-    .limit(1);
-
-  if (!existing) {
+  if (existing.deletedAt) {
     throw new Error("Feature not found");
   }
 
@@ -426,37 +401,34 @@ export async function setFeatureCompletion(userId: string, id: string, completed
 
   const feature = normalizeFeature(updated);
 
-  revalidatePath(`/dashboard/ideas/${existing.ideaId}`);
+  revalidatePath(`/dashboard/ideas/${feature.ideaId}`);
   revalidatePath("/dashboard/ideas");
 
   return feature;
 }
 
 export async function getFeatureById(userId: string, id: string) {
-  const db = getDb();
-
-  const [existing] = await db
-    .select({
-      feature: ideaFeatures,
-      ideaId: ideaFeatures.ideaId,
-    })
-    .from(ideaFeatures)
-    .innerJoin(ideas, eq(ideas.id, ideaFeatures.ideaId))
-    .where(and(eq(ideaFeatures.id, id), eq(ideas.userId, userId), isNull(ideas.deletedAt)))
-    .limit(1);
-
-  if (!existing) {
+  const { row: existing } = await loadFeature(id);
+  const access = await requireIdeaAccess(userId, existing.ideaId, "read", { allowPublic: true });
+  if (existing.deletedAt) {
+    throw new Error("Feature not found");
+  }
+  if (existing.visibility === "private" && !canSeePrivateFeatures(access)) {
     throw new Error("Feature not found");
   }
 
   return {
-    feature: normalizeFeature(existing.feature),
+    feature: normalizeFeature(existing),
     ideaId: existing.ideaId,
   };
 }
 
 export async function reorderFeatures(userId: string, ideaId: string, orderedIds: string[]) {
-  if (orderedIds.length === 0) return;
+  if (orderedIds.length === 0) {
+    return;
+  }
+
+  await requireIdeaAccess(userId, ideaId, "write");
 
   const db = getDb();
 
@@ -464,12 +436,9 @@ export async function reorderFeatures(userId: string, ideaId: string, orderedIds
     const rows = await tx
       .select({ id: ideaFeatures.id, superStarred: ideaFeatures.superStarred })
       .from(ideaFeatures)
-      .innerJoin(ideas, eq(ideas.id, ideaFeatures.ideaId))
       .where(
         and(
           eq(ideaFeatures.ideaId, ideaId),
-          eq(ideas.userId, userId),
-          isNull(ideas.deletedAt),
           isNull(ideaFeatures.deletedAt),
           eq(ideaFeatures.completed, false),
         ),
@@ -500,14 +469,8 @@ export async function reorderFeatures(userId: string, ideaId: string, orderedIds
   revalidatePath("/dashboard/ideas");
 }
 
-type StoredFeatureDetail = {
-  id: string;
-  label: string;
-  body: string;
-  position: number;
-};
-
 export type FeatureDetailRecord = StoredFeatureDetail;
+export type FeatureRecord = ReturnType<typeof normalizeFeature>;
 
 function prepareDetailSectionsForStorage(sections: FeatureDetailPayload[]): StoredFeatureDetail[] {
   return sections.map((section, index) => ({
@@ -549,9 +512,7 @@ function parseStoredDetailSections(value: unknown): StoredFeatureDetail[] {
   return records;
 }
 
-export type FeatureRecord = ReturnType<typeof normalizeFeature>;
-
-function normalizeFeature(row: typeof ideaFeatures.$inferSelect) {
+function normalizeFeature(row: FeatureRow) {
   const detailSections = parseStoredDetailSections(row.detailSections);
   const primary = detailSections[0];
 
@@ -568,5 +529,6 @@ function normalizeFeature(row: typeof ideaFeatures.$inferSelect) {
     starred: Boolean(row.starred),
     superStarred: Boolean(row.superStarred),
     superStarredAt: row.superStarredAt ? row.superStarredAt.toISOString() : null,
+    visibility: row.visibility,
   };
 }

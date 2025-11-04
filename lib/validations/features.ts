@@ -21,6 +21,7 @@ export type FeatureInput = {
   detail?: string;
   detailLabel?: string;
   details?: FeatureDetailInput[];
+  visibility?: "inherit" | "private";
 };
 
 export type FeatureUpdateInput = Partial<Omit<FeatureInput, "ideaId">> & { id: string; ideaId: string };
@@ -32,6 +33,7 @@ export type FeatureInputPayload = {
   starred: boolean;
   superStarred: boolean;
   detailSections: FeatureDetailPayload[];
+  visibility: "inherit" | "private";
 };
 
 export type FeatureUpdatePayload = {
@@ -42,6 +44,7 @@ export type FeatureUpdatePayload = {
   starred?: boolean;
   superStarred?: boolean;
   detailSections?: FeatureDetailPayload[];
+  visibility?: "inherit" | "private";
 };
 
 const MAX_TITLE = 255;
@@ -65,6 +68,7 @@ const featureInputSchema = z.object({
   superStarred: z.boolean(),
   detail: z.string().max(MAX_DETAIL, `Detail must be ≤ ${MAX_DETAIL} characters`).optional(),
   detailLabel: z.string().max(MAX_DETAIL_LABEL, `Detail label must be ≤ ${MAX_DETAIL_LABEL} characters`).optional(),
+  visibility: z.enum(["inherit", "private"]),
 });
 
 const featureUpdateSchema = z.object({
@@ -81,6 +85,7 @@ const featureUpdateSchema = z.object({
   superStarred: z.boolean().optional(),
   detail: z.string().max(MAX_DETAIL, `Detail must be ≤ ${MAX_DETAIL} characters`).optional(),
   detailLabel: z.string().max(MAX_DETAIL_LABEL, `Detail label must be ≤ ${MAX_DETAIL_LABEL} characters`).optional(),
+  visibility: z.enum(["inherit", "private"]).optional(),
 });
 
 export function sanitizeFeatureDetailLabel(label: string): string {
@@ -165,6 +170,7 @@ export function validateFeatureInput(input: FeatureInput): FeatureInputPayload {
     detail: input.detail !== undefined ? sanitizeFeatureNotes(input.detail) : undefined,
     detailLabel:
       input.detailLabel !== undefined ? sanitizeFeatureDetailLabel(input.detailLabel) || "Detail" : undefined,
+    visibility: input.visibility === "private" ? ("private" as const) : ("inherit" as const),
   };
 
   const parsed = featureInputSchema.parse(sanitized);
@@ -179,6 +185,7 @@ export function validateFeatureInput(input: FeatureInput): FeatureInputPayload {
     starred,
     superStarred,
     detailSections,
+    visibility: sanitized.visibility,
   };
 }
 
@@ -193,6 +200,7 @@ export function validateFeatureUpdate(input: FeatureUpdateInput): FeatureUpdateP
     detail: input.detail !== undefined ? sanitizeFeatureNotes(input.detail) : undefined,
     detailLabel:
       input.detailLabel !== undefined ? sanitizeFeatureDetailLabel(input.detailLabel) || "Detail" : undefined,
+    visibility: input.visibility,
   };
 
   const parsed = featureUpdateSchema.parse(sanitized);
@@ -211,6 +219,7 @@ export function validateFeatureUpdate(input: FeatureUpdateInput): FeatureUpdateP
     parsed.detailLabel !== undefined ||
     parsed.starred !== undefined ||
     parsed.superStarred !== undefined ||
+    parsed.visibility !== undefined ||
     detailSections !== undefined;
 
   if (!hasUpdates) {
@@ -225,5 +234,6 @@ export function validateFeatureUpdate(input: FeatureUpdateInput): FeatureUpdateP
     starred: parsed.starred,
     superStarred: parsed.superStarred,
     detailSections,
+    visibility: parsed.visibility,
   };
 }

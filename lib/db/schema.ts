@@ -2,6 +2,11 @@ import { sql } from "drizzle-orm";
 import { pgTable, text, timestamp, uuid, primaryKey, integer, doublePrecision, index, boolean, date, uniqueIndex, pgEnum, jsonb } from "drizzle-orm/pg-core";
 import type { AdapterAccount } from "next-auth/adapters";
 
+export const ideaVisibilityEnum = pgEnum("idea_visibility", ["private", "public"]);
+export const ideaFeatureVisibilityEnum = pgEnum("idea_feature_visibility", ["inherit", "private"]);
+export const ideaCollaboratorRoleEnum = pgEnum("idea_collaborator_role", ["owner", "editor", "commenter", "viewer"]);
+export const ideaJoinRequestStatusEnum = pgEnum("idea_join_request_status", ["pending", "approved", "rejected"]);
+
 export const ideas = pgTable("ideas", {
   id: uuid("id").defaultRandom().primaryKey(),
   userId: text("user_id").notNull(),
@@ -22,6 +27,7 @@ export const ideas = pgTable("ideas", {
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   undoToken: text("undo_token"),
   undoExpiresAt: timestamp("undo_expires_at", { withTimezone: true }),
+  visibility: ideaVisibilityEnum("visibility").notNull().default("private"),
 }, (table) => ({
   userPositionIdx: index("idx_ideas_user_position").on(table.userId, table.position),
   userStarIdx: index("idx_ideas_user_star").on(table.userId, table.starred),
@@ -54,11 +60,13 @@ export const ideaFeatures = pgTable("idea_features", {
   completed: boolean("completed").notNull().default(false),
   completedAt: timestamp("completed_at", { withTimezone: true }),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  visibility: ideaFeatureVisibilityEnum("visibility").notNull().default("inherit"),
 }, (table) => ({
   ideaPositionIdx: index("idx_feature_idea_position").on(table.ideaId, table.position),
   ideaStarIdx: index("idx_feature_idea_star").on(table.ideaId, table.starred),
   ideaSuperStarIdx: index("idx_feature_idea_super_star").on(table.ideaId, table.superStarred),
 }));
+
 
 export const users = pgTable("auth_user", {
   id: text("id").primaryKey(),
@@ -98,6 +106,77 @@ export const sessions = pgTable("auth_session", {
     .references(() => users.id, { onDelete: "cascade" }),
   expires: timestamp("expires", { withTimezone: true }).notNull(),
 });
+
+export const ideaCollaborators = pgTable("idea_collaborators", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  ideaId: uuid("idea_id")
+    .notNull()
+    .references(() => ideas.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  role: ideaCollaboratorRoleEnum("role").notNull().default("editor"),
+  invitedBy: text("invited_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  ideaUserUnique: uniqueIndex("uniq_idea_collaborators_idea_user").on(table.ideaId, table.userId),
+  ideaRoleIdx: index("idx_idea_collaborators_role").on(table.ideaId, table.role),
+}));
+
+export const ideaCollaboratorInvites = pgTable("idea_collaborator_invites", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  ideaId: uuid("idea_id")
+    .notNull()
+    .references(() => ideas.id, { onDelete: "cascade" }),
+  email: text("email").notNull(),
+  role: ideaCollaboratorRoleEnum("role").notNull().default("viewer"),
+  token: text("token").notNull(),
+  invitedBy: text("invited_by").references(() => users.id, { onDelete: "set null" }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  ideaEmailUnique: uniqueIndex("uniq_idea_collaborator_invites_email").on(table.ideaId, table.email),
+  tokenIdx: index("idx_idea_collaborator_invites_token").on(table.token),
+}));
+
+export const ideaJoinRequests = pgTable("idea_join_requests", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  ideaId: uuid("idea_id")
+    .notNull()
+    .references(() => ideas.id, { onDelete: "cascade" }),
+  applicantId: text("applicant_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  message: text("message").notNull(),
+  status: ideaJoinRequestStatusEnum("status").notNull().default("pending"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  processedAt: timestamp("processed_at", { withTimezone: true }),
+  processedBy: text("processed_by").references(() => users.id, { onDelete: "set null" }),
+  resolutionNote: text("resolution_note"),
+  ownerSeenAt: timestamp("owner_seen_at", { withTimezone: true }),
+  ownerArchivedAt: timestamp("owner_archived_at", { withTimezone: true }),
+  ownerReaction: text("owner_reaction"),
+  activityLog: jsonb("activity_log")
+    .$type<
+      Array<{
+        id: string;
+        type: "created" | "status_changed" | "owner_seen" | "owner_archived" | "owner_reaction";
+        at: string;
+        actorId: string | null;
+        payload?: Record<string, unknown> | null;
+      }>
+    >()
+    .notNull()
+    .default(sql`'[]'::jsonb`),
+}, (table) => ({
+  ideaStatusIdx: index("idx_idea_join_requests_idea").on(table.ideaId, table.status),
+  pendingUnique: uniqueIndex("uniq_idea_join_requests_pending")
+    .on(table.ideaId, table.applicantId)
+    .where(sql`${table.status} = 'pending'`),
+}));
 
 export const verificationTokens = pgTable(
   "auth_verification_token",

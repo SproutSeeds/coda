@@ -329,10 +329,53 @@ async function startTTYServer(ctx: RunnerCore, signal: AbortSignal): Promise<Asy
   try {
     const ws = (await import("ws")) as any;
     const pty = (await import("node-pty")) as typeof import("node-pty");
-    const host = ctx.options.tty.host;
-    const port = ctx.options.tty.port;
     const { WebSocketServer } = ws;
-    const server = new WebSocketServer({ host, port });
+    const host = ctx.options.tty.host;
+    const preferredPort = ctx.options.tty.port;
+
+    const createServer = (port: number) =>
+      new Promise<{ server: any; port: number }>((resolve, reject) => {
+        const server = new WebSocketServer({ host, port });
+        const cleanup = () => {
+          server.off("listening", onListening);
+          server.off("error", onError);
+        };
+        const onListening = () => {
+          cleanup();
+          const address = server.address();
+          const actualPort = typeof address === "object" && address ? address.port : port;
+          resolve({ server, port: actualPort });
+        };
+        const onError = (error: NodeJS.ErrnoException) => {
+          cleanup();
+          try {
+            server.close();
+          } catch {
+            /* ignore */
+          }
+          reject(error);
+        };
+        server.once("listening", onListening);
+        server.once("error", onError);
+      });
+
+    let serverInfo: { server: any; port: number };
+    let usedFallback = false;
+    try {
+      serverInfo = await createServer(preferredPort);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EADDRINUSE") {
+        throw error;
+      }
+      serverInfo = await createServer(0);
+      usedFallback = true;
+    }
+
+    const { server, port } = serverInfo;
+    ctx.options.tty.port = port;
+    if (usedFallback && port !== preferredPort) {
+      ctx.log("warn", `TTY port ${preferredPort} already in use. Using fallback port ${port}.`);
+    }
     const sockets = new Set<any>();
     const activeTerminals = new Map<any, { term: any; socket: any }>();
     ctx.log("info", `TTY server listening ws://${host}:${port}/tty`);

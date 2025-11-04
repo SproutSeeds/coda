@@ -158,26 +158,8 @@ export async function checkInToMeetupAction(email?: string) {
   }
 
   // For non-authenticated users, validate email
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return {
-      success: false,
-      error: "Please provide a valid email address",
-    };
-  }
-
-  // Rate limit for unauthenticated check-ins
-  const rate = await consumeRateLimit(`meetup:checkin:${email}`);
-  if (!rate.success) {
-    return {
-      success: false,
-      error: "Too many requests. Please try again in a moment.",
-    };
-  }
-
-  // For now, just return success without persisting for unauthenticated users
-  // In future, could send email link or create pending check-in
   return {
-    success: true,
-    message: "Check-in received! Sign in to track your attendance.",
+    success: false,
+    error: "Sign in to Coda to check in to the meetings.",
   };
 }

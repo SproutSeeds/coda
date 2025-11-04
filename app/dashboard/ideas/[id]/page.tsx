@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 
 import { loadIdeaWithFeatures } from "../actions";
 import { IdeaDetail } from "../components/IdeaDetail";
+import { IdeaCollaborationProvider } from "../components/IdeaCollaborationProvider";
+import { hasLiveblocksConfig } from "@/lib/liveblocks/settings";
 
 function isMissingFeatureColumns(error: unknown): boolean {
   if (!error || typeof error !== "object") {
@@ -61,9 +63,28 @@ export default async function IdeaDetailPage({ params }: { params: Promise<{ id:
     notFound();
   }
 
+  const collaborationEnabled = hasLiveblocksConfig();
+
+  const content = (
+    <IdeaDetail
+      idea={data.idea}
+      features={data.features}
+      deletedFeatures={data.deletedFeatures}
+      viewerJoinRequest={data.viewerJoinRequest}
+      collaborationEnabled={collaborationEnabled}
+      ownerJoinRequestCounts={data.ownerJoinRequestCounts}
+    />
+  );
+
   return (
     <section className="space-y-8">
-      <IdeaDetail idea={data.idea} features={data.features} deletedFeatures={data.deletedFeatures} />
+      {collaborationEnabled ? (
+        <IdeaCollaborationProvider ideaId={data.idea.id} accessRole={data.idea.accessRole}>
+          {content}
+        </IdeaCollaborationProvider>
+      ) : (
+        content
+      )}
     </section>
   );
 }

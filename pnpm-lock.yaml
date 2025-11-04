@@ -26,6 +26,15 @@ importers:
       '@hookform/resolvers':
         specifier: ^5.2.2
         version: 5.2.2(react-hook-form@7.64.0(react@19.1.0))
+      '@liveblocks/client':
+        specifier: ^3.9.2
+        version: 3.9.2(@types/json-schema@7.0.15)
+      '@liveblocks/node':
+        specifier: ^3.9.2
+        version: 3.9.2(@types/json-schema@7.0.15)(encoding@0.1.13)
+      '@liveblocks/react':
+        specifier: ^3.9.2
+        version: 3.9.2(@types/json-schema@7.0.15)(@types/react-dom@19.2.0(@types/react@19.2.0))(@types/react@19.2.0)(react@19.1.0)
       '@radix-ui/react-dropdown-menu':
         specifier: ^2.1.16
         version: 2.1.16(@types/react-dom@19.2.0(@types/react@19.2.0))(@types/react@19.2.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -1403,6 +1412,29 @@ packages:
   '@jridgewell/trace-mapping@0.3.9':
     resolution: {integrity: sha512-3Belt6tdc8bPgAtbcmdtNJlirVoTmEb5e2gC94PnkwEW9jI6CAHUeoG85tjWP5WquqfavoMtMwiG4P926ZKKuQ==}
 
+  '@liveblocks/client@3.9.2':
+    resolution: {integrity: sha512-eoY3uQPQ3+03w+vw7fzgGtPClVNtDw/d30yMGWxlVXLX3gXqz/Io+4uvUGRUb0WxuB4XEtabic/RS5/wvT1w2g==}
+
+  '@liveblocks/core@3.9.2':
+    resolution: {integrity: sha512-GRzrSLb6Okwr3kdCM8L2LIqin4rsRT1AVrkQqM2Pm5mI2edfSqmoLeoJS1hxFjCE3/w/RcXrZ9In7I+umg/03Q==}
+    peerDependencies:
+      '@types/json-schema': ^7
+
+  '@liveblocks/node@3.9.2':
+    resolution: {integrity: sha512-VhcXglYVxomnIjT9i2UhPcAM/HvUGZHh/A7DNFeDGJCBAvDBDxGW0oGaKLcsVGFKG4Z+PGZsmW8LIJxXIdCDdQ==}
+
+  '@liveblocks/react@3.9.2':
+    resolution: {integrity: sha512-LOhmu9f3rvMjjskHy+UKO3IJWrkYvuyosazd6v05otHsblSrz1EYxlmKYnZ22kVxzO2rxVBQEsagEShxKdFh0w==}
+    peerDependencies:
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: ^18 || ^19 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+
   '@malept/cross-spawn-promise@2.0.0':
     resolution: {integrity: sha512-1DpKU0Z5ThltBwjNySMC14g0CkbyhCaz9FkhxqNsZI6uAPJXFS8cMXlBKo26FJ8ZuW6S9GCMcR9IO5k2X5/9Fg==}
     engines: {node: '>= 12.13.0'}
@@ -2346,6 +2378,9 @@ packages:
   '@smithy/uuid@1.1.0':
     resolution: {integrity: sha512-4aUIteuyxtBUhVdiQqcDhKFitwfd9hqoSDYY2KRXiWtgoWJ9Bmise+KfEPDiVHWeJepvF8xJO9/9+WDIciMFFw==}
     engines: {node: '>=18.0.0'}
+
+  '@stablelib/base64@1.0.1':
+    resolution: {integrity: sha512-1bnPQqSxSuc3Ii6MhBysoWCg58j97aUjuCSZrGSmDxNqtytIi0k8utUenAwTZN4V5mXXYGsVUI9zeBqy+jBOSQ==}
 
   '@standard-schema/utils@0.3.0':
     resolution: {integrity: sha512-e7Mew686owMaPJVNNLs55PUvgz371nKgwsc4vxE49zsODpJEnxgxRo2y/OKrqueavXgZNMDVj3DdHFlaSAeU8g==}
@@ -4089,6 +4124,9 @@ packages:
 
   fast-safe-stringify@2.1.1:
     resolution: {integrity: sha512-W+KJc2dmILlPplD/H4K9l9LcAHAfPtP6BY84uVLXQ6Evcz9Lcg33Y2z1IVblT6xdY54PXYVHEv+0Wpq8Io6zkA==}
+
+  fast-sha256@1.3.0:
+    resolution: {integrity: sha512-n11RGP/lrWEFI/bWdygLxhI+pVeo1ZYIVwvvPkW7azl/rOy+F3HYRZ2K5zeE9mmkhQppyv9sQFx0JM9UabnpPQ==}
 
   fast-uri@3.1.0:
     resolution: {integrity: sha512-iPeeDKJSWf4IEOasVVrknXpaBV0IApz/gp7S2bb7Z4Lljbl2MGJRqInZiUrQwV16cpzw/D3S5j5Julj/gT52AA==}
@@ -7948,6 +7986,37 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
+  '@liveblocks/client@3.9.2(@types/json-schema@7.0.15)':
+    dependencies:
+      '@liveblocks/core': 3.9.2(@types/json-schema@7.0.15)
+    transitivePeerDependencies:
+      - '@types/json-schema'
+
+  '@liveblocks/core@3.9.2(@types/json-schema@7.0.15)':
+    dependencies:
+      '@types/json-schema': 7.0.15
+
+  '@liveblocks/node@3.9.2(@types/json-schema@7.0.15)(encoding@0.1.13)':
+    dependencies:
+      '@liveblocks/core': 3.9.2(@types/json-schema@7.0.15)
+      '@stablelib/base64': 1.0.1
+      fast-sha256: 1.3.0
+      node-fetch: 2.7.0(encoding@0.1.13)
+    transitivePeerDependencies:
+      - '@types/json-schema'
+      - encoding
+
+  '@liveblocks/react@3.9.2(@types/json-schema@7.0.15)(@types/react-dom@19.2.0(@types/react@19.2.0))(@types/react@19.2.0)(react@19.1.0)':
+    dependencies:
+      '@liveblocks/client': 3.9.2(@types/json-schema@7.0.15)
+      '@liveblocks/core': 3.9.2(@types/json-schema@7.0.15)
+      react: 19.1.0
+    optionalDependencies:
+      '@types/react': 19.2.0
+      '@types/react-dom': 19.2.0(@types/react@19.2.0)
+    transitivePeerDependencies:
+      - '@types/json-schema'
+
   '@malept/cross-spawn-promise@2.0.0':
     dependencies:
       cross-spawn: 7.0.6
@@ -8996,6 +9065,8 @@ snapshots:
   '@smithy/uuid@1.1.0':
     dependencies:
       tslib: 2.8.1
+
+  '@stablelib/base64@1.0.1': {}
 
   '@standard-schema/utils@0.3.0': {}
 
@@ -11073,6 +11144,8 @@ snapshots:
   fast-levenshtein@2.0.6: {}
 
   fast-safe-stringify@2.1.1: {}
+
+  fast-sha256@1.3.0: {}
 
   fast-uri@3.1.0: {}
 

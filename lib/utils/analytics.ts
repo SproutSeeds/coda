@@ -43,6 +43,18 @@ const ANALYTICS_EVENT_NAMES = [
   "ideas_import_attempt",
   "ideas_import_complete",
   "ideas_import_error",
+  "idea_collaborator_invited",
+  "idea_collaborator_role_updated",
+  "idea_collaborator_removed",
+  "idea_collaborator_invite_revoked",
+  "idea_collaborator_left",
+  "idea_collaborator_joined",
+  "idea_join_requests_viewed",
+  "idea_join_requests_marked_seen",
+  "idea_join_request_resolved",
+  "idea_join_request_reacted",
+  "idea_join_request_archived",
+  "idea_join_request_created",
 ] as const;
 
 export type AnalyticEventName = (typeof ANALYTICS_EVENT_NAMES)[number];

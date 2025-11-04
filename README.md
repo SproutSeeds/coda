@@ -207,6 +207,7 @@ Both conversions record analytics events and reuse server actions for consistenc
 - `GITHUB_ID`, `GITHUB_SECRET` – Optional GitHub OAuth provider.
 - `NEXT_PUBLIC_SITE_URL` – Canonical origin for the production app (used by the desktop companion).
 - `NEXT_PUBLIC_DEVMODE_RELAY_URL` – Public Relay websocket URL (prefills pairing commands).
+- `NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY`, `LIVEBLOCKS_SECRET_KEY` – Liveblocks realtime collaboration API keys.
 - `NEXT_PUBLIC_RUNNER_DOWNLOAD_BASE` – Release folder that serves desktop installers and CLI binaries.
 
 Create `.env.local` from `.env.example`, populate the values above, and mirror them in Vercel for Development/Preview/Production.

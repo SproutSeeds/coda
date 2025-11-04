@@ -50,6 +50,16 @@ export function IdeaCard({
   const [showDetails, setShowDetails] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [deleteInput, setDeleteInput] = useState("");
+  const isShared = !idea.isOwner;
+  const roleLabel = idea.accessRole;
+  const canStar = idea.isOwner || idea.accessRole === "editor";
+  const canDelete = idea.isOwner;
+  const visibilityLabel = idea.visibility === "public" ? "Public" : "Private";
+  const roleDisplay = roleLabel.charAt(0).toUpperCase() + roleLabel.slice(1);
+  const visibilityClasses = idea.visibility === "public"
+    ? "border border-emerald-400/60 bg-emerald-500/10 text-emerald-100"
+    : "border border-slate-600/60 bg-slate-600/10 text-slate-200";
+  const roleClasses = "border border-border/60 bg-background/50 text-muted-foreground";
 
   const deletePrompt = useMemo(() => `Enter "${idea.title}" to delete`, [idea.title]);
   const deleteTitleMatches = deleteInput.trim() === idea.title;
@@ -96,6 +106,7 @@ export function IdeaCard({
   const updatedLabel = formatUpdated(idea.updatedAt ?? idea.createdAt);
   const starState = idea.superStarred ? "super" : idea.starred ? "star" : "none";
   const starLabel = starState === "super" ? "Remove super star" : starState === "star" ? "Promote to super star" : "Star idea";
+  const starButtonLabel = canStar ? starLabel : "View star status";
   const handleNavigate = () => {
     router.push(`/dashboard/ideas/${idea.id}`);
   };
@@ -109,6 +120,9 @@ export function IdeaCard({
 
   const handleDeleteClick: MouseEventHandler<HTMLButtonElement> = (event) => {
     event.stopPropagation();
+    if (!canDelete) {
+      return;
+    }
     setIsConfirmingDelete(true);
     setDeleteInput("");
   };
@@ -157,6 +171,9 @@ export function IdeaCard({
 
   const handleStar: MouseEventHandler<HTMLButtonElement> = (event) => {
     event.stopPropagation();
+    if (!canStar) {
+      return;
+    }
     startTransition(async () => {
       try {
         const result = await cycleIdeaStarAction(idea.id);
@@ -218,6 +235,14 @@ export function IdeaCard({
                 <h3 className="line-clamp-2 break-words text-base font-semibold leading-snug text-foreground">
                   {idea.title}
                 </h3>
+                <div className="flex flex-wrap items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">
+                  <span className={cn("rounded-full px-2 py-0.5", visibilityClasses)}>{visibilityLabel}</span>
+                  {isShared ? (
+                    <span className={cn("rounded-full px-2 py-0.5 capitalize", roleClasses)}>
+                      {roleDisplay}
+                    </span>
+                  ) : null}
+                </div>
               </div>
               <div className="flex w-full flex-wrap items-center justify-between gap-2 sm:w-auto sm:flex-nowrap sm:justify-end">
                 <AnimatePresence initial={false} mode="wait">
@@ -255,15 +280,16 @@ export function IdeaCard({
                     variant="ghost"
                     size="icon"
                     className={cn(
-                      "interactive-btn h-8 w-8 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-foreground focus-visible:ring-0",
+                      "interactive-btn h-8 w-8 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-foreground focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50",
                       starState === "star" && "text-yellow-400 hover:text-yellow-300",
                       starState === "super" && "text-amber-300 drop-shadow-[0_0_8px_rgba(251,191,36,0.55)] hover:text-amber-200",
                     )}
                     onClick={handleStar}
-                    aria-label={starLabel}
+                    aria-label={starButtonLabel}
                     aria-pressed={idea.starred}
                     data-testid="idea-star-button"
                     data-star-state={starState}
+                    disabled={!canStar || isPending}
                   >
                     {starState === "super" ? (
                       <span className="relative inline-flex items-center justify-center">
@@ -276,17 +302,19 @@ export function IdeaCard({
                       <StarOff className="size-4" />
                     )}
                   </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="interactive-btn shrink-0 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-destructive focus-visible:ring-0"
-                    onClick={handleDeleteClick}
-                    disabled={isPending}
-                    aria-label="Delete idea"
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
+                  {canDelete ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="interactive-btn shrink-0 cursor-pointer text-muted-foreground hover:bg-transparent hover:text-destructive focus-visible:ring-0"
+                      onClick={handleDeleteClick}
+                      disabled={isPending}
+                      aria-label="Delete idea"
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  ) : null}
                 </div>
               </div>
             </div>

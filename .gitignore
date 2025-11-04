@@ -65,6 +65,9 @@ Thumbs.db
 *.tsbuildinfo
 next-env.d.ts
 
+# Developer scratch notes
+TERMINAL_*.md
+
 # Codex CLI runtime artifacts
 .codex/auth.json
 .codex/history.jsonl

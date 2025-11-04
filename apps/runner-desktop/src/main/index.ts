@@ -370,20 +370,27 @@ ipcMain.handle("runner:clear-token", async () => {
   await runnerManager.clearToken();
 });
 
+function buildTmuxExecEnv() {
+  const extendedPath = [
+    "/opt/homebrew/bin",
+    "/usr/local/bin",
+    "/usr/bin",
+    "/bin",
+    process.env.PATH || "",
+  ]
+    .filter(Boolean)
+    .join(":");
+
+  return { ...process.env, PATH: extendedPath };
+}
+
 ipcMain.handle("runner:list-tmux-sessions", async () => {
   const { execSync } = await import("child_process");
   try {
-    const extendedPath = [
-      "/opt/homebrew/bin",
-      "/usr/local/bin",
-      "/usr/bin",
-      "/bin",
-      process.env.PATH || "",
-    ].filter(Boolean).join(":");
     const execOptions = {
       encoding: "utf8" as const,
       stdio: ["ignore", "pipe", "pipe"] as ["ignore", "pipe", "pipe"],
-      env: { ...process.env, PATH: extendedPath },
+      env: buildTmuxExecEnv(),
     };
     const output = execSync("tmux list-sessions -F '#{session_name}|#{session_created}|#{session_attached}'", execOptions);
     const sessions = output
@@ -414,6 +421,7 @@ ipcMain.handle("runner:kill-tmux-session", async (_event, sessionName: string) =
   try {
     execSync(`tmux kill-session -t ${JSON.stringify(sessionName)}`, {
       stdio: "ignore",
+      env: buildTmuxExecEnv(),
     });
     return { success: true };
   } catch (error) {
@@ -429,6 +437,7 @@ ipcMain.handle("runner:kill-all-tmux-sessions", async () => {
     const sessions = execSync("tmux list-sessions -F '#{session_name}'", {
       encoding: "utf8",
       stdio: ["pipe", "pipe", "ignore"],
+      env: buildTmuxExecEnv(),
     }).trim();
 
     const codaSessions = sessions
@@ -440,6 +449,7 @@ ipcMain.handle("runner:kill-all-tmux-sessions", async () => {
       try {
         execSync(`tmux kill-session -t ${JSON.stringify(sessionName)}`, {
           stdio: "ignore",
+          env: buildTmuxExecEnv(),
         });
         killedCount++;
       } catch {

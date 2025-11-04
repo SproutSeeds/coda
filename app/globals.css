@@ -256,4 +256,81 @@ body {
     color: transparent;
   }
 
+  .join-forces-button {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    cursor: pointer;
+    border: 1px solid rgba(250, 204, 21, 0.35);
+    background: linear-gradient(130deg, rgba(168, 85, 247, 0.28), rgba(59, 130, 246, 0.24), rgba(34, 197, 94, 0.22));
+    color: #f9fafb;
+    text-shadow: 0 1px 2px rgba(15, 23, 42, 0.45);
+    box-shadow: 0 10px 28px rgba(79, 70, 229, 0.25);
+    transition: transform 180ms ease, box-shadow 220ms ease, border-color 220ms ease;
+  }
+
+  .join-forces-button:hover,
+  .join-forces-button:focus-visible {
+    transform: translateY(-2px) scale(1.02);
+    border-color: rgba(250, 204, 21, 0.6);
+    box-shadow: 0 16px 38px rgba(56, 189, 248, 0.32);
+  }
+
+  .join-forces-button[data-pending="true"] {
+    opacity: 0.65;
+    cursor: default;
+    box-shadow: none;
+    transform: none;
+  }
+
+  .join-forces-glow {
+    position: absolute;
+    inset: -35%;
+    background: radial-gradient(circle at center, rgba(250, 204, 21, 0.55), rgba(59, 130, 246, 0));
+    opacity: 0;
+    filter: blur(8px);
+    transition: opacity 200ms ease;
+    z-index: -1;
+  }
+
+  .join-forces-button:hover .join-forces-glow,
+  .join-forces-button:focus-visible .join-forces-glow {
+    opacity: 1;
+  }
+
+
+.discover-wave {
+  display: inline-flex;
+}
+
+.discover-link-anchor {
+  transform-origin: center;
+  transition: transform 200ms ease, color 200ms ease;
+  will-change: transform;
+}
+
+.discover-link-anchor:hover,
+.discover-link-anchor:focus-visible {
+  transform: scale(1.035) rotate(-0.75deg);
+}
+
+.discover-link-anchor:active {
+  transform: scale(0.99) rotate(-0.35deg);
+}
+
+.discover-wave-letter {
+  display: inline-block;
+  transition: transform 200ms ease;
+}
+
+.group:hover .discover-wave-letter {
+  animation: discover-letter-wave 600ms ease forwards;
+}
+
+@keyframes discover-letter-wave {
+  0% { transform: translateY(0); }
+  40% { transform: translateY(-4px); }
+  70% { transform: translateY(2px); }
+  100% { transform: translateY(0); }
+}
 }

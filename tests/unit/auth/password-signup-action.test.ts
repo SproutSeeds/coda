@@ -8,7 +8,24 @@ const { trackEventMock, consumeRateLimitMock, sendPasswordEmailMock } = vi.hoist
   sendPasswordEmailMock: vi.fn().mockResolvedValue(undefined),
 }));
 
-let db: any;
+const dbRef = vi.hoisted(() => {
+  const buildStub = () => {
+    const noop = vi.fn();
+    const select = vi.fn(() => ({ from: vi.fn(() => ({ where: vi.fn(() => ({ limit: vi.fn() })) })) }));
+    const insert = vi.fn(() => ({ values: vi.fn() }));
+    const update = vi.fn(() => ({ set: vi.fn(() => ({ where: vi.fn() })) }));
+    const del = vi.fn(() => ({ where: vi.fn() }));
+    return {
+      select,
+      insert,
+      update,
+      delete: del,
+      transaction: async (callback: (tx: any) => Promise<any>) =>
+        callback({ select, insert, update, delete: del }),
+    } as any;
+  };
+  return { current: buildStub(), buildStub };
+});
 let selectResult: Array<{ id: string; email: string; passwordHash: string | null; emailVerified: Date | null }> = [];
 let insertValuesMock: ReturnType<typeof vi.fn>;
 let deleteWhereMock: ReturnType<typeof vi.fn>;
@@ -25,8 +42,12 @@ vi.mock("@/lib/auth/email", () => ({
   sendPasswordVerificationEmail: sendPasswordEmailMock,
 }));
 
+vi.mock("@/lib/auth/adapter", () => ({
+  createAuthAdapter: vi.fn(() => ({})),
+}));
+
 vi.mock("@/lib/db", () => ({
-  getDb: () => db,
+  getDb: () => dbRef.current,
 }));
 
 const buildFormData = (email: string, password = "Password12345") => {
@@ -59,8 +80,10 @@ describe("registerWithPasswordAction", () => {
     const updateSetMock = vi.fn(() => ({ where: vi.fn(() => Promise.resolve()) }));
     const updateMock = vi.fn(() => ({ set: updateSetMock }));
 
-    db = {
+    dbRef.current = {
       select: selectMock,
+      insert: insertMock,
+      update: updateMock,
       delete: deleteMock,
       transaction: async (callback: (tx: any) => Promise<any>) =>
         callback({

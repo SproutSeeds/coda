@@ -306,11 +306,22 @@ export default function App() {
     }
   }
 
-  const pairingUrl = pendingSettings?.baseUrl?.replace(/\/$/, "") + "/dashboard/devmode/pair";
+  const normalizedBaseUrl = (pendingSettings?.baseUrl && pendingSettings.baseUrl.trim().length > 0
+    ? pendingSettings.baseUrl.trim()
+    : "https://www.codacli.com"
+  ).replace(/\/$/, "");
+  const pairingUrl = `${normalizedBaseUrl}/dashboard/devmode/pair`;
 
   useEffect(() => {
     setCopied(false);
   }, [snapshot?.pairingCode?.code]);
+
+  useEffect(() => {
+    if (snapshot?.status === "online") {
+      void refreshTmuxSessions();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snapshot?.status]);
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-[1800px] flex-col gap-10 overflow-x-hidden px-4 py-8 sm:px-6 lg:px-10 xl:px-12">
@@ -460,8 +471,7 @@ export default function App() {
                   variant="default"
                   size="sm"
                   onClick={() => {
-                    const url = pendingSettings?.baseUrl || "https://www.codacli.com";
-                    window.runner.openPairPage(url);
+                    window.runner.openPairPage(normalizedBaseUrl || "https://www.codacli.com");
                   }}
                 >
                   <ExternalLink className="size-4" />
@@ -477,6 +487,17 @@ export default function App() {
                 <div className="text-sm font-medium">Pair this device</div>
                 <div className="space-y-3 text-xs text-muted-foreground">
                   <p>Start the runner to generate a new pairing code.</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="app-no-drag"
+                      onClick={() => window.runner.openPairPage(pairingUrl)}
+                    >
+                      <ExternalLink className="size-4" />
+                      Open pairing screen
+                    </Button>
+                  </div>
                   <div className="rounded-md border border-border/60 bg-muted/50 p-3">
                     <p className="font-medium">Resetting pairing will:</p>
                     <ul className="mt-1 list-inside list-disc space-y-1">
@@ -519,10 +540,32 @@ export default function App() {
               <div className="text-xs text-muted-foreground">
                 Pair from the web app: <code className="rounded bg-muted/40 px-1 py-0.5">{pairingUrl}</code>
               </div>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="app-no-drag"
+                  onClick={() => window.runner.openPairPage(pairingUrl)}
+                >
+                  <ExternalLink className="size-4" />
+                  Open pairing screen
+                </Button>
+              </div>
             </div>
           ) : (
-            <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
-              Start the runner to generate a pairing code.
+            <div className="space-y-3 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+              <p>Start the runner to generate a pairing code.</p>
+              <div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="app-no-drag"
+                  onClick={() => window.runner.openPairPage(pairingUrl)}
+                >
+                  <ExternalLink className="size-4" />
+                  Open pairing screen
+                </Button>
+              </div>
             </div>
           )}
         </CollapsibleCard>
