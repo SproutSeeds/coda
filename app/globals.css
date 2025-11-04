@@ -27,6 +27,8 @@
   --color-destructive: var(--destructive);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
+  --color-discover: var(--discover);
+  --color-discover-hover: var(--discover-hover);
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
   --color-secondary-foreground: var(--secondary-foreground);
@@ -59,6 +61,8 @@
   --muted-foreground: #475569;
   --accent: #5eead4;
   --accent-foreground: #0b1220;
+  --discover: #ec4899;
+  --discover-hover: #db2777;
   --destructive: #ef4444;
   --border: #cbd5f5;
   --input: #cbd5f5;
@@ -93,6 +97,8 @@
   --muted-foreground: #94a3b8;
   --accent: #22d3ee;
   --accent-foreground: #06121f;
+  --discover: #f9a8d4;
+  --discover-hover: #fbcfe8;
   --destructive: #f87171;
   --border: #1f2a44;
   --input: rgba(148, 163, 184, 0.25);
@@ -318,13 +324,49 @@ body {
   transform: scale(0.99) rotate(-0.35deg);
 }
 
+
 .discover-wave-letter {
   display: inline-block;
   transition: transform 200ms ease;
 }
 
+/* Ensure the wave text can take an explicit accent regardless of ancestor color */
+.discover-wave {
+  color: var(--discover, var(--foreground));
+  transition: color 200ms ease, text-shadow 300ms ease;
+  text-shadow:
+    0 0 10px rgba(236, 72, 153, 0.3),
+    0 0 20px rgba(236, 72, 153, 0.2),
+    0 0 30px rgba(236, 72, 153, 0.1);
+  animation: discover-neon-pulse 3s ease-in-out infinite;
+}
+
+.group:hover .discover-wave {
+  color: var(--discover-hover, var(--accent));
+  text-shadow:
+    0 0 15px rgba(236, 72, 153, 0.5),
+    0 0 30px rgba(236, 72, 153, 0.3),
+    0 0 45px rgba(236, 72, 153, 0.2),
+    0 0 60px rgba(236, 72, 153, 0.1);
+}
+
 .group:hover .discover-wave-letter {
   animation: discover-letter-wave 600ms ease forwards;
+}
+
+@keyframes discover-neon-pulse {
+  0%, 100% {
+    text-shadow:
+      0 0 10px rgba(236, 72, 153, 0.3),
+      0 0 20px rgba(236, 72, 153, 0.2),
+      0 0 30px rgba(236, 72, 153, 0.1);
+  }
+  50% {
+    text-shadow:
+      0 0 15px rgba(236, 72, 153, 0.5),
+      0 0 25px rgba(236, 72, 153, 0.3),
+      0 0 40px rgba(236, 72, 153, 0.15);
+  }
 }
 
 @keyframes discover-letter-wave {

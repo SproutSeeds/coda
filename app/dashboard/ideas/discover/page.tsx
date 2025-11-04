@@ -22,14 +22,21 @@ export default async function DiscoverIdeasPage({
 
   return (
     <section className="space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold text-foreground">Discover public ideas</h1>
-          <p className="text-sm text-muted-foreground">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-0.5">
+          <h1 className="text-lg font-semibold leading-tight tracking-wide text-foreground sm:text-xl">
+            Discover public ideas
+          </h1>
+          <p className="text-sm tracking-tight text-muted-foreground">
             Explore ideas shared by the community. Public ideas are read-only unless you&apos;re invited to collaborate.
           </p>
         </div>
-        <Button asChild variant="outline" size="sm" className="interactive-btn whitespace-nowrap text-xs font-semibold uppercase">
+        <Button
+          asChild
+          variant="outline"
+          size="sm"
+          className="interactive-btn self-start whitespace-nowrap text-xs font-semibold uppercase sm:self-end"
+        >
           <Link href="/dashboard/ideas">Back to my ideas</Link>
         </Button>
       </header>
