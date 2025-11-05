@@ -28,6 +28,15 @@ We are designing toward a fully agentic product-development assistant: human-fri
  
 - **One-click JSON export** – download a structured idea + features payload to seed downstream services, LLM runs, or connector APIs.
 
+### Usage & Credits
+
+- **Usage dashboard** – `/dashboard/usage` shows remaining credits, actionable usage breakdowns, and CSV export of the ledger.
+- **Credit system** – prepaid credits cover pass-through vendor costs (Neon, Upstash, Vercel analytics, Fly.io relay). Free tier includes 100 credits/month; credits stack and never expire.
+- **Limit guardrails** – per-plan counters, manual overrides, and blockers keep the platform sustainable. Upgrade dialogs always offer alternatives: workspace sponsorship, top-up, or local CLI export.
+- **Admin controls** – `/dashboard/admin/limits` and `/dashboard/admin/billing` provide override review, manual adjustments, block-rate analytics, and funding pool management.
+- **Cron endpoints** – `/api/cron/reconcile-usage` and `/api/cron/reconcile-vendor` require `CRON_SECRET` and keep counters + vendor costs in sync.
+- **Further reading** – see [`docs/usage-limits-and-pricing.md`](docs/usage-limits-and-pricing.md) for rollout phases, credit weights, and transparency messaging.
+
 ## Legal Documents
 
 Canonical copies of our Terms of Service, Privacy Policy, and Data Processing Addendum live in `legal/`. Update the frontmatter version/date when a change ships and ensure the app prompts users to accept the latest version.

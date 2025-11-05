@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, timestamp, uuid, primaryKey, integer, doublePrecision, index, boolean, date, uniqueIndex, pgEnum, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, primaryKey, integer, doublePrecision, index, boolean, date, uniqueIndex, pgEnum, jsonb, bigint } from "drizzle-orm/pg-core";
 import type { AdapterAccount } from "next-auth/adapters";
 
 export const ideaVisibilityEnum = pgEnum("idea_visibility", ["private", "public"]);
@@ -426,6 +426,30 @@ export const devLogs = pgTable(
   }),
 );
 
+export const devUsageSessions = pgTable(
+  "dev_usage_sessions",
+  {
+    jobId: uuid("job_id")
+      .primaryKey()
+      .references(() => devJobs.id, { onDelete: "cascade" }),
+    ideaId: text("idea_id").notNull(),
+    userId: text("user_id").notNull(),
+    payerType: text("payer_type").notNull(),
+    payerId: text("payer_id").notNull(),
+    runnerId: text("runner_id"),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    durationMs: bigint("duration_ms", { mode: "number" }).notNull().default(0),
+    logBytes: bigint("log_bytes", { mode: "number" }).notNull().default(0),
+    costLoggedAt: timestamp("cost_logged_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    userIdx: index("idx_dev_usage_sessions_user").on(table.userId, table.createdAt),
+    ideaIdx: index("idx_dev_usage_sessions_idea").on(table.ideaId, table.createdAt),
+  }),
+);
 // Dev Mode pairing codes
 export const devPairings = pgTable(
   "dev_pairings",

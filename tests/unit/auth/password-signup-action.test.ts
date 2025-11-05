@@ -2,10 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { registerWithPasswordAction } from "@/app/(public)/login/actions";
 
-const { trackEventMock, consumeRateLimitMock, sendPasswordEmailMock } = vi.hoisted(() => ({
+const { trackEventMock, consumeRateLimitMock, sendPasswordEmailMock, logUsageCostMock } = vi.hoisted(() => ({
   trackEventMock: vi.fn(),
   consumeRateLimitMock: vi.fn().mockResolvedValue({ success: true }),
   sendPasswordEmailMock: vi.fn().mockResolvedValue(undefined),
+  logUsageCostMock: vi.fn().mockResolvedValue(undefined),
 }));
 
 const dbRef = vi.hoisted(() => {
@@ -42,6 +43,10 @@ vi.mock("@/lib/auth/email", () => ({
   sendPasswordVerificationEmail: sendPasswordEmailMock,
 }));
 
+vi.mock("@/lib/usage/log-cost", () => ({
+  logUsageCost: logUsageCostMock,
+}));
+
 vi.mock("@/lib/auth/adapter", () => ({
   createAuthAdapter: vi.fn(() => ({})),
 }));
@@ -63,6 +68,7 @@ describe("registerWithPasswordAction", () => {
     trackEventMock.mockClear();
     consumeRateLimitMock.mockClear();
     sendPasswordEmailMock.mockClear();
+    logUsageCostMock.mockClear();
     consumeRateLimitMock.mockResolvedValue({ success: true });
     selectResult = [];
 
@@ -110,6 +116,12 @@ describe("registerWithPasswordAction", () => {
       email: "newuser@example.com",
       url: expect.stringContaining("/login/verify"),
     });
+    expect(logUsageCostMock).toHaveBeenCalledWith({
+      payerType: "user",
+      payerId: "newuser@example.com",
+      action: "auth.email",
+      metadata: { type: "password_verification", existingUser: false },
+    });
     expect(trackEventMock).toHaveBeenCalledWith({
       name: "auth_password_created",
       properties: {
@@ -134,6 +146,16 @@ describe("registerWithPasswordAction", () => {
     expect(insertValuesMock).toHaveBeenCalledTimes(1);
     const inserted = insertValuesMock.mock.calls[0]?.[0];
     expect(inserted.userId).toBe("user-1");
+    expect(logUsageCostMock).toHaveBeenCalledWith({
+      payer: {
+        primary: { type: "user", id: "user-1" },
+        fallback: null,
+        strategy: "actor",
+        metadata: { source: "password-verification" },
+      },
+      action: "auth.email",
+      metadata: { type: "password_verification", existingUser: true },
+    });
     expect(trackEventMock).toHaveBeenCalledWith({
       name: "auth_password_created",
       properties: {

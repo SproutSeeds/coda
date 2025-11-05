@@ -8,6 +8,19 @@ import { cn } from "@/lib/utils";
 import { TerminalPane } from "./TerminalPane";
 import { X, Minus, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { useLimitDialog } from "@/components/limit/limit-dialog-context";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+const numberFormatter = new Intl.NumberFormat(undefined, {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+});
+
+const currencyFormatter = new Intl.NumberFormat(undefined, {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 2,
+});
 
 type Session = {
   id: string;
@@ -21,6 +34,18 @@ type Session = {
 };
 
 type CombinedLine = { ts: number; sessionId: string; text: string };
+
+type DevModeUsageSnapshot = {
+  last30DaysMinutes: number;
+  monthToDateMinutes: number;
+  totalSessions: number;
+  lastSessionAt: string | null;
+  lastSessionDurationMinutes: number;
+  minuteCostUsd: number;
+};
+
+const DEV_MODE_WARN_MINUTES = 240;
+const DEV_MODE_BLOCK_MINUTES = 360;
 
 export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: string | null }) {
   const storageKey = useMemo(() => `coda:terminals:${ideaId}`, [ideaId]);
@@ -46,6 +71,9 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
   const [fullscreenSessionId, setFullscreenSessionId] = useState<string | null>(null);
   const [scrollLocked, setScrollLocked] = useState(true);
   const previousOverflowRef = useRef<string>("");
+  const { openLimitDialog } = useLimitDialog();
+  const [preflightSummary, setPreflightSummary] = useState<DevModeUsageSnapshot | null>(null);
+  const preflightResolveRef = useRef<((proceed: boolean) => void) | undefined>(undefined);
 
   const normalizeSessions = useCallback((list: Session[]) => {
     const seenSlots = new Set<string>();
@@ -305,7 +333,53 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
     }
   };
 
-  const addSession = (slotNumber?: number) => {
+  const handlePreflightDecision = (proceed: boolean) => {
+    preflightResolveRef.current?.(proceed);
+    preflightResolveRef.current = undefined;
+    setPreflightSummary(null);
+  };
+
+  const ensureDevModeBudget = async () => {
+    try {
+      const res = await fetch("/api/devmode/usage", { cache: "no-store" as RequestCache });
+      if (!res.ok) {
+        return true;
+      }
+      const data = (await res.json()) as DevModeUsageSnapshot;
+      if (data.monthToDateMinutes >= DEV_MODE_BLOCK_MINUTES) {
+        openLimitDialog({
+          title: "Dev Mode minutes exhausted",
+          description:
+            "You’ve used the Dev Mode allocation for this plan. Upgrade or request an override to keep launching cloud sessions.",
+          secondaryCtaLabel: "Request sponsor",
+          secondaryCtaHref: "/dashboard/account?tab=support",
+          notes: [
+            "You can always attach locally with tmux without burning cloud minutes.",
+            "Pause sessions when idle to stretch your allowance further.",
+          ],
+        });
+        toast.error("Dev Mode limit reached for this plan.");
+        return false;
+      }
+      if (data.monthToDateMinutes >= DEV_MODE_WARN_MINUTES) {
+        return await new Promise<boolean>((resolve) => {
+          preflightResolveRef.current = resolve;
+          setPreflightSummary(data);
+        });
+      }
+    } catch (error) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("devmode: preflight usage check failed", error);
+      }
+    }
+    return true;
+  };
+
+  const addSession = async (slotNumber?: number) => {
+    const allowed = await ensureDevModeBudget();
+    if (!allowed) {
+      return;
+    }
     // Enforce maximum of 7 terminals
     if (sessions.length >= 7) {
       toast.error("Maximum of 7 terminals per idea");
@@ -695,7 +769,7 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
                     disabled={isUsed}
                     className="aspect-square p-0"
                     onClick={() => {
-                      addSession(num);
+                      void addSession(num);
                       setShowSlotSelector(false);
                     }}
                   >
@@ -709,7 +783,7 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
                 Cancel
               </Button>
               <Button onClick={() => {
-                addSession(); // Auto-select next available
+                void addSession(); // Auto-select next available
                 setShowSlotSelector(false);
               }}>
                 Auto-Select
@@ -718,6 +792,51 @@ export function TerminalDock({ ideaId, runnerId }: { ideaId: string; runnerId?: 
           </div>
         </div>
       )}
+      <Dialog
+        open={preflightSummary !== null}
+        onOpenChange={(open) => {
+          if (!open && preflightSummary) {
+            handlePreflightDecision(false);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Approaching Dev Mode limit</DialogTitle>
+            <DialogDescription>
+              You&apos;ve used {numberFormatter.format(preflightSummary?.monthToDateMinutes ?? 0)} minutes of Dev Mode this month. Launching another session will continue to use cloud credits.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 text-sm text-muted-foreground">
+            <div className="flex items-center justify-between">
+              <span>This month</span>
+              <span className="font-medium text-foreground">{numberFormatter.format(preflightSummary?.monthToDateMinutes ?? 0)} min</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Last 30 days</span>
+              <span className="font-medium text-foreground">{numberFormatter.format(preflightSummary?.last30DaysMinutes ?? 0)} min</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Last session</span>
+              <span className="font-medium text-foreground">
+                {preflightSummary?.lastSessionAt ? new Date(preflightSummary.lastSessionAt).toLocaleString() : "–"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Estimated cost per minute</span>
+              <span className="font-medium text-foreground">{currencyFormatter.format(preflightSummary?.minuteCostUsd ?? 0)}</span>
+            </div>
+          </div>
+          <DialogFooter className="flex flex-col gap-2 sm:flex-row">
+            <Button variant="ghost" onClick={() => handlePreflightDecision(false)} className="sm:order-2">
+              Cancel launch
+            </Button>
+            <Button onClick={() => handlePreflightDecision(true)} className="sm:order-1">
+              Launch anyway
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

@@ -5,6 +5,7 @@ import { devJobs } from "@/lib/db/schema";
 import { and, asc, eq } from "drizzle-orm";
 import { SignJWT, importPKCS8, type KeyLike } from "jose";
 import { withDevModeBootstrap } from "@/lib/devmode/bootstrap";
+import { markUsageSessionStarted } from "@/lib/devmode/usage";
 
 export const runtime = "nodejs";
 
@@ -57,6 +58,7 @@ export async function GET(req: Request) {
       .setExpirationTime("5m")
       .sign(key);
 
+    await markUsageSessionStarted(updated);
     return NextResponse.json({ job: updated, wsToken });
   } catch (err: unknown) {
     const code = (err as { code?: string } | undefined)?.code;

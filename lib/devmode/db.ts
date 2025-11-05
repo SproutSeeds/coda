@@ -2,6 +2,8 @@ import { and, asc, desc, eq, max, sql } from "drizzle-orm";
 import { getDevDb as getDb } from "@/lib/db";
 import { devJobs, devMessages, devRunners, devLogs } from "@/lib/db/schema";
 import { randomUUID } from "node:crypto";
+import { Buffer } from "node:buffer";
+import { incrementUsageBytes, initializeUsageSessionForJob } from "@/lib/devmode/usage";
 
 export async function registerRunner({ id, name, capabilities }: { id: string; name: string; capabilities: string[] }) {
   const db = getDb();
@@ -41,7 +43,10 @@ export async function createJob(params: {
 }) {
   const db = getDb();
   const [existing] = await db.select().from(devJobs).where(eq(devJobs.idempotencyKey, params.idempotencyKey)).limit(1);
-  if (existing) return existing;
+  if (existing) {
+    await initializeUsageSessionForJob(existing);
+    return existing;
+  }
 
   const [row] = await db
     .insert(devJobs)
@@ -59,6 +64,7 @@ export async function createJob(params: {
       state: "queued",
     })
     .returning();
+  await initializeUsageSessionForJob(row);
   return row;
 }
 
@@ -155,5 +161,9 @@ export async function appendLogs(jobId: string, lines: Array<{ level?: string; l
   }));
   if (values.length === 0) return 0;
   await db.insert(devLogs).values(values);
+  const totalBytes = values.reduce((sum, entry) => sum + Buffer.byteLength(entry.text ?? "", "utf8"), 0);
+  if (totalBytes > 0) {
+    await incrementUsageBytes(jobId, totalBytes);
+  }
   return values.length;
 }

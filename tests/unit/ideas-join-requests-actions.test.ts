@@ -6,6 +6,7 @@ import {
   markJoinRequestsSeenAction,
   resolveJoinRequestAction,
   updateJoinRequestReactionAction,
+  submitJoinRequestAction,
 } from "@/app/dashboard/ideas/actions";
 
 const {
@@ -17,6 +18,12 @@ const {
   updateJoinRequestReactionMock,
   archiveJoinRequestMock,
   trackEventMock,
+  getIdeaAccessMock,
+  getPendingJoinRequestMock,
+  enforceRateLimitMock,
+  withMutationBudgetMock,
+  createJoinRequestMock,
+  getUserPlanMock,
 } = vi.hoisted(() => ({
   requireUserMock: vi.fn(),
   listJoinRequestsForOwnerMock: vi.fn(),
@@ -26,6 +33,12 @@ const {
   updateJoinRequestReactionMock: vi.fn(),
   archiveJoinRequestMock: vi.fn(),
   trackEventMock: vi.fn(),
+  getIdeaAccessMock: vi.fn(),
+  getPendingJoinRequestMock: vi.fn(),
+  enforceRateLimitMock: vi.fn(),
+  withMutationBudgetMock: vi.fn(),
+  createJoinRequestMock: vi.fn(),
+  getUserPlanMock: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -38,12 +51,28 @@ vi.mock("@/lib/utils/analytics", () => ({
   trackEvent: trackEventMock,
 }));
 
+vi.mock("@/lib/db/access", () => ({
+  getIdeaAccess: getIdeaAccessMock,
+}));
+
+vi.mock("@/lib/limits/rate", () => ({
+  enforceRateLimit: enforceRateLimitMock,
+}));
+
+vi.mock("@/lib/utils/mutation-budget", () => ({
+  withMutationBudget: withMutationBudgetMock,
+}));
+
+vi.mock("@/lib/db/limits", () => ({
+  getUserPlan: getUserPlanMock,
+}));
+
 vi.mock("@/lib/db/join-requests", () => ({
   archiveJoinRequest: archiveJoinRequestMock,
-  createJoinRequest: vi.fn(),
+  createJoinRequest: createJoinRequestMock,
   getJoinRequestCounts: getJoinRequestCountsMock,
   getJoinRequestForApplicant: vi.fn(),
-  getPendingJoinRequest: vi.fn(),
+  getPendingJoinRequest: getPendingJoinRequestMock,
   listJoinRequestsForOwner: listJoinRequestsForOwnerMock,
   markJoinRequestsSeen: markJoinRequestsSeenMock,
   resolveJoinRequest: resolveJoinRequestMock,
@@ -60,6 +89,14 @@ describe("Idea join request actions", () => {
     updateJoinRequestReactionMock.mockReset();
     archiveJoinRequestMock.mockReset();
     trackEventMock.mockReset();
+    getIdeaAccessMock.mockReset();
+    getPendingJoinRequestMock.mockReset();
+    enforceRateLimitMock.mockReset();
+    withMutationBudgetMock.mockReset();
+    createJoinRequestMock.mockReset();
+    getUserPlanMock.mockReset();
+    getUserPlanMock.mockResolvedValue({ plan: { id: "free" }, assignment: { planId: "free" } });
+    withMutationBudgetMock.mockImplementation((_, work) => work());
   });
 
   it("lists join requests with latest counts", async () => {
@@ -156,5 +193,44 @@ describe("Idea join request actions", () => {
       name: "idea_join_request_archived",
       properties: { ideaId: "idea-1", requestId: "req-5" },
     });
+  });
+
+  it("creates a join request when eligible and enforces cooldown", async () => {
+    getIdeaAccessMock.mockResolvedValue({
+      idea: { id: "idea-public", visibility: "public" },
+      accessRole: null,
+      isOwner: false,
+    });
+    getPendingJoinRequestMock.mockResolvedValue(null);
+    createJoinRequestMock.mockResolvedValue({ id: "req-new", ideaId: "idea-public", status: "pending" });
+
+    const result = await submitJoinRequestAction({
+      ideaId: "idea-public",
+      message: "Let me help! I can contribute backend APIs and automate deployment checks for the team.",
+    });
+
+    expect(enforceRateLimitMock).toHaveBeenCalledWith(expect.objectContaining({ action: "join.request" }));
+    expect(withMutationBudgetMock).toHaveBeenCalled();
+    expect(createJoinRequestMock).toHaveBeenCalledWith("owner-1", "idea-public", expect.any(String));
+    expect(result).toEqual({ success: true, request: { id: "req-new", ideaId: "idea-public", status: "pending" } });
+  });
+
+  it("returns existing request when duplicate is found", async () => {
+    const existing = { id: "req-existing", ideaId: "idea-public", status: "pending" };
+    getIdeaAccessMock.mockResolvedValue({
+      idea: { id: "idea-public", visibility: "public" },
+      accessRole: null,
+      isOwner: false,
+    });
+    getPendingJoinRequestMock.mockResolvedValue(existing);
+
+    const result = await submitJoinRequestAction({
+      ideaId: "idea-public",
+      message: "Still interested. Happy to document processes and cover design QA to keep the project moving.",
+    });
+
+    expect(result).toEqual({ success: false, error: "You already have a pending request.", code: "request-exists", request: existing });
+    expect(enforceRateLimitMock).not.toHaveBeenCalled();
+    expect(createJoinRequestMock).not.toHaveBeenCalled();
   });
 });

@@ -13,6 +13,8 @@ import { passwordSignUpSchema } from "@/lib/validations/auth";
 import { sendPasswordVerificationEmail } from "@/lib/auth/email";
 import { recordMeetupCheckIn } from "@/lib/db/meetup";
 import { getCurrentUser } from "@/lib/auth/session";
+import { actorPays } from "@/lib/limits/payer";
+import { logUsageCost } from "@/lib/usage/log-cost";
 
 export type PasswordSignUpState =
   | { status: "idle" }
@@ -77,6 +79,27 @@ export async function registerWithPasswordAction(
       status: "error",
       message: "We couldn't send the verification email. Please try again in a moment.",
     };
+  }
+
+  try {
+    if (existing?.id) {
+      await logUsageCost({
+        payer: actorPays(existing.id, { source: "password-verification" }),
+        action: "auth.email",
+        metadata: { type: "password_verification", existingUser: true },
+      });
+    } else {
+      await logUsageCost({
+        payerType: "user",
+        payerId: email,
+        action: "auth.email",
+        metadata: { type: "password_verification", existingUser: false },
+      });
+    }
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("auth: failed to log password verification email usage", { email, error });
+    }
   }
 
   await trackEvent({

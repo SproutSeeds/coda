@@ -53,4 +53,6 @@ tests/
 - The system prompt MUST also direct the agent to consult Context7 documentation for all applicable libraries before delivering an answer; documenting explicit opt-outs is not permitted.
 - Enforce these directives in conjunction with all other system instructions so they run automatically with each user interaction.
 - Responses must explicitly state that the agent is taking the reins, present a single decisive plan of action, and avoid offering alternative options unless the user demands a comparison.
+- Before running any development command or making changes, check out a feature branch and run `pnpm guard`; this ensures a matching plan exists (`Plans/<branch-slug>.md`) and auto-syncs the companion philosophy (`Philosophies/<branch-slug>-philosophy.md`) and task list (`Tasks/<branch-slug>.md`). Resolve any guard prompts (rename existing docs or scaffold new ones) before proceeding.
+- If the guard scaffolds or renames docs, run `pnpm doc:sync` followed by `pnpm doc:check-sync` prior to committing changes to confirm plan ⇄ philosophy ⇄ tasks alignment.
 <!-- MANUAL ADDITIONS END -->

@@ -64,6 +64,9 @@ import { IdeaDevPanel } from "./IdeaDevPanel";
 import { IdeaSharePanel } from "./IdeaSharePanel";
 import { useOthers, useUpdateMyPresence } from "@liveblocks/react/suspense";
 import type { IdeaUserMetadata } from "@/lib/liveblocks/types";
+import type { IdeaUsageSummary } from "@/lib/limits/summary";
+import { IdeaUsageSummaryCard } from "./IdeaUsageSummary";
+import { useLimitDialog } from "@/components/limit/limit-dialog-context";
 
 let didWarnMissingLiveblocks = false;
 
@@ -167,6 +170,8 @@ export function IdeaDetail({
   viewerJoinRequest,
   collaborationEnabled,
   ownerJoinRequestCounts,
+  ownerInviteCount,
+  ideaUsage,
 }: {
   idea: Idea;
   features: Feature[];
@@ -174,8 +179,11 @@ export function IdeaDetail({
   viewerJoinRequest: JoinRequest | null;
   collaborationEnabled: boolean;
   ownerJoinRequestCounts: JoinRequestCounts | null;
+  ownerInviteCount: number;
+  ideaUsage: IdeaUsageSummary;
 }) {
   const router = useRouter();
+  const { openLimitDialog } = useLimitDialog();
   const collaboration = useOptionalIdeaCollaboration(collaborationEnabled);
   const updatePresence = collaboration?.updatePresence;
   const others = (collaboration?.others as LiveblocksMember[] | undefined) ?? EMPTY_OTHERS;
@@ -238,6 +246,10 @@ export function IdeaDetail({
   const [joinRequestCounts, setJoinRequestCounts] = useState<JoinRequestCounts | null>(ownerJoinRequestCounts);
   const [ownerJoinRequests, setOwnerJoinRequests] = useState<JoinRequest[] | null>(null);
   const ownerJoinRequestsRef = useRef<JoinRequest[] | null>(ownerJoinRequests);
+  const featureLimit = ideaUsage.metrics.features;
+  const collaboratorLimit = ideaUsage.metrics.collaborators;
+  const featureLimitBlocked = featureLimit.status === "blocked";
+  const [pendingInvites, setPendingInvites] = useState(ownerInviteCount);
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
   const [roleDrafts, setRoleDrafts] = useState<Record<string, "editor" | "commenter" | "viewer">>({});
   const [resolvingRequestId, setResolvingRequestId] = useState<string | null>(null);
@@ -254,6 +266,7 @@ export function IdeaDetail({
   const joinQueuePending = joinRequestCounts?.pending ?? 0;
   const joinQueueUnseen = joinRequestCounts?.unseen ?? 0;
   const showJoinQueueIndicator = canManageCollaborators && (joinQueuePending > 0 || joinQueueUnseen > 0);
+  const showShareIndicator = canManageCollaborators && pendingInvites > 0;
   const joinMessageTrimmed = joinMessage.trim();
   const joinMessageLength = joinMessageTrimmed.length;
   const joinMessageTooShort = joinMessageLength > 0 && joinMessageLength < 20;
@@ -368,6 +381,10 @@ export function IdeaDetail({
   useEffect(() => {
     setDeletedFeaturesState(deletedFeatures);
   }, [deletedFeatures]);
+
+  useEffect(() => {
+    setPendingInvites(ownerInviteCount);
+  }, [ownerInviteCount]);
 
   useEffect(() => {
     (async () => {
@@ -1469,6 +1486,11 @@ export function IdeaDetail({
                 >
                   <Share2 className="size-4" />
                   Share
+                  {showShareIndicator ? (
+                    <span className="ml-1 inline-flex min-w-[1.5rem] items-center justify-center rounded-full bg-primary/80 px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-sm">
+                      {pendingInvites}
+                    </span>
+                  ) : null}
                 </Button>
               </>
             ) : null}
@@ -1976,6 +1998,9 @@ export function IdeaDetail({
               visibility={syncedIdea.visibility}
               onClose={() => setIsShareOpen(false)}
               onVisibilityChange={handleVisibilityChange}
+              collaboratorLimit={collaboratorLimit}
+              onUsageRefresh={() => router.refresh()}
+              onInviteCountChange={setPendingInvites}
             />
           ) : null}
           {canWrite && isConvertOpen ? (
@@ -2354,7 +2379,18 @@ export function IdeaDetail({
               variant="outline"
               size="sm"
               className="interactive-btn cursor-pointer px-3 py-1.5 text-xs font-medium hover:bg-transparent"
-              onClick={handleToggleConvert}
+              onClick={() => {
+                if (featureLimitBlocked) {
+                  openLimitDialog({
+                    title: "Feature limit reached",
+                    description:
+                      "You’ve added the maximum features for this idea on your current plan. Upgrade or request an override to keep converting in the cloud.",
+                  });
+                  toast.error("Feature limit reached for this idea.");
+                  return;
+                }
+                handleToggleConvert();
+              }}
               disabled={isConverting}
               data-testid="idea-convert-toggle"
             >
@@ -2378,6 +2414,14 @@ export function IdeaDetail({
           </div>
         </CardContent>
       </Card>
+
+      <IdeaUsageSummaryCard
+        planName={ideaUsage.plan.name}
+        features={featureLimit}
+        collaborators={collaboratorLimit}
+        joinRequests={joinRequestCounts}
+        canManageCollaborators={canManageCollaborators}
+      />
 
       {showDevMode ? (
         <IdeaDevPanel ideaId={idea.id} onRequestClose={() => setShowDevMode(false)} />
@@ -2429,7 +2473,7 @@ export function IdeaDetail({
           </div>
         </div>
 
-        {canWrite ? <FeatureComposer ideaId={idea.id} /> : null}
+        {canWrite ? <FeatureComposer ideaId={idea.id} limit={featureLimit} /> : null}
 
         {showFilters ? (
           <div

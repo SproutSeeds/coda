@@ -8,6 +8,7 @@ import { hasPassword } from "./account/actions";
 import { PasswordReminder } from "./components/PasswordReminder";
 import { UserMenu } from "./components/UserMenu";
 import { AppInstallReminder } from "./components/AppInstallReminder";
+import { LimitDialogProvider } from "@/components/limit/limit-dialog-context";
 
 const discoverColors: CSSProperties = {
   "--discover": "#f9a8d4",
@@ -71,7 +72,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </div>
         <PasswordReminder needsPassword={needsPassword} />
       </header>
-      <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">{children}</main>
+      <LimitDialogProvider>
+        <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">{children}</main>
+      </LimitDialogProvider>
       <AppInstallReminder />
     </div>
   );
