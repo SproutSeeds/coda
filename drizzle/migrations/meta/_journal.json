@@ -211,6 +211,13 @@
       "when": 1762400004000,
       "tag": "0035_add_credit_ledger",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "36",
+      "when": 1762400005000,
+      "tag": "0036_add_provider_cost_tables",
+      "breakpoints": true
     }
   ]
 }

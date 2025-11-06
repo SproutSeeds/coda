@@ -25,7 +25,7 @@ export type CreditLedgerEntryRow = typeof creditLedgerEntries.$inferSelect;
 export type CreditPurchaseRow = typeof creditPurchases.$inferSelect;
 
 const CREDIT_DECIMALS = 6;
-const CREDIT_PRICE_USD_PER_UNIT = 0.05;
+export const CREDIT_PRICE_USD_PER_UNIT = 0.05;
 
 function formatAmount(value: number) {
   return value.toFixed(CREDIT_DECIMALS);

@@ -146,6 +146,43 @@ Cache per user/plan in Redis for 5–15 minutes; bust on override change.
 - Limit modals include actionable CTAs: upgrade, ask owner to sponsor, or switch to local tooling.
 - Admin view lists overrides, recent limit events, and high-cost users for proactive support.
 
+## Cost Catalogue UI Implementation
+### Experience Overview
+- Surface a dedicated Cost Catalogue within the billing suite that maps every billable action to its vendor cost, credit conversion, and plan coverage.
+- Present plan-sensitive guardrails (e.g., Free vs Pro vs Team) and highlight actions that trigger hard limits or require top-ups.
+- Keep the content fast in RSC by loading static catalog data server-side while streaming dynamic user allowances.
+
+### Component Breakdown
+- `app/dashboard/billing/cost-catalogue/page.tsx` (Server Component) loads plan metadata, vendor matrix, and credit ledger summary via `getCostCatalogue()` helper.
+- `CostCatalogueLayout` wraps the page with shadcn `Tabs` to switch views (by action category, by vendor, by plan tier) while respecting prefers-reduced-motion.
+- `CostCatalogueGrid` (Client Component) renders responsive cards using CSS grid + Tailwind, supporting keyboard navigation and aria-live updates when filters change.
+- `CostBreakdownCard` shows action name, vendor, unit cost, credit charge, limit thresholds, and CTA buttons (top up, request upgrade, view docs).
+- `CostLegend` clarifies iconography (limit state, credit coverage) and syncs with analytics filters.
+
+### Data & State Handling
+- Fetch cost catalogue data through `lib/limits/catalogue.ts` that composes `vendor_costs`, plan defaults, and overrides into a serializable payload; memoize in Redis for 15 minutes.
+- Stream user-specific allowances (remaining credits, soft/hard thresholds) via nested Suspense boundaries so the static matrix renders instantly while live counters hydrate progressively.
+- Provide loading skeletons for cards and fallback copy when the catalogue is empty or partially unavailable; degrade gracefully by showing cached values with a warning banner.
+- On errors (network, Redis miss), surface a non-blocking alert banner with retry CTA that re-executes the server action.
+
+### Interaction & Accessibility
+- Support filtering by action category, vendor, and plan tier; persist selections in `searchParams` so deep links capture context.
+- Ensure card actions are focusable buttons with clear aria-labels, and dialogs announce current usage vs limit in plain language.
+- Honor prefers-reduced-motion by disabling Framer Motion transitions and using opacity fades only when permitted.
+- Add keyboard shortcuts (e.g., `f` to focus filters) behind a command palette hint while keeping default navigation intact.
+
+### Instrumentation & QA
+- Emit analytics on tab switches, filter changes, and CTA clicks (`costCatalogue.filter.changed`, `costCatalogue.cta.clicked`).
+- Add unit and integration tests that snapshot the grid for Free/Pro/Team payloads and verify filter logic.
+- Include E2E smoke that reaches the catalogue from the billing nav, toggles filters, and asserts upgrade/top-up CTAs appear for exhausted credits.
+
+## Provider Cost Synchronization
+- Introduce a provider cost ledger capturing Neon, Vercel, Upstash, Fly.io, and other vendor usage via their public APIs; persist raw readings + reconciled deltas per billing window.
+- Store provider fetches in `provider_cost_events`, with aggregated views in `provider_cost_snapshots` and reconciliation results in `provider_cost_reconciliations` alongside internal `usage_costs` data.
+- Implement adapters under `lib/providers/**` that normalize each vendor’s response, including GraphQL polling for Fly.io relay credits and REST queries for Neon/Vercel/Upstash.
+- Schedule daily sync via the existing `/api/cron/reconcile-vendor` job so provider data and variance stats stay current with our self-logged costs.
+- Surface reconciliation output in the API response so downstream analytics and finance tooling can confirm margins and investigate drift quickly.
+
 ## Pseudocode
 ```ts
 // lib/limits/guard.ts

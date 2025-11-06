@@ -60,6 +60,8 @@ const ANALYTICS_EVENT_NAMES = [
   "idea_join_request_created",
   "limit.warned",
   "limit.blocked",
+  "costCatalogue.filter.changed",
+  "costCatalogue.cta.clicked",
   "credits_purchase.initiated",
   "credits_purchase.completed",
   "credits_autotopup.updated",

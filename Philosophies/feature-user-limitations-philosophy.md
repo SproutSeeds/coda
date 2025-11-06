@@ -3,7 +3,7 @@ doc: philosophy
 id: feature-user-limitations
 planRef: Plans/feature-user-limitations.md
 planVersion: 1.0.0
-lastReviewed: 2025-11-05
+lastReviewed: 2025-11-06
 reviewCadence: monthly
 ---
 

@@ -10,6 +10,19 @@ status: draft
 
 # Feature User Limitations — Task List
 
+## Cost Catalogue UI
+- [x] Ship `app/dashboard/billing/cost-catalogue/page.tsx` that loads plan, vendor, and credit data via `getCostCatalogue()`.
+- [x] Build client grid components with filters, responsive layout, and accessible keyboard/focus behavior.
+- [x] Implement loading, empty, and error fallbacks plus cached-data warning banner.
+- [x] Wire analytics events (`costCatalogue.filter.changed`, `costCatalogue.cta.clicked`) and ensure upgrade/top-up CTAs route correctly.
+- [x] Cover the catalogue with unit snapshots, integration assertions for filter logic, and an E2E smoke path from billing navigation.
+
+## Provider Cost Synchronization
+- [x] Create provider cost tables (`provider_cost_events`, `provider_cost_snapshots`, `provider_cost_reconciliations`) and Drizzle helpers for upserts + variance logging.
+- [x] Implement provider adapters for Neon, Vercel, Upstash, and Fly.io that normalize their billing APIs and emit ledger entries.
+- [x] Extend the vendor reconciliation cron to trigger provider syncs and return drift data alongside internal expectations.
+- [x] Add unit coverage for provider sync to ensure snapshots, events, and reconciliation logic persist as expected.
+
 ## Data Model & Persistence
 - [x] Create `lib/db/schema/plans.ts` and `lib/db/schema/limits.ts` with tables: `plans`, `user_plans`, `limit_overrides`, `usage_counters`, `audit_limit_events`.
 - [x] Generate migrations that add the new tables and constraints (composite PKs, FKs), using `pnpm drizzle-kit generate`.

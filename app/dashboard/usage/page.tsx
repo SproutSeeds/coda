@@ -45,6 +45,9 @@ export default async function UsageDashboardPage() {
           <Button variant="outline" asChild>
             <Link href="/dashboard/account">Back to account</Link>
           </Button>
+          <Button variant="ghost" asChild>
+            <Link href="/dashboard/billing/cost-catalogue">Cost catalogue</Link>
+          </Button>
           <Button variant="secondary" asChild>
             <Link href="/dashboard/usage/export" prefetch={false}>
               Export ledger
