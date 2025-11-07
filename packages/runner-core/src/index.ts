@@ -447,8 +447,8 @@ async function startTTYServer(ctx: RunnerCore, signal: AbortSignal): Promise<Asy
             execSync(`tmux has-session -t ${sessionName} 2>/dev/null`, execOptions);
             ctx.log("info", `TTY tmux session ${sessionName} exists, attaching`);
           } catch {
-            // Session doesn't exist, create it detached
-            execSync(`tmux new-session -d -s ${sessionName} -c ${cwd}`, execOptions);
+            // Session doesn't exist, create it detached with mouse scrolling enabled
+            execSync(`tmux new-session -d -s ${sessionName} -c ${cwd} \\; set -g mouse on`, execOptions);
             ctx.log("info", `TTY tmux session ${sessionName} created detached`);
           }
 
@@ -815,8 +815,8 @@ async function startRelayClient(ctx: RunnerCore, signal: AbortSignal, relay: Rel
                 execSync(`tmux has-session -t ${sessionName} 2>/dev/null`, execOptions);
                 ctx.log("info", `Relay tmux session ${sessionName} exists, attaching`);
               } catch {
-                // Session doesn't exist, create it detached
-                execSync(`tmux new-session -d -s ${sessionName} -c ${cwd}`, execOptions);
+                // Session doesn't exist, create it detached with mouse scrolling enabled
+                execSync(`tmux new-session -d -s ${sessionName} -c ${cwd} \\; set -g mouse on`, execOptions);
                 ctx.log("info", `Relay tmux session ${sessionName} created detached`);
               }
 
