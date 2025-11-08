@@ -17,10 +17,12 @@ export async function gotoLogin(page: Page) {
   await page.waitForLoadState("networkidle");
   await page.keyboard.press("Escape");
   const tabNav = page.locator('nav[aria-label="Workspace sections"]');
-  await tabNav.waitFor({ state: "visible", timeout: 7000 });
-  const signInTab = tabNav.getByRole("button", { name: /^Sign in$/i });
-  if ((await signInTab.count()) > 0) {
-    await signInTab.first().click();
+  if ((await tabNav.count()) > 0) {
+    await tabNav.first().waitFor({ state: "visible", timeout: 7000 }).catch(() => {});
+    const signInTab = tabNav.getByRole("button", { name: /^Sign in$/i });
+    if ((await signInTab.count()) > 0) {
+      await signInTab.first().click();
+    }
   }
   const form = page.getByTestId("magic-link-form");
   await form.waitFor({ state: "visible", timeout: 7000 });

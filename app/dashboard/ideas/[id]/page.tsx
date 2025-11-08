@@ -73,6 +73,7 @@ export default async function IdeaDetailPage({ params }: { params: Promise<{ id:
       viewerJoinRequest={data.viewerJoinRequest}
       collaborationEnabled={collaborationEnabled}
       ownerJoinRequestCounts={data.ownerJoinRequestCounts}
+      ownerInviteCount={data.ownerInviteCount}
     />
   );
 

@@ -8,6 +8,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Core Philosophy**: Distraction-free UI with automation-ready exports. Ideas become structured specs that agents can consume, process, and update programmatically.
 
+## Guardrails
+
+- Always create or switch to a feature branch before making changes. The guard blocks work on protected branches (`main`, `master`, `develop`, `release`, `staging`).
+- Run `pnpm guard` at the start of any work session. All core commands (`dev`, `build`, `lint`, `typecheck`, `test`, `e2e`) call it automatically via pre-scripts, but you can run it manually to confirm readiness.
+- The guard ensures `Plans/<branch-slug>.md` exists, syncs the companion philosophy in `Philosophies/<branch-slug>-philosophy.md` and tasks checklist in `Tasks/<branch-slug>.md`, and runs `pnpm doc:sync` followed by `pnpm doc:check-sync`.
+- If prompted, either map an existing plan to the branch or scaffold a new stub, then review/edit the generated docs before continuing.
+- Reference `docs/branch-plan-guard.md` for the full flow and troubleshooting tips.
+
 ---
 
 ## Architecture
@@ -87,6 +95,9 @@ pnpm generate:runner-icons
 
 ### Development
 ```bash
+# Validate branch ↔ plan setup (runs automatically via pre-scripts)
+pnpm guard
+
 # Run Next.js dev server (main web app)
 pnpm dev            # http://localhost:3000
 
@@ -101,6 +112,8 @@ node dist/runner/devmode-runner.js
 
 ### Testing & Quality
 ```bash
+# Both commands below run the guard first via pre hooks
+
 # Type checking
 pnpm typecheck
 

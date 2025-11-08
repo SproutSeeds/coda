@@ -1,5 +1,8 @@
 import { track } from "@vercel/analytics/server";
 
+import { actorPays } from "@/lib/limits/payer";
+import { logUsageCost } from "@/lib/usage/log-cost";
+
 const ANALYTICS_EVENT_NAMES = [
   "auth_magic_link_requested",
   "auth_password_created",
@@ -55,6 +58,13 @@ const ANALYTICS_EVENT_NAMES = [
   "idea_join_request_reacted",
   "idea_join_request_archived",
   "idea_join_request_created",
+  "limit.warned",
+  "limit.blocked",
+  "costCatalogue.filter.changed",
+  "costCatalogue.cta.clicked",
+  "credits_purchase.initiated",
+  "credits_purchase.completed",
+  "credits_autotopup.updated",
 ] as const;
 
 export type AnalyticEventName = (typeof ANALYTICS_EVENT_NAMES)[number];
@@ -73,11 +83,17 @@ export async function trackEvent(event: AnalyticEvent): Promise<void> {
     }
     return;
   }
-  try {
-    await track(event.name, sanitize(event.properties) as Record<string, never>);
-  } catch {
-    // Ignore analytics failures during local development/tests.
-  }
+  const properties = sanitize(event.properties);
+  await Promise.allSettled([
+    (async () => {
+      try {
+        await track(event.name, properties as Record<string, never>);
+      } catch {
+        // Ignore analytics failures during local development/tests.
+      }
+    })(),
+    logAnalyticsUsage(event, properties),
+  ]);
 }
 
 function sanitize(props?: Record<string, unknown>) {
@@ -96,4 +112,29 @@ function normalizeValue(value: unknown): string | number | boolean | null | unde
     return value.toISOString();
   }
   return String(value);
+}
+
+async function logAnalyticsUsage(event: AnalyticEvent, properties: Record<string, unknown>) {
+  try {
+    const userId = typeof properties.userId === "string" ? properties.userId : null;
+    const metadata: Record<string, unknown> = { event: event.name, hasUserId: Boolean(userId) };
+    if (userId) {
+      await logUsageCost({
+        payer: actorPays(userId, { source: "analytics.event" }),
+        action: "analytics.event",
+        metadata,
+      });
+      return;
+    }
+    await logUsageCost({
+      payerType: "workspace",
+      payerId: "analytics:global",
+      action: "analytics.event",
+      metadata,
+    });
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("analytics: failed to log usage cost", { event: event.name, error });
+    }
+  }
 }

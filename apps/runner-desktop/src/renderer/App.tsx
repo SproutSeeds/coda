@@ -154,8 +154,8 @@ export default function App() {
     const unsubPair = window.runner.onPairingCode((payload) =>
       setSnapshot((prev) => {
         setCopied(false);
-        if (!prev) return { status: "pairing", logs: [], pairingCode: payload, activeSessions: [] };
-        return { ...prev, pairingCode: payload, status: "pairing" };
+        if (!prev) return { status: payload ? "pairing" : "stopped", logs: [], pairingCode: payload, activeSessions: [] };
+        return { ...prev, pairingCode: payload, status: payload ? "pairing" : prev.status };
       }),
     );
     const unsubPairSuccess = window.runner.onPairingSuccess(() =>
@@ -246,6 +246,8 @@ export default function App() {
     try {
       const next = await window.runner.stop();
       setSnapshot(next);
+      // Clear the pairing code from local state to force fresh code on next start
+      setCopied(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

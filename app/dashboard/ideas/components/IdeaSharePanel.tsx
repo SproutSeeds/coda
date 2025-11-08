@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { AlertTriangle, CheckCircle2, Loader2, Mail, UserPlus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,8 @@ import type { IdeaCollaboratorInviteSummary, IdeaCollaboratorSummary } from "@/l
 import type { UserDirectoryMatch } from "@/lib/db/users";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import type { UsageMetricSummary } from "@/lib/limits/summary";
+import { useLimitDialog } from "@/components/limit/limit-dialog-context";
 
 type IdeaSharePanelProps = {
   ideaId: string;
@@ -27,6 +29,9 @@ type IdeaSharePanelProps = {
   visibility: "private" | "public";
   onClose: () => void;
   onVisibilityChange: (next: "private" | "public") => Promise<void>;
+  collaboratorLimit?: UsageMetricSummary;
+  onUsageRefresh?: () => void;
+  onInviteCountChange?: (count: number) => void;
 };
 
 const ROLE_OPTIONS: Array<{ value: "editor" | "commenter" | "viewer"; label: string; description: string }> = [
@@ -46,7 +51,17 @@ type EmailLookupState =
 
 const DIRECTORY_DEBOUNCE_MS = 250;
 
-export function IdeaSharePanel({ ideaId, open, canManage, visibility, onClose, onVisibilityChange }: IdeaSharePanelProps) {
+export function IdeaSharePanel({
+  ideaId,
+  open,
+  canManage,
+  visibility,
+  onClose,
+  onVisibilityChange,
+  collaboratorLimit,
+  onUsageRefresh,
+  onInviteCountChange,
+}: IdeaSharePanelProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [collaborators, setCollaborators] = useState<IdeaCollaboratorSummary[]>([]);
   const [invites, setInvites] = useState<IdeaCollaboratorInviteSummary[]>([]);
@@ -60,6 +75,10 @@ export function IdeaSharePanel({ ideaId, open, canManage, visibility, onClose, o
   const [isDirectoryPending, startDirectoryTransition] = useTransition();
   const lookupDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastLookupEmailRef = useRef<string>("");
+  const notifyUsageRefresh = useCallback(() => {
+    onUsageRefresh?.();
+  }, [onUsageRefresh]);
+  const { openLimitDialog } = useLimitDialog();
 
   useEffect(() => {
     if (!open || !canManage || isLoading || collaborators.length || invites.length) {
@@ -180,6 +199,41 @@ export function IdeaSharePanel({ ideaId, open, canManage, visibility, onClose, o
   }, [canManage, ideaId, inviteEmail, open, startDirectoryTransition, startLookupTransition]);
 
   const pendingInviteCount = useMemo(() => invites.length, [invites.length]);
+  const collaboratorLimitStatus = collaboratorLimit?.status ?? "ok";
+  const collaboratorLimitBlocked = collaboratorLimitStatus === "blocked";
+  const collaboratorLimitWarn = collaboratorLimitStatus === "warn";
+  const collaboratorLimitRemaining = collaboratorLimit?.remaining ?? null;
+  const collaboratorLimitCap = collaboratorLimit?.limit ?? null;
+  const collaboratorLimitMessage = useMemo(() => {
+    if (collaboratorLimitBlocked) {
+      const capLabel = collaboratorLimitCap != null ? ` (${collaboratorLimitCap.toLocaleString()} lifetime)` : "";
+      return `Collaborator limit reached${capLabel}. Remove someone or request an override to invite more.`;
+    }
+    if (collaboratorLimitWarn && collaboratorLimitRemaining != null) {
+      return `${collaboratorLimitRemaining.toLocaleString()} invite${collaboratorLimitRemaining === 1 ? "" : "s"} remaining before this idea maxes out.`;
+    }
+    return null;
+  }, [collaboratorLimitBlocked, collaboratorLimitCap, collaboratorLimitRemaining, collaboratorLimitWarn]);
+
+  const warnToastRef = useRef(false);
+
+  useEffect(() => {
+    if (collaboratorLimitWarn && !warnToastRef.current) {
+      warnToastRef.current = true;
+      toast.warning(
+        collaboratorLimitRemaining != null
+          ? `${collaboratorLimitRemaining.toLocaleString()} invite${collaboratorLimitRemaining === 1 ? "" : "s"} left before this idea hits the collaborator cap.`
+          : "You’re approaching the collaborator limit for this idea.",
+      );
+    }
+    if (!collaboratorLimitWarn) {
+      warnToastRef.current = false;
+    }
+  }, [collaboratorLimitRemaining, collaboratorLimitWarn]);
+
+  useEffect(() => {
+    onInviteCountChange?.(invites.length);
+  }, [invites.length, onInviteCountChange]);
 
   const inviteButtonDisabled = useMemo(() => {
     if (isSubmitting) {
@@ -246,6 +300,21 @@ export function IdeaSharePanel({ ideaId, open, canManage, visibility, onClose, o
   };
 
   const handleInvite = () => {
+    if (collaboratorLimitBlocked) {
+      openLimitDialog({
+        title: "Collaborator limit reached",
+        description:
+          "You’ve added the maximum collaborators for this idea on your current plan. Upgrade or request an override to invite more teammates.",
+        secondaryCtaLabel: "Request sponsor",
+        secondaryCtaHref: "/dashboard/account?tab=support",
+        notes: [
+          "Close the loop in Discord or your issue tracker until more credits are unlocked.",
+          "Share the idea link so teammates can review without editor access.",
+        ],
+      });
+      toast.error("Collaborator limit reached for this idea.");
+      return;
+    }
     if (!inviteEmail.trim()) {
       toast.error("Enter an email address");
       return;
@@ -295,6 +364,7 @@ export function IdeaSharePanel({ ideaId, open, canManage, visibility, onClose, o
         setInviteEmail("");
         setEmailLookup({ kind: "idle" });
         setDirectoryMatches([]);
+        notifyUsageRefresh();
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Unable to invite collaborator");
       }
@@ -319,6 +389,7 @@ export function IdeaSharePanel({ ideaId, open, canManage, visibility, onClose, o
         await removeIdeaCollaboratorAction({ ideaId, collaboratorId });
         setCollaborators((previous) => previous.filter((collaborator) => collaborator.id !== collaboratorId));
         toast.success("Collaborator removed");
+        notifyUsageRefresh();
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Unable to remove collaborator");
       }
@@ -404,6 +475,42 @@ export function IdeaSharePanel({ ideaId, open, canManage, visibility, onClose, o
 
       {canManage ? (
         <div className="mt-4 space-y-4">
+          {collaboratorLimitMessage ? (
+            <div
+              className={cn(
+                "flex flex-col gap-3 rounded-lg border px-3 py-2 text-xs leading-relaxed",
+                collaboratorLimitBlocked
+                  ? "border-rose-500/50 bg-rose-500/10 text-rose-100"
+                  : "border-amber-400/50 bg-amber-400/10 text-amber-100",
+              )}
+              role="alert"
+            >
+              <div>
+                <p className="text-sm font-semibold">
+                  {collaboratorLimitBlocked ? "Collaborator limit reached" : "Heads up"}
+                </p>
+                <p className="pt-1 text-[0.7rem] text-inherit">{collaboratorLimitMessage}</p>
+              </div>
+              {collaboratorLimitBlocked ? (
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() =>
+                      openLimitDialog({
+                        title: "Collaborator limit reached",
+                        description:
+                          "Upgrade or request an override to add more collaborators to this idea without switching to offline tooling.",
+                      })
+                    }
+                  >
+                    View upgrade options
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground">Invite by email</label>
@@ -413,6 +520,7 @@ export function IdeaSharePanel({ ideaId, open, canManage, visibility, onClose, o
                 onChange={(event) => setInviteEmail(event.target.value)}
                 placeholder="teammate@example.com"
                 className="mt-1"
+                disabled={collaboratorLimitBlocked}
               />
               <div className="mt-2 space-y-2 text-xs">
                 {lookupHelper ? (
@@ -486,6 +594,7 @@ export function IdeaSharePanel({ ideaId, open, canManage, visibility, onClose, o
                 value={inviteRole}
                 onChange={(event) => setInviteRole(event.target.value as "editor" | "commenter" | "viewer")}
                 className="mt-1 w-full rounded-md border border-input bg-background px-2 py-2 text-sm"
+                disabled={collaboratorLimitBlocked}
               >
                 {ROLE_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>

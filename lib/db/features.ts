@@ -6,6 +6,7 @@ import { and, asc, desc, eq, isNull, isNotNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { getDb } from "@/lib/db";
+import { enforceLimit } from "@/lib/limits/guard";
 import { ideaFeatures } from "@/lib/db/schema";
 import { FEATURE_SUPER_STAR_LIMIT } from "@/lib/constants/features";
 import {
@@ -18,6 +19,7 @@ import {
 import { FeatureSuperStarLimitError } from "@/lib/errors/feature-super-star-limit";
 import { ensureSuperStarPlacement } from "@/lib/utils/super-star-ordering";
 import { requireIdeaAccess, type IdeaAccessRecord } from "@/lib/db/access";
+import { logUsageCost } from "@/lib/usage/log-cost";
 
 export type FeatureStarState = "none" | "star" | "super";
 
@@ -118,6 +120,14 @@ export async function createFeature(userId: string, input: FeatureInput) {
 
   const db = getDb();
 
+  const limit = await enforceLimit({
+    scope: { type: "idea", id: payload.ideaId },
+    metric: "features.per_idea.lifetime",
+    userId,
+    credit: { amount: 0.5 },
+    message: "This idea has reached the maximum number of features for your current plan.",
+  });
+
   if (payload.superStarred) {
     const [{ count }] = await db
       .select({ count: sql<number>`count(*)` })
@@ -167,6 +177,18 @@ export async function createFeature(userId: string, input: FeatureInput) {
     .returning();
 
   const feature = normalizeFeature(created);
+
+  await logUsageCost({
+    payer: limit.payer,
+    action: "feature.create",
+    creditsDebited: limit.credit?.amount ?? 0,
+    metadata: {
+      ideaId: payload.ideaId,
+      featureId: created.id,
+      actorId: userId,
+      chargedPayer: limit.credit?.chargedPayer ?? null,
+    },
+  });
 
   revalidatePath(`/dashboard/ideas/${payload.ideaId}`);
   revalidatePath("/dashboard/ideas");

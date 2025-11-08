@@ -167,6 +167,7 @@ export function IdeaDetail({
   viewerJoinRequest,
   collaborationEnabled,
   ownerJoinRequestCounts,
+  ownerInviteCount,
 }: {
   idea: Idea;
   features: Feature[];
@@ -174,6 +175,7 @@ export function IdeaDetail({
   viewerJoinRequest: JoinRequest | null;
   collaborationEnabled: boolean;
   ownerJoinRequestCounts: JoinRequestCounts | null;
+  ownerInviteCount: number;
 }) {
   const router = useRouter();
   const collaboration = useOptionalIdeaCollaboration(collaborationEnabled);
@@ -238,6 +240,7 @@ export function IdeaDetail({
   const [joinRequestCounts, setJoinRequestCounts] = useState<JoinRequestCounts | null>(ownerJoinRequestCounts);
   const [ownerJoinRequests, setOwnerJoinRequests] = useState<JoinRequest[] | null>(null);
   const ownerJoinRequestsRef = useRef<JoinRequest[] | null>(ownerJoinRequests);
+  const [pendingInvites, setPendingInvites] = useState(ownerInviteCount);
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
   const [roleDrafts, setRoleDrafts] = useState<Record<string, "editor" | "commenter" | "viewer">>({});
   const [resolvingRequestId, setResolvingRequestId] = useState<string | null>(null);
@@ -254,6 +257,7 @@ export function IdeaDetail({
   const joinQueuePending = joinRequestCounts?.pending ?? 0;
   const joinQueueUnseen = joinRequestCounts?.unseen ?? 0;
   const showJoinQueueIndicator = canManageCollaborators && (joinQueuePending > 0 || joinQueueUnseen > 0);
+  const showShareIndicator = canManageCollaborators && pendingInvites > 0;
   const joinMessageTrimmed = joinMessage.trim();
   const joinMessageLength = joinMessageTrimmed.length;
   const joinMessageTooShort = joinMessageLength > 0 && joinMessageLength < 20;
@@ -368,6 +372,10 @@ export function IdeaDetail({
   useEffect(() => {
     setDeletedFeaturesState(deletedFeatures);
   }, [deletedFeatures]);
+
+  useEffect(() => {
+    setPendingInvites(ownerInviteCount);
+  }, [ownerInviteCount]);
 
   useEffect(() => {
     (async () => {
@@ -1469,6 +1477,11 @@ export function IdeaDetail({
                 >
                   <Share2 className="size-4" />
                   Share
+                  {showShareIndicator ? (
+                    <span className="ml-1 inline-flex min-w-[1.5rem] items-center justify-center rounded-full bg-primary/80 px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-sm">
+                      {pendingInvites}
+                    </span>
+                  ) : null}
                 </Button>
               </>
             ) : null}
@@ -1976,6 +1989,8 @@ export function IdeaDetail({
               visibility={syncedIdea.visibility}
               onClose={() => setIsShareOpen(false)}
               onVisibilityChange={handleVisibilityChange}
+              onUsageRefresh={() => router.refresh()}
+              onInviteCountChange={setPendingInvites}
             />
           ) : null}
           {canWrite && isConvertOpen ? (

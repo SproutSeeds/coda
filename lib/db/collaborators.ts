@@ -6,12 +6,15 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 
 import { getDb } from "@/lib/db";
 import { ideaCollaboratorInvites, ideaCollaborators, users } from "@/lib/db/schema";
+import { enforceLimit } from "@/lib/limits/guard";
+import { actorPays } from "@/lib/limits/payer";
 import { requireIdeaAccess } from "@/lib/db/access";
 import {
   normalizeCollaboratorEmail,
   validateCollaboratorInviteInput,
   validateCollaboratorRoleChange,
 } from "@/lib/validations/collaborators";
+import { logUsageCost } from "@/lib/usage/log-cost";
 import type { CollaboratorInviteInput } from "@/lib/validations/collaborators";
 
 const INVITE_TTL_MS = 1000 * 60 * 60 * 24 * 14;
@@ -163,7 +166,7 @@ export async function inviteCollaborator(userId: string, ideaId: string, input: 
   });
 
   const db = getDb();
-  await requireIdeaAccess(userId, ideaId, "owner");
+  const access = await requireIdeaAccess(userId, ideaId, "owner");
 
   const normalizedEmail = payload.email;
   const [existingCollaborator] = await db
@@ -215,7 +218,18 @@ export async function inviteCollaborator(userId: string, ideaId: string, input: 
       .where(eq(ideaCollaboratorInvites.id, existingInvite.id))
       .returning();
 
-    return { type: "invite", invite: mapInvite(updated) } satisfies InviteCollaboratorResult;
+    const result = { type: "invite", invite: mapInvite(updated) } satisfies InviteCollaboratorResult;
+    await logUsageCost({
+      payer: actorPays(access.idea.userId),
+      action: "collaborator.invite",
+      metadata: {
+        ideaId,
+        inviteId: updated.id,
+        actorId: userId,
+        source: "email-invite-refresh",
+      },
+    });
+    return result;
   }
 
   const [existingUser] = await db
@@ -225,6 +239,14 @@ export async function inviteCollaborator(userId: string, ideaId: string, input: 
     .limit(1);
 
   if (existingUser) {
+    const limit = await enforceLimit({
+      scope: { type: "idea", id: ideaId },
+      metric: "collaborators.per_idea.lifetime",
+      userId,
+      credit: { amount: 1 },
+      message: "This idea has reached the collaborator limit for your current plan.",
+    });
+
     const [created] = await db
       .insert(ideaCollaborators)
       .values({
@@ -240,6 +262,20 @@ export async function inviteCollaborator(userId: string, ideaId: string, input: 
       .returning();
 
     const summary = await fetchCollaboratorSummary(db, ideaId, created.id, userId);
+
+  await logUsageCost({
+    payer: limit.payer,
+    action: "collaborator.add",
+    creditsDebited: limit.credit?.amount ?? 0,
+    metadata: {
+      ideaId,
+      collaboratorId: created.id,
+      actorId: userId,
+      source: "invite-existing-user",
+      chargedPayer: limit.credit?.chargedPayer ?? null,
+    },
+  });
+
     return { type: "collaborator", collaborator: summary } satisfies InviteCollaboratorResult;
   }
 
@@ -255,7 +291,18 @@ export async function inviteCollaborator(userId: string, ideaId: string, input: 
     })
     .returning();
 
-  return { type: "invite", invite: mapInvite(invite) } satisfies InviteCollaboratorResult;
+  const result = { type: "invite", invite: mapInvite(invite) } satisfies InviteCollaboratorResult;
+  await logUsageCost({
+    payer: actorPays(access.idea.userId),
+    action: "collaborator.invite",
+    metadata: {
+      ideaId,
+      inviteId: invite.id,
+      actorId: userId,
+      source: "email-invite",
+    },
+  });
+  return result;
 }
 
 export async function updateIdeaCollaboratorRole(
@@ -389,12 +436,38 @@ export async function acceptIdeaCollaboratorInvite(userId: string, token: string
     return invite.ideaId;
   }
 
+  const timestamp = new Date();
+  const rolePriority: Record<CollaboratorRole, number> = {
+    viewer: 0,
+    commenter: 1,
+    editor: 2,
+    owner: 3,
+  };
+
+  let limitResult: Awaited<ReturnType<typeof enforceLimit>> | null = null;
+  let collaboratorId: string | null = existingCollaborator?.id ?? null;
+
   if (existingCollaborator) {
-    await db
-      .update(ideaCollaborators)
-      .set({ role: invite.role, updatedAt: new Date() })
-      .where(eq(ideaCollaborators.id, existingCollaborator.id));
+    const nextRole =
+      rolePriority[invite.role] >= rolePriority[existingCollaborator.role]
+        ? invite.role
+        : existingCollaborator.role;
+
+    if (nextRole !== existingCollaborator.role) {
+      await db
+        .update(ideaCollaborators)
+        .set({ role: nextRole, updatedAt: timestamp })
+        .where(eq(ideaCollaborators.id, existingCollaborator.id));
+    }
   } else {
+    limitResult = await enforceLimit({
+      scope: { type: "idea", id: invite.ideaId },
+      metric: "collaborators.per_idea.lifetime",
+      userId,
+      credit: { amount: 1 },
+      message: "This idea has reached the collaborator limit for your current plan.",
+    });
+
     await db
       .insert(ideaCollaborators)
       .values({
@@ -402,14 +475,38 @@ export async function acceptIdeaCollaboratorInvite(userId: string, token: string
         userId,
         role: invite.role,
         invitedBy: invite.invitedBy ?? userId,
+        createdAt: timestamp,
+        updatedAt: timestamp,
       })
       .onConflictDoNothing({ target: [ideaCollaborators.ideaId, ideaCollaborators.userId] });
+
+    const [created] = await db
+      .select({ id: ideaCollaborators.id })
+      .from(ideaCollaborators)
+      .where(and(eq(ideaCollaborators.ideaId, invite.ideaId), eq(ideaCollaborators.userId, userId)))
+      .limit(1);
+
+    collaboratorId = created?.id ?? collaboratorId;
   }
 
   await db
     .update(ideaCollaboratorInvites)
     .set({ acceptedAt: new Date() })
     .where(eq(ideaCollaboratorInvites.id, invite.id));
+
+  if (limitResult && collaboratorId) {
+    await logUsageCost({
+      payer: limitResult.payer,
+      action: "collaborator.add",
+      creditsDebited: limitResult.credit?.amount ?? 0,
+      metadata: {
+        ideaId: invite.ideaId,
+        collaboratorId,
+        actorId: userId,
+        source: "invite-accept",
+      },
+    });
+  }
 
   return invite.ideaId;
 }

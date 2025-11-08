@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TerminalDock } from "./TerminalDock";
 import { RecordingsList } from "./RecordingsList";
+import { DevModeUsageWidget } from "./DevModeUsageWidget";
 
 export function IdeaDevPanel({ ideaId, onRequestClose }: { ideaId: string; onRequestClose?: () => void }) {
   const [runnerId, setRunnerId] = useState<string | null>(null);
@@ -66,6 +67,7 @@ export function IdeaDevPanel({ ideaId, onRequestClose }: { ideaId: string; onReq
               </button>
             </div>
           ) : null}
+          <DevModeUsageWidget />
           <TerminalDock ideaId={ideaId} runnerId={runnerId} />
           <RecordingsList ideaId={ideaId} />
         </CardContent>
