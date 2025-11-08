@@ -289,7 +289,13 @@ async function main() {
   }
 
   const protectedBranches = ['main', 'master', 'develop', 'release', 'staging'];
+  const isCI = process.env.CI === 'true' || process.env.VERCEL === '1' || process.env.GITHUB_ACTIONS === 'true';
+
   if (protectedBranches.includes(branch)) {
+    if (isCI) {
+      console.log(`[guard] Protected branch "${branch}" detected in CI/CD environment. Skipping guard checks.`);
+      process.exit(0);
+    }
     console.error(`[guard] Branch "${branch}" is protected. Create a feature branch before working.`);
     process.exit(1);
   }
