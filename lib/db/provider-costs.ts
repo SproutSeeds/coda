@@ -35,8 +35,8 @@ export async function recordProviderCostEvents(db: DbClient, events: ProviderCos
       metric: event.metric,
       windowStart: event.windowStart,
       windowEnd: event.windowEnd,
-      quantity: event.quantity,
-      costUsd: event.costUsd,
+      quantity: event.quantity.toString(),
+      costUsd: event.costUsd.toString(),
       currency: event.currency ?? "usd",
       fetchedAt: event.fetchedAt ?? new Date(),
       metadata: event.metadata ?? {},
@@ -67,10 +67,10 @@ export async function upsertProviderCostSnapshot(db: DbClient, snapshot: Provide
       window: snapshot.window,
       windowStart: snapshot.windowStart,
       windowEnd: snapshot.windowEnd,
-      quantity: snapshot.quantity,
-      costUsd: snapshot.costUsd,
+      quantity: snapshot.quantity.toString(),
+      costUsd: snapshot.costUsd.toString(),
       currency: snapshot.currency ?? "usd",
-      sampleCount: snapshot.sampleCount ?? 1,
+      sampleCount: (snapshot.sampleCount ?? 1).toString(),
       lastFetchedAt: snapshot.lastFetchedAt ?? new Date(),
       metadata: snapshot.metadata ?? {},
     })
@@ -82,10 +82,10 @@ export async function upsertProviderCostSnapshot(db: DbClient, snapshot: Provide
         providerCostSnapshots.windowStart,
       ],
       set: {
-        quantity: snapshot.quantity,
-        costUsd: snapshot.costUsd,
+        quantity: snapshot.quantity.toString(),
+        costUsd: snapshot.costUsd.toString(),
         currency: snapshot.currency ?? "usd",
-        sampleCount: snapshot.sampleCount ?? 1,
+        sampleCount: (snapshot.sampleCount ?? 1).toString(),
         lastFetchedAt: snapshot.lastFetchedAt ?? new Date(),
         metadata: snapshot.metadata ?? {},
         updatedAt: new Date(),
@@ -108,8 +108,8 @@ export type ProviderReconciliationInput = {
 export async function createProviderReconciliation(db: DbClient, input: ProviderReconciliationInput) {
   const internal = await db
     .select({
-      quantity: sql<number>`coalesce(sum(${usageCosts.quantity}), 0)` as unknown as number,
-      cost: sql<number>`coalesce(sum(${usageCosts.totalCost}), 0)` as unknown as number,
+      quantity: sql<string>`coalesce(sum(${usageCosts.quantity}), 0)`.as('quantity'),
+      cost: sql<string>`coalesce(sum(${usageCosts.totalCost}), 0)`.as('cost'),
     })
     .from(usageCosts)
     .where(
@@ -120,8 +120,8 @@ export async function createProviderReconciliation(db: DbClient, input: Provider
       ),
     );
 
-  const internalQuantity = internal[0]?.quantity ?? 0;
-  const internalCostUsd = internal[0]?.cost ?? 0;
+  const internalQuantity = parseFloat(internal[0]?.quantity ?? '0');
+  const internalCostUsd = parseFloat(internal[0]?.cost ?? '0');
   const varianceUsd = input.providerCostUsd - internalCostUsd;
   const varianceRatio = internalCostUsd !== 0 ? varianceUsd / internalCostUsd : 0;
 
@@ -131,12 +131,12 @@ export async function createProviderReconciliation(db: DbClient, input: Provider
     window: input.window,
     windowStart: input.windowStart,
     windowEnd: input.windowEnd,
-    providerQuantity: input.providerQuantity,
-    providerCostUsd: input.providerCostUsd,
-    internalQuantity,
-    internalCostUsd,
-    varianceUsd,
-    varianceRatio,
+    providerQuantity: input.providerQuantity.toString(),
+    providerCostUsd: input.providerCostUsd.toString(),
+    internalQuantity: internalQuantity.toString(),
+    internalCostUsd: internalCostUsd.toString(),
+    varianceUsd: varianceUsd.toString(),
+    varianceRatio: varianceRatio.toString(),
     metadata: input.metadata ?? {},
   });
 
