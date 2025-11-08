@@ -102,6 +102,16 @@ export function UserMenu({ className }: UserMenuProps) {
               className="interactive-btn w-full justify-start border-transparent px-3 py-2 text-sm font-medium text-foreground hover:border-border hover:bg-muted/30 focus-visible:ring-0"
               role="menuitem"
             >
+              <Link href="/dashboard/usage" onClick={() => setOpen(false)}>
+                Usage & costs dashboard
+              </Link>
+            </Button>
+            <Button
+              asChild
+              variant="ghost"
+              className="interactive-btn w-full justify-start border-transparent px-3 py-2 text-sm font-medium text-foreground hover:border-border hover:bg-muted/30 focus-visible:ring-0"
+              role="menuitem"
+            >
               <Link href="/dashboard/devmode/downloads" onClick={() => setOpen(false)}>
                 Desktop Companion
               </Link>

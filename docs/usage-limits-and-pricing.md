@@ -1,8 +1,10 @@
 # Usage Limits, Credits, and Pricing Transparency
 
-Last updated: 2025-11-04
+Last updated: 2025-11-08
 
 This document describes how Coda enforces usage limits, tracks costs, and communicates pricing as we roll out the credit-based funding model. It is the single reference for engineering, product, support, and finance when discussing limits, credits, or billing-related questions.
+
+> **Evaluation mode (current status):** Limits and plans are not enforced. We continue to log usage, costs, and credits for observability only while we learn from real traffic.
 
 ---
 
@@ -17,9 +19,7 @@ Supporting endpoints/components:
 
 | Surface | Path | Purpose |
 | --- | --- | --- |
-| Usage dashboard | `/dashboard/usage` | Shows credit balance, per-action usage, cost aggregates, and plan comparison with export.
-| Idea usage widget | `app/dashboard/ideas/components/IdeaUsageSummary.tsx` | Surface per-idea counters and block context paddles.
-| Dev Mode usage | `app/dashboard/ideas/components/DevModeUsageWidget.tsx` | Live session budgeting, local fallback guidance, and post-session cost summary.
+| Usage & costs dashboard | `/dashboard/usage` | Single destination for credits, quotas, Dev Mode minutes, cost aggregates, ledger export, and plan comparison.
 | Admin limits | `/dashboard/admin/limits` | Pending override review, manual override creation, block-rate analytics.
 | Admin billing | `/dashboard/admin/billing` | High-cost users, shared pools, and credit grants.
 | Reconcile cron | `/api/cron/reconcile-usage` | Nightly counter reconciliation (requires `Authorization: Bearer ${CRON_SECRET}`).
@@ -75,6 +75,31 @@ Release checklist per phase:
 - **Dashboard copy**: the Usage page highlights remaining credits, forecasted run-out date, and per-action cost with vendor callouts (e.g., “Join request approval – 1 credit (covers Neon write + Upstash rate-limit check)”).
 - **Billing history**: monthly receipts include itemized usage pulled from `usage_costs` ledger. Expose the ledger via CSV export on `/dashboard/usage`.
 - **Support guidance**: upgrade modal offers three choices—purchase credits, request workspace sponsorship, or export data to continue offline (CLI agent / local runner). The modal also surfaces recent high-cost actions to explain why the user hit a block.
+
+### Usage Breakdown Reference (mirrors dashboard chips)
+
+Pulled directly from `lib/pricing/cost-model.ts` + `getUsageCostBudgets`. The `$5 buys` column is the preformatted summary that projection chips render today.
+
+| Category | Action | Unit Cost (USD) | $5 buys |
+| --- | --- | --- | --- |
+| Creation | Idea creation | $0.0000005 | 10.0M rows |
+| Creation | Feature creation | $0.00000054 | 9.3M rows |
+| Collaboration | Collaborator invite email | $0.0004003 | 12.5K emails |
+| Collaboration | Collaborator accepted | $0.0000004 | 12.5M rows |
+| Collaboration | Join request | $0.0000005 | 10.0M rows |
+| Delivery | Idea export | $0.000008 | 625K exports |
+| Authentication | Auth email | $0.0004 | 12.5K emails |
+| Analytics | Analytics event | $0.0000012 | 4.2M events |
+| Dev Mode | Dev Mode minute | $0.000048 | 104K minutes |
+| Dev Mode | Dev Mode bandwidth | $0.000000004 | 1.25B bytes (~1.16 GB) |
+
+Storage categories reuse the same projection pattern via `calculateStorageProjections`:
+
+| Storage Category | Rate (USD / GB-month) | $5 buys | Tailwind color |
+| --- | --- | --- | --- |
+| Rich Text & Docs | $0.02 | 250 GB-month | `indigo` |
+| Images & Visuals | $0.05 | 100 GB-month | `cyan` |
+| Audio & Large Assets | $0.08 | 62.5 GB-month | `amber` |
 
 Call-to-action copy (for LimitDialog + toasts):
 

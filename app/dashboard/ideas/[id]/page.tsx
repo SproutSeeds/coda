@@ -74,7 +74,6 @@ export default async function IdeaDetailPage({ params }: { params: Promise<{ id:
       collaborationEnabled={collaborationEnabled}
       ownerJoinRequestCounts={data.ownerJoinRequestCounts}
       ownerInviteCount={data.ownerInviteCount}
-      ideaUsage={data.ideaUsage}
     />
   );
 

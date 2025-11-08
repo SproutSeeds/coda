@@ -16,7 +16,6 @@ export async function GET() {
   return NextResponse.json({
     generatedAt: new Date().toISOString(),
     userId: user.id,
-    plan: overview.usageSummary.plan,
     credit: overview.credit,
     costAggregates: overview.costAggregates,
     ledger: overview.recentLedger,

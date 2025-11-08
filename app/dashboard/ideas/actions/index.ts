@@ -69,7 +69,6 @@ import { consumeUndoToken, createUndoToken } from "@/lib/utils/undo";
 import { requireUser } from "@/lib/auth/session";
 import { enforceRateLimit } from "@/lib/limits/rate";
 import { actorPays } from "@/lib/limits/payer";
-import { getIdeaUsageSummary } from "@/lib/limits/summary";
 import { withMutationBudget } from "@/lib/utils/mutation-budget";
 import { logUsageCost } from "@/lib/usage/log-cost";
 import {
@@ -233,16 +232,14 @@ export async function loadIdeaWithFeatures(id: string) {
   const inviteCountPromise = idea.isOwner
     ? listIdeaCollaboratorInvites(user.id, id).then((invites) => invites.length)
     : Promise.resolve(0);
-  const ideaUsagePromise = getIdeaUsageSummary(id, user.id);
-  const [features, deletedFeatures, viewerJoinRequest, ownerJoinRequestCounts, ownerInviteCount, ideaUsage] = await Promise.all([
+  const [features, deletedFeatures, viewerJoinRequest, ownerJoinRequestCounts, ownerInviteCount] = await Promise.all([
     listFeatures(user.id, id),
     idea.isOwner || idea.accessRole === "editor" ? listDeletedFeatures(user.id, id) : Promise.resolve([]),
     getJoinRequestForApplicant(user.id, id),
     joinRequestCountsPromise,
     inviteCountPromise,
-    ideaUsagePromise,
   ]);
-  return { idea, features, deletedFeatures, viewerJoinRequest, ownerJoinRequestCounts, ownerInviteCount, ideaUsage };
+  return { idea, features, deletedFeatures, viewerJoinRequest, ownerJoinRequestCounts, ownerInviteCount };
 }
 
 export async function listJoinRequestsAction(ideaId: string) {

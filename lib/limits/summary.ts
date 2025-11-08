@@ -8,13 +8,10 @@ import { computeWarnThreshold, getMetricDefinition, getPlanLimit } from "@/lib/l
 import { LIMIT_METRICS, type LimitMetric, type MetricDefinition } from "@/lib/limits/types";
 
 const USER_SCOPE: LimitScopeType = "user";
-const IDEA_SCOPE: LimitScopeType = "idea";
 
 const USER_METRICS: LimitMetric[] = LIMIT_METRICS.filter(
   (metric) => getMetricDefinition(metric).scope === USER_SCOPE && getMetricDefinition(metric).period !== "cooldown",
 );
-
-const IDEA_METRICS: LimitMetric[] = ["features.per_idea.lifetime", "collaborators.per_idea.lifetime"];
 
 const METRIC_LABELS: Record<LimitMetric, { label: string; description: string; periodLabel: string }> = {
   "ideas.per_user.lifetime": {
@@ -68,17 +65,6 @@ export type UserUsageSummary = {
     name: string;
   };
   metrics: UsageMetricSummary[];
-};
-
-export type IdeaUsageSummary = {
-  plan: {
-    id: string | null;
-    name: string;
-  };
-  metrics: {
-    features: UsageMetricSummary;
-    collaborators: UsageMetricSummary;
-  };
 };
 
 function resolvePlanLabel(plan: PlanRecord | null | undefined): string {
@@ -171,101 +157,5 @@ export async function getUserUsageSummary(userId: string): Promise<UserUsageSumm
       name: resolvePlanLabel(planRecord),
     },
     metrics,
-  };
-}
-
-const IDEA_METRIC_COPY: Record<LimitMetric, { label: string; description: string; periodLabel: string }> = {
-  "features.per_idea.lifetime": {
-    label: "Features added",
-    description: "Lifetime total of features ever created for this idea.",
-    periodLabel: "Lifetime",
-  },
-  "collaborators.per_idea.lifetime": {
-    label: "Collaborators added",
-    description: "Lifetime collaborators invited or added to this idea.",
-    periodLabel: "Lifetime",
-  },
-  "ideas.per_user.lifetime": METRIC_LABELS["ideas.per_user.lifetime"],
-  "publicIdeas.per_user.lifetime": METRIC_LABELS["publicIdeas.per_user.lifetime"],
-  "joinRequests.per_idea.per_viewer.cooldownDays": METRIC_LABELS["joinRequests.per_idea.per_viewer.cooldownDays"],
-  "mutations.per_user.daily": METRIC_LABELS["mutations.per_user.daily"],
-};
-
-function buildMetricSummary({
-  metric,
-  definition,
-  count,
-  plan,
-}: {
-  metric: LimitMetric;
-  definition: MetricDefinition;
-  count: number;
-  plan: PlanRecord | null | undefined;
-}): UsageMetricSummary {
-  const rawLimit = getPlanLimit(plan, metric);
-  const limit = Number.isFinite(rawLimit) ? rawLimit : null;
-  const warnThreshold = computeWarnThreshold(rawLimit, definition.warnRatio);
-  const status = computeStatus(count, limit, warnThreshold);
-  const progressPercent = limit && limit > 0 ? Math.min(100, Math.round((count / limit) * 100)) : 0;
-  const remaining = limit != null ? Math.max(0, limit - count) : null;
-  const copy = IDEA_METRIC_COPY[metric] ?? METRIC_LABELS[metric];
-
-  return {
-    metric,
-    label: copy?.label ?? metric,
-    description: copy?.description ?? "",
-    periodLabel: copy?.periodLabel ?? definition.period,
-    count,
-    limit,
-    remaining,
-    status,
-    warnThreshold: warnThreshold ?? null,
-    progressPercent,
-  };
-}
-
-export async function getIdeaUsageSummary(ideaId: string, viewerId: string): Promise<IdeaUsageSummary> {
-  const db = getDb();
-  const now = new Date();
-
-  const assignment = await getUserPlan(viewerId);
-  const planRecord = assignment?.plan ?? (await getDefaultPlan());
-
-  const counters = await db
-    .select({
-      metric: usageCounters.metric,
-      periodKey: usageCounters.periodKey,
-      count: usageCounters.count,
-    })
-    .from(usageCounters)
-    .where(
-      and(
-        eq(usageCounters.scopeType, IDEA_SCOPE),
-        eq(usageCounters.scopeId, ideaId),
-        inArray(usageCounters.metric, IDEA_METRICS),
-      ),
-    );
-
-  const usage = new Map<string, number>();
-  for (const row of counters) {
-    usage.set(`${row.metric}:${row.periodKey}`, row.count ?? 0);
-  }
-
-  const [featuresMetric, collaboratorsMetric] = IDEA_METRICS.map((metric) => {
-    const definition = getMetricDefinition(metric);
-    const periodKey = currentPeriodKey(definition, now);
-    const count = usage.get(`${metric}:${periodKey}`) ?? 0;
-    return buildMetricSummary({ metric, definition, count, plan: planRecord });
-  });
-
-  return {
-    plan: {
-      id: planRecord?.id ?? null,
-      name: resolvePlanLabel(planRecord),
-    },
-    metrics: {
-      features: featuresMetric,
-      collaborators: collaboratorsMetric,
-    },
   };
 }

@@ -5,21 +5,6 @@ function getEnv(name: string) {
   return value && value.length > 0 ? value : null;
 }
 
-type NeonUsageResponse = {
-  projects?: Array<{
-    project_id: string;
-    period_start: string;
-    period_end: string;
-    total_usd?: number;
-    items?: Array<{
-      resource?: string;
-      usage?: number;
-      cost_usd?: number;
-      metadata?: Record<string, unknown>;
-    }>;
-  }>;
-};
-
 async function fetchNeonUsage(context: ProviderAdapterContext): Promise<ProviderMetricReading[]> {
   const apiKey = getEnv("NEON_API_KEY") ?? getEnv("NEON_API_TOKEN");
   const projectId = getEnv("NEON_PROJECT_ID");
@@ -29,9 +14,8 @@ async function fetchNeonUsage(context: ProviderAdapterContext): Promise<Provider
     return [];
   }
 
-  const url = new URL(`https://console.neon.tech/api/v2/projects/${projectId}/billing/usage`);
-  url.searchParams.set("period_start", context.windowStart.toISOString());
-  url.searchParams.set("period_end", context.windowEnd.toISOString());
+  // Launch plan only has access to project-level metrics, not consumption_history
+  const url = new URL(`https://console.neon.tech/api/v2/projects/${projectId}`);
 
   const res = await (context.fetchImpl ?? fetch)(url, {
     headers: {
@@ -43,38 +27,98 @@ async function fetchNeonUsage(context: ProviderAdapterContext): Promise<Provider
   });
 
   if (!res.ok) {
-    console.warn("neon: failed to fetch usage", res.status, await res.text());
+    console.warn("neon: failed to fetch project", res.status, await res.text());
     return [];
   }
 
-  const body = (await res.json()) as NeonUsageResponse;
-  const projectUsage = body.projects?.[0];
-  if (!projectUsage) return [];
+  const body = (await res.json()) as { project?: {
+    active_time_seconds?: number;
+    compute_time_seconds?: number;
+    written_data_bytes?: number;
+    data_storage_bytes_hour?: number;
+    data_transfer_bytes?: number;
+    consumption_period_start?: string;
+    consumption_period_end?: string;
+  }};
+
+  const project = body.project;
+  if (!project) return [];
 
   const readings: ProviderMetricReading[] = [];
-  if (projectUsage.items && projectUsage.items.length > 0) {
-    for (const item of projectUsage.items) {
-      readings.push({
-        provider: "neon_postgres",
-        metric: item.resource ?? "unknown",
-        windowStart: new Date(projectUsage.period_start ?? context.windowStart),
-        windowEnd: new Date(projectUsage.period_end ?? context.windowEnd),
-        quantity: item.usage ?? 0,
-        costUsd: item.cost_usd ?? 0,
-        currency: "usd",
-        metadata: item.metadata ?? {},
-      });
-    }
-  } else {
+  const periodStart = project.consumption_period_start
+    ? new Date(project.consumption_period_start)
+    : context.windowStart;
+  const periodEnd = project.consumption_period_end
+    ? new Date(project.consumption_period_end)
+    : context.windowEnd;
+
+  // Active time (hours)
+  if (typeof project.active_time_seconds === "number" && project.active_time_seconds > 0) {
     readings.push({
       provider: "neon_postgres",
-      metric: "aggregate",
-      windowStart: new Date(projectUsage.period_start ?? context.windowStart),
-      windowEnd: new Date(projectUsage.period_end ?? context.windowEnd),
-      quantity: 0,
-      costUsd: projectUsage.total_usd ?? 0,
+      metric: "active_time_hours",
+      windowStart: periodStart,
+      windowEnd: periodEnd,
+      quantity: project.active_time_seconds / 3600,
+      costUsd: 0, // Neon doesn't provide costs in this endpoint
       currency: "usd",
-      metadata: {},
+      metadata: { unit: "hours" },
+    });
+  }
+
+  // Compute time (hours)
+  if (typeof project.compute_time_seconds === "number" && project.compute_time_seconds > 0) {
+    readings.push({
+      provider: "neon_postgres",
+      metric: "compute_time_hours",
+      windowStart: periodStart,
+      windowEnd: periodEnd,
+      quantity: project.compute_time_seconds / 3600,
+      costUsd: 0,
+      currency: "usd",
+      metadata: { unit: "hours" },
+    });
+  }
+
+  // Written data (GB)
+  if (typeof project.written_data_bytes === "number" && project.written_data_bytes > 0) {
+    readings.push({
+      provider: "neon_postgres",
+      metric: "written_data_gb",
+      windowStart: periodStart,
+      windowEnd: periodEnd,
+      quantity: project.written_data_bytes / (1024 ** 3),
+      costUsd: 0,
+      currency: "usd",
+      metadata: { unit: "GB" },
+    });
+  }
+
+  // Storage (GB-hours)
+  if (typeof project.data_storage_bytes_hour === "number" && project.data_storage_bytes_hour > 0) {
+    readings.push({
+      provider: "neon_postgres",
+      metric: "storage_gb_hours",
+      windowStart: periodStart,
+      windowEnd: periodEnd,
+      quantity: project.data_storage_bytes_hour / (1024 ** 3),
+      costUsd: 0,
+      currency: "usd",
+      metadata: { unit: "GB-hours" },
+    });
+  }
+
+  // Data transfer (GB)
+  if (typeof project.data_transfer_bytes === "number" && project.data_transfer_bytes > 0) {
+    readings.push({
+      provider: "neon_postgres",
+      metric: "data_transfer_gb",
+      windowStart: periodStart,
+      windowEnd: periodEnd,
+      quantity: project.data_transfer_bytes / (1024 ** 3),
+      costUsd: 0,
+      currency: "usd",
+      metadata: { unit: "GB" },
     });
   }
 

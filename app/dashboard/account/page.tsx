@@ -4,16 +4,10 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserMeetupAttendance } from "@/lib/db/meetup";
 import { clearThemePreference, getThemePreference } from "@/lib/db/theme-preferences";
-import Link from "next/link";
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { getCreditBalance } from "@/lib/db/credits";
-import { getUserUsageSummary } from "@/lib/limits/summary";
 
 import { PasswordManager } from "./components/PasswordManager";
 import { ThemePreferenceSection } from "./components/ThemePreferenceSection";
-import { UsageLimitsSection } from "./components/UsageLimitsSection";
 import { hasPassword } from "./actions";
 
 export const metadata = {
@@ -48,17 +42,10 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
     dateStyle: "medium",
     timeStyle: "short",
   });
-  const usageSummary = await getUserUsageSummary(user.id);
-  const creditSummary = await getCreditBalance({ type: "user", id: user.id });
-
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
       <h1 className="text-2xl font-semibold">Account</h1>
       <ThemePreferenceSection initialTheme={initialTheme} showOnboarding={showOnboardingPrompt} />
-      <UsageLimitsSection plan={usageSummary.plan} metrics={usageSummary.metrics} credits={creditSummary} />
-      <Button asChild variant="outline" className="w-fit">
-        <Link href="/dashboard/usage">Open usage dashboard</Link>
-      </Button>
       <PasswordManager hasPassword={passwordSet} />
       <Card className="border-border/70 bg-card/95">
         <CardHeader className="space-y-1">
