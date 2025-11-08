@@ -44,7 +44,7 @@ export function UsageCostTooltip({ label, vendor, description, unitCostLabel, pr
         <div
           role="tooltip"
           id={tooltipId}
-          className="absolute right-0 top-8 z-50 w-72 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+          className="pointer-events-none absolute right-0 top-8 z-50 w-72 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
         >
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
             {vendor ?? "cloud cost"}
