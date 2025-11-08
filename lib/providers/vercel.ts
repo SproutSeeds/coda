@@ -78,7 +78,7 @@ async function fetchVercelUsage(context: ProviderAdapterContext): Promise<Provid
       const resources = body.resources ?? [];
       for (const entry of resources) {
         readings.push({
-          provider: `vercel_${type}` as any,
+          provider: `vercel_${type}` as ProviderMetricReading['provider'],
           metric: entry.resource ?? type,
           windowStart: context.windowStart,
           windowEnd: context.windowEnd,

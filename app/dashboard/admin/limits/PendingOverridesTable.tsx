@@ -71,7 +71,7 @@ export function PendingOverridesTable({ initialOverrides }: PendingOverridesTabl
 
     startTransition(async () => {
       try {
-        const result = await resolveLimitOverrideAction({
+        await resolveLimitOverrideAction({
           id: override.id,
           decision,
           limitValue: decision === "approve" ? limitValueNumber : undefined,
@@ -189,7 +189,7 @@ export function PendingOverridesTable({ initialOverrides }: PendingOverridesTabl
         })}
       </div>
     );
-  }, [handleDecision, isPending, overrides, rowState]);
+  }, [handleDecision, handleFieldChange, isPending, overrides, rowState]);
 
   return (
     <div className="space-y-4">

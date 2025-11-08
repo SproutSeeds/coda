@@ -118,7 +118,7 @@ export async function registerWithPasswordAction(
  * Only available on Saturdays 11 AM - 1 PM Central Time (Pensacola, FL).
  * Returns success status and whether user was already checked in for this event.
  */
-export async function checkInToMeetupAction(email?: string) {
+export async function checkInToMeetupAction() {
   const user = await getCurrentUser();
 
   // Verify check-in is open

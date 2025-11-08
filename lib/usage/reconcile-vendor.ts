@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, gte, sql } from "drizzle-orm";
+import { gte, sql } from "drizzle-orm";
 
 import { getDb } from "@/lib/db";
 import { usageCosts } from "@/lib/db/schema/usage";

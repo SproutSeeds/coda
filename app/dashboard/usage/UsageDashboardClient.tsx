@@ -55,7 +55,6 @@ export function UsageDashboardClient({ analytics }: UsageDashboardClientProps) {
     storageFootprint,
     storageCostTimeline,
     storageCostTotals,
-    lifetime,
     actionCategoryGroups,
     storageCategoryGroups,
   } = analytics;
@@ -134,7 +133,6 @@ export function UsageDashboardClient({ analytics }: UsageDashboardClientProps) {
 
   const rangeLabelLong = dateRange === "max" ? "entire history" : `past ${dateRange} days`;
   const rangeHeadingLabel = dateRange === "max" ? "Entire history" : `Last ${dateRange} days`;
-  const lifetimeTotal = lifetime.actionCost + lifetime.storageCost;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950 p-4 md:p-8">
