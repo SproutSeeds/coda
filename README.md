@@ -91,7 +91,22 @@ Run `pnpm db:migrate` any time migrations change.
    cd coda
    pnpm install
    ```
-2. **Configure environment** (see `.env.example`). Minimum variables:
+
+2. **Configure environment** – choose one method:
+
+   **Option A – Vercel (recommended if project is linked):**
+   ```bash
+   vercel link          # Link to your Vercel project
+   vercel env pull .env.local   # Pull all environment variables
+   ```
+
+   **Option B – Manual setup:**
+   ```bash
+   cp .env.example .env.local
+   # Edit .env.local with your secrets
+   ```
+
+   Minimum variables (see `.env.example` for full list):
    ```env
    DATABASE_URL="postgres://postgres:postgres@localhost:5432/coda"
    NEXTAUTH_SECRET="..."
@@ -100,7 +115,9 @@ Run `pnpm db:migrate` any time migrations change.
    UPSTASH_REDIS_REST_TOKEN="..."
    EMAIL_SERVER="stream"   # or SMTP URI
    EMAIL_FROM="Coda <hello@example.com>"
-  ```
+   STRIPE_SECRET_KEY="sk_test_..."   # Required for billing features
+   ```
+
 3. **Database** – run `pnpm drizzle-kit generate && pnpm drizzle-kit migrate` (Neon/Vercel Postgres URLs work too).
 4. **Run locally** – `pnpm dev` then open `http://localhost:3000/login`.
 5. **QA** – `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm playwright test`, `pnpm lighthouse`.
