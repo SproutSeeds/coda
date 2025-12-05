@@ -31,6 +31,7 @@ import {
   type IdeaRecord,
   type IdeaSort,
 } from "@/lib/db/ideas";
+import { trackJourneyAction } from "@/lib/journey/tracker";
 import {
   acceptIdeaCollaboratorInvite,
   inviteCollaborator,
@@ -60,17 +61,12 @@ import {
 } from "@/lib/db/join-requests";
 import type { IdeaJoinRequestRecord, JoinRequestCounts, ResolveJoinRequestInput } from "@/lib/db/join-requests";
 import { getIdeaAccess, requireIdeaAccess } from "@/lib/db/access";
-import { getUserPlan } from "@/lib/db/limits";
 import { SuperStarLimitError } from "@/lib/errors/super-star-limit";
 import { FeatureSuperStarLimitError } from "@/lib/errors/feature-super-star-limit";
 import { trackEvent } from "@/lib/utils/analytics";
 import { consumeRateLimit } from "@/lib/utils/rate-limit";
 import { consumeUndoToken, createUndoToken } from "@/lib/utils/undo";
 import { requireUser } from "@/lib/auth/session";
-import { enforceRateLimit } from "@/lib/limits/rate";
-import { actorPays } from "@/lib/limits/payer";
-import { withMutationBudget } from "@/lib/utils/mutation-budget";
-import { logUsageCost } from "@/lib/usage/log-cost";
 import {
   normalizeCollaboratorEmail,
   validateCollaboratorDirectoryLookup,
@@ -87,46 +83,44 @@ import { importIdeasAction } from "./import";
 
 export { importIdeasAction };
 
-async function resolvePlanIdForUser(userId: string) {
-  const assignment = await getUserPlan(userId);
-  return assignment?.plan.id ?? null;
-}
+import { revalidatePath } from "next/cache"; 
 
 export async function createIdeaAction(
   formData: FormData | { title: string; notes: string; visibility?: "private" | "public" },
 ) {
   const user = await requireUser();
-  return withMutationBudget({ userId: user.id }, async () => {
-    const planId = await resolvePlanIdForUser(user.id);
-    await enforceRateLimit({
-      action: "idea.create",
-      identifier: user.id,
-      planId,
-      message: "You’re creating ideas faster than your plan allows right now. Please wait a moment and try again.",
-    });
+  const key = `${user.id}:create`;
+  const rate = await consumeRateLimit(key);
+  if (!rate.success) {
+    throw new Error("Rate limit exceeded. Please try again shortly.");
+  }
 
-    const payload = formData instanceof FormData
-      ? {
-          title: String(formData.get("title") ?? ""),
-          notes: String(formData.get("notes") ?? ""),
-          visibility: (() => {
-            const value = formData.get("visibility");
-            if (value === "private") return "private" as const;
-            if (value === "public") return "public" as const;
-            if (typeof value === "string") {
-              const normalized = value.toLowerCase();
-              if (normalized === "private") return "private" as const;
-              if (normalized === "public") return "public" as const;
-            }
-            return undefined;
-          })(),
-        }
-      : formData;
+  const payload = formData instanceof FormData
+    ? {
+        title: String(formData.get("title") ?? ""),
+        notes: String(formData.get("notes") ?? ""),
+        visibility: (() => {
+          const value = formData.get("visibility");
+          if (value === "private") return "private" as const;
+          if (value === "public") return "public" as const;
+          if (typeof value === "string") {
+            const normalized = value.toLowerCase();
+            if (normalized === "private") return "private" as const;
+            if (normalized === "public") return "public" as const;
+          }
+          return undefined;
+        })(),
+      }
+    : formData;
 
-    const idea = await createIdea(user.id, payload);
-    await trackEvent({ name: "idea_created", properties: { ideaId: idea.id } });
-    return idea;
-  });
+  const idea = await createIdea(user.id, payload);
+  await trackEvent({ name: "idea_created", properties: { ideaId: idea.id } });
+
+  // Track journey progress - creating an idea
+  void trackJourneyAction(user.id, "create_idea", idea.id);
+
+  revalidatePath("/dashboard/ideas"); // Ensure list updates
+  return idea;
 }
 
 export async function updateIdeaAction(input: {
@@ -139,53 +133,48 @@ export async function updateIdeaAction(input: {
   updatedAt: string;
 }) {
   const user = await requireUser();
-  return withMutationBudget({ userId: user.id }, async () => {
-    const planId = await resolvePlanIdForUser(user.id);
-    if (input.visibility) {
-      const current = await getIdea(user.id, input.id);
-      if (input.visibility === "public" && current.visibility !== "public") {
-        await enforceRateLimit({
-          action: "idea.publicize",
-          identifier: user.id,
-          planId,
-          message: "You’ve reached the current limit for sharing ideas publicly. Wait a bit or upgrade to continue publishing.",
-        });
-      }
-    }
-    const idea = await updateIdea(user.id, input.id, {
-      title: input.title,
-      notes: input.notes,
-      githubUrl: input.githubUrl,
-      linkLabel: input.linkLabel,
-      visibility: input.visibility,
-      updatedAt: new Date(input.updatedAt),
-    });
-    await trackEvent({ name: "idea_updated", properties: { ideaId: idea.id } });
-    return idea;
+  const idea = await updateIdea(user.id, input.id, {
+    title: input.title,
+    notes: input.notes,
+    githubUrl: input.githubUrl,
+    linkLabel: input.linkLabel,
+    visibility: input.visibility,
+    updatedAt: new Date(input.updatedAt),
   });
+  await trackEvent({ name: "idea_updated", properties: { ideaId: idea.id } });
+
+  // Track journey progress for various update types
+  if (input.notes !== undefined) {
+    void trackJourneyAction(user.id, "add_idea_notes", idea.id);
+    void trackJourneyAction(user.id, "edit_idea_notes", idea.id);
+  }
+  if (input.title !== undefined) {
+    void trackJourneyAction(user.id, "edit_idea_title", idea.id);
+  }
+  if (input.githubUrl !== undefined) {
+    void trackJourneyAction(user.id, "add_github_url", idea.id);
+  }
+
+  return idea;
 }
 
 export async function deleteIdeaAction(input: { id: string }) {
   const user = await requireUser();
-  return withMutationBudget({ userId: user.id }, async () => {
-    const undo = createUndoToken(input.id);
-    const idea = await softDeleteIdea(user.id, input.id, undo.token, undo.expiresAt);
-    await trackEvent({ name: "idea_deleted", properties: { ideaId: idea.id } });
-    return { undoToken: undo.token, expiresAt: undo.expiresAt.toISOString() };
-  });
+  const undo = createUndoToken(input.id);
+  const idea = await softDeleteIdea(user.id, input.id, undo.token, undo.expiresAt);
+  await trackEvent({ name: "idea_deleted", properties: { ideaId: idea.id } });
+  return { undoToken: undo.token, expiresAt: undo.expiresAt.toISOString() };
 }
 
 export async function restoreIdeaAction(input: { id: string; token: string }) {
   const user = await requireUser();
-  return withMutationBudget({ userId: user.id }, async () => {
-    const record = consumeUndoToken(input.token);
-    if (!record || record.ideaId !== input.id) {
-      throw new Error("Undo token expired");
-    }
-    const idea = await restoreIdea(user.id, input.id);
-    await trackEvent({ name: "idea_restored", properties: { ideaId: idea.id } });
-    return idea;
-  });
+  const record = consumeUndoToken(input.token);
+  if (!record || record.ideaId !== input.id) {
+    throw new Error("Undo token expired");
+  }
+  const idea = await restoreIdea(user.id, input.id);
+  await trackEvent({ name: "idea_restored", properties: { ideaId: idea.id } });
+  return idea;
 }
 
 export async function searchIdeasAction(query: string) {
@@ -229,17 +218,13 @@ export async function loadIdeaWithFeatures(id: string) {
   const joinRequestCountsPromise: Promise<JoinRequestCounts | null> = idea.isOwner
     ? getJoinRequestCounts(user.id, id)
     : Promise.resolve<JoinRequestCounts | null>(null);
-  const inviteCountPromise = idea.isOwner
-    ? listIdeaCollaboratorInvites(user.id, id).then((invites) => invites.length)
-    : Promise.resolve(0);
-  const [features, deletedFeatures, viewerJoinRequest, ownerJoinRequestCounts, ownerInviteCount] = await Promise.all([
+  const [features, deletedFeatures, viewerJoinRequest, ownerJoinRequestCounts] = await Promise.all([
     listFeatures(user.id, id),
     idea.isOwner || idea.accessRole === "editor" ? listDeletedFeatures(user.id, id) : Promise.resolve([]),
     getJoinRequestForApplicant(user.id, id),
     joinRequestCountsPromise,
-    inviteCountPromise,
   ]);
-  return { idea, features, deletedFeatures, viewerJoinRequest, ownerJoinRequestCounts, ownerInviteCount };
+  return { idea, features, deletedFeatures, viewerJoinRequest, ownerJoinRequestCounts };
 }
 
 export async function listJoinRequestsAction(ideaId: string) {
@@ -260,10 +245,8 @@ export async function listJoinRequestsAction(ideaId: string) {
 export async function markJoinRequestsSeenAction(input: { ideaId: string; requestIds?: string[] }) {
   const user = await requireUser();
   const payload = validateMarkJoinRequestsSeenInput(input);
-  const counts = await withMutationBudget({ userId: user.id }, async () => {
-    await markJoinRequestsSeen(user.id, payload.ideaId, payload.requestIds);
-    return getJoinRequestCounts(user.id, payload.ideaId);
-  });
+  await markJoinRequestsSeen(user.id, payload.ideaId, payload.requestIds);
+  const counts = await getJoinRequestCounts(user.id, payload.ideaId);
 
   await trackEvent({
     name: "idea_join_requests_marked_seen",
@@ -285,17 +268,7 @@ export async function resolveJoinRequestAction(input: ResolveJoinRequestActionIn
     resolveInput.grantRole = resolvedGrantRole;
   }
 
-  const planId = await resolvePlanIdForUser(user.id);
-  await enforceRateLimit({
-    action: "join.resolve",
-    identifier: user.id,
-    planId,
-    message: "You’ve processed a lot of join requests in a short burst. Give it a moment before approving or rejecting more.",
-  });
-
-  const result = await withMutationBudget({ userId: user.id }, () =>
-    resolveJoinRequest(user.id, payload.requestId, resolveInput),
-  );
+  const result = await resolveJoinRequest(user.id, payload.requestId, resolveInput);
   const counts = await getJoinRequestCounts(user.id, result.request.ideaId);
 
   await trackEvent({
@@ -314,9 +287,7 @@ export async function resolveJoinRequestAction(input: ResolveJoinRequestActionIn
 export async function updateJoinRequestReactionAction(input: { requestId: string; reaction: string | null }) {
   const user = await requireUser();
   const payload = validateJoinRequestReactionInput(input);
-  const request = await withMutationBudget({ userId: user.id }, () =>
-    updateJoinRequestReaction(user.id, payload.requestId, payload.reaction),
-  );
+  const request = await updateJoinRequestReaction(user.id, payload.requestId, payload.reaction);
 
   await trackEvent({
     name: "idea_join_request_reacted",
@@ -332,7 +303,7 @@ export async function updateJoinRequestReactionAction(input: { requestId: string
 
 export async function archiveJoinRequestAction(requestId: string) {
   const user = await requireUser();
-  const request = await withMutationBudget({ userId: user.id }, () => archiveJoinRequest(user.id, requestId));
+  const request = await archiveJoinRequest(user.id, requestId);
   const counts = await getJoinRequestCounts(user.id, request.ideaId);
 
   await trackEvent({
@@ -399,51 +370,34 @@ export async function searchCollaboratorDirectoryAction(input: { ideaId: string;
 
 export async function inviteIdeaCollaboratorAction(input: { ideaId: string; email: string; role: "editor" | "commenter" | "viewer" }) {
   const user = await requireUser();
-  const planId = await resolvePlanIdForUser(user.id);
-  await enforceRateLimit({
-    action: "collaborator.invite",
-    identifier: user.id,
-    planId,
-    message: "You’ve sent the maximum collaborator invites allowed right now. Try again in a little while or upgrade for a higher invite cadence.",
-  });
-  return withMutationBudget({ userId: user.id }, async () => {
-    const result = await inviteCollaborator(user.id, input.ideaId, { email: input.email, role: input.role });
-    await trackEvent({ name: "idea_collaborator_invited", properties: { ideaId: input.ideaId, role: input.role, type: result.type } });
-    return result;
-  });
+  const result = await inviteCollaborator(user.id, input.ideaId, { email: input.email, role: input.role });
+  await trackEvent({ name: "idea_collaborator_invited", properties: { ideaId: input.ideaId, role: input.role, type: result.type } });
+  return result;
 }
 
 export async function updateIdeaCollaboratorRoleAction(input: { ideaId: string; collaboratorId: string; role: "editor" | "commenter" | "viewer" }) {
   const user = await requireUser();
-  return withMutationBudget({ userId: user.id }, async () => {
-    const collaborator = await updateIdeaCollaboratorRole(user.id, input.ideaId, input.collaboratorId, { role: input.role });
-    await trackEvent({ name: "idea_collaborator_role_updated", properties: { ideaId: input.ideaId, collaboratorId: input.collaboratorId, role: input.role } });
-    return collaborator;
-  });
+  const collaborator = await updateIdeaCollaboratorRole(user.id, input.ideaId, input.collaboratorId, { role: input.role });
+  await trackEvent({ name: "idea_collaborator_role_updated", properties: { ideaId: input.ideaId, collaboratorId: input.collaboratorId, role: input.role } });
+  return collaborator;
 }
 
 export async function removeIdeaCollaboratorAction(input: { ideaId: string; collaboratorId: string }) {
   const user = await requireUser();
-  await withMutationBudget({ userId: user.id }, async () => {
-    await removeIdeaCollaborator(user.id, input.ideaId, input.collaboratorId);
-    await trackEvent({ name: "idea_collaborator_removed", properties: { ideaId: input.ideaId, collaboratorId: input.collaboratorId } });
-  });
+  await removeIdeaCollaborator(user.id, input.ideaId, input.collaboratorId);
+  await trackEvent({ name: "idea_collaborator_removed", properties: { ideaId: input.ideaId, collaboratorId: input.collaboratorId } });
 }
 
 export async function revokeIdeaCollaboratorInviteAction(input: { ideaId: string; inviteId: string }) {
   const user = await requireUser();
-  await withMutationBudget({ userId: user.id }, async () => {
-    await revokeIdeaCollaboratorInvite(user.id, input.ideaId, input.inviteId);
-    await trackEvent({ name: "idea_collaborator_invite_revoked", properties: { ideaId: input.ideaId, inviteId: input.inviteId } });
-  });
+  await revokeIdeaCollaboratorInvite(user.id, input.ideaId, input.inviteId);
+  await trackEvent({ name: "idea_collaborator_invite_revoked", properties: { ideaId: input.ideaId, inviteId: input.inviteId } });
 }
 
 export async function leaveIdeaAction(ideaId: string) {
   const user = await requireUser();
-  await withMutationBudget({ userId: user.id }, async () => {
-    await leaveIdea(user.id, ideaId);
-    await trackEvent({ name: "idea_collaborator_left", properties: { ideaId } });
-  });
+  await leaveIdea(user.id, ideaId);
+  await trackEvent({ name: "idea_collaborator_left", properties: { ideaId } });
 }
 
 export type SubmitJoinRequestResult =
@@ -477,17 +431,12 @@ export async function submitJoinRequestAction(input: { ideaId: string; message: 
     return { success: false, error: "You already have a pending request.", code: "request-exists", request: pending };
   }
 
-  const planId = await resolvePlanIdForUser(user.id);
-  await enforceRateLimit({
-    action: "join.request",
-    identifier: `${user.id}:${payload.ideaId}`,
-    planId,
-    message: "Slow down—give the team a moment to respond before sending another request.",
-  });
+  const rate = await consumeRateLimit(`${user.id}:join-request:${payload.ideaId}`);
+  if (!rate.success) {
+    throw new Error("Slow down—give the team a moment to respond before sending another request.");
+  }
 
-  const request = await withMutationBudget({ userId: user.id }, () =>
-    createJoinRequest(user.id, payload.ideaId, payload.message),
-  );
+  const request = await createJoinRequest(user.id, payload.ideaId, payload.message);
   await trackEvent({
     name: "idea_join_request_created",
     properties: { ideaId: payload.ideaId },
@@ -498,7 +447,7 @@ export async function submitJoinRequestAction(input: { ideaId: string; message: 
 
 export async function acceptIdeaCollaboratorInviteAction(token: string) {
   const user = await requireUser();
-  const ideaId = await withMutationBudget({ userId: user.id }, () => acceptIdeaCollaboratorInvite(user.id, token));
+  const ideaId = await acceptIdeaCollaboratorInvite(user.id, token);
   await trackEvent({ name: "idea_collaborator_joined", properties: { ideaId, inviteToken: token } });
   return { ideaId };
 }
@@ -526,39 +475,17 @@ async function fetchIdeaBundle(userId: string, ideaId: string): Promise<IdeaExpo
 
 export async function exportIdeaAsJsonAction(id: string) {
   const user = await requireUser();
-  const planId = await resolvePlanIdForUser(user.id);
-  await enforceRateLimit({
-    action: "idea.export",
-    identifier: user.id,
-    planId,
-    message: "You’ve hit the current export rate for your plan. Give it a moment and try again.",
-  });
   const exportedAt = new Date();
   const bundle = await fetchIdeaBundle(user.id, id);
-  const envelope = buildIdeaExportEnvelope([bundle], exportedAt);
-  await logUsageCost({
-    payer: actorPays(user.id),
-    action: "idea.export",
-    quantity: 1,
-    metadata: {
-      ideaId: bundle.idea.id,
-      featureCount: bundle.features.length,
-      mode: "single",
-    },
-  });
-  return envelope;
+
+  // Track journey progress - exporting an idea
+  void trackJourneyAction(user.id, "export_idea", id);
+
+  return buildIdeaExportEnvelope([bundle], exportedAt);
 }
 
 export async function exportAllIdeasAsJsonAction() {
   const user = await requireUser();
-  const planId = await resolvePlanIdForUser(user.id);
-  await enforceRateLimit({
-    action: "idea.export",
-    identifier: `${user.id}:bulk`,
-    planId,
-    weight: 3,
-    message: "Bulk exports are cooling down—wait a moment before exporting everything again.",
-  });
   const pageSize = 200;
   let cursor: string | undefined;
   const bundles: IdeaExportBundle[] = [];
@@ -584,18 +511,7 @@ export async function exportAllIdeasAsJsonAction() {
     cursor = nextCursor;
   }
 
-  const envelope = buildIdeaExportEnvelope(bundles, exportedAt);
-  await logUsageCost({
-    payer: actorPays(user.id),
-    action: "idea.export",
-    quantity: bundles.length || 1,
-    metadata: {
-      ideaCount: bundles.length,
-      totalFeatureCount: bundles.reduce((total, bundle) => total + bundle.features.length, 0),
-      mode: "bulk",
-    },
-  });
-  return envelope;
+  return buildIdeaExportEnvelope(bundles, exportedAt);
 }
 
 export async function requireAuth() {
@@ -605,10 +521,8 @@ export async function requireAuth() {
 
 export async function reorderIdeasAction(ids: string[]) {
   const user = await requireUser();
-  await withMutationBudget({ userId: user.id }, async () => {
-    await reorderIdeas(user.id, ids);
-    await trackEvent({ name: "idea_reordered", properties: { count: ids.length } });
-  });
+  await reorderIdeas(user.id, ids);
+  await trackEvent({ name: "idea_reordered", properties: { count: ids.length } });
 }
 
 type CycleIdeaStarActionResult =
@@ -628,6 +542,15 @@ export async function cycleIdeaStarAction(id: string): Promise<CycleIdeaStarActi
       name: eventName,
       properties: { ideaId: id },
     });
+
+    // Track journey progress based on star state
+    if (idea.starred) {
+      void trackJourneyAction(user.id, "star_idea", id);
+    }
+    if (idea.superStarred) {
+      void trackJourneyAction(user.id, "super_star_idea", id);
+    }
+
     return { success: true, idea };
   } catch (error) {
     if (error instanceof SuperStarLimitError) {
@@ -676,7 +599,6 @@ export async function createFeatureAction(
       },
 ) {
   const user = await requireUser();
-  const planId = await resolvePlanIdForUser(user.id);
   const payload = formData instanceof FormData
     ? {
         ideaId: String(formData.get("ideaId") ?? ""),
@@ -710,14 +632,7 @@ export async function createFeatureAction(
       }
     : formData;
 
-  await enforceRateLimit({
-    action: "feature.create",
-    identifier: user.id,
-    planId,
-    message: "You’ve hit the current feature creation pace for your plan. Give it a beat and try again.",
-  });
-
-  const feature = await withMutationBudget({ userId: user.id }, () => createFeature(user.id, payload));
+  const feature = await createFeature(user.id, payload);
   await trackEvent({
     name: "feature_created",
     properties: {
@@ -738,6 +653,10 @@ export async function createFeatureAction(
       properties: { featureId: feature.id, ideaId: payload.ideaId },
     });
   }
+
+  // Track journey progress - creating a feature (pass ideaId for condition checks)
+  void trackJourneyAction(user.id, "create_feature", payload.ideaId);
+
   return feature;
 }
 
@@ -752,39 +671,46 @@ export async function updateFeatureAction(payload: {
   visibility?: "inherit" | "private";
 }) {
   const user = await requireUser();
-  return withMutationBudget({ userId: user.id }, async () => {
-    const feature = await updateFeature(user.id, payload);
-    await trackEvent({ name: "feature_updated", properties: { ideaId: payload.ideaId, featureId: feature.id } });
-    return feature;
-  });
+  const feature = await updateFeature(user.id, payload);
+  await trackEvent({ name: "feature_updated", properties: { ideaId: payload.ideaId, featureId: feature.id } });
+
+  // Track journey progress for feature updates
+  if (payload.notes !== undefined) {
+    void trackJourneyAction(user.id, "add_feature_notes", feature.id);
+  }
+  if (payload.detail !== undefined || payload.details !== undefined) {
+    void trackJourneyAction(user.id, "add_feature_detail", feature.id);
+  }
+  if (payload.title !== undefined || payload.notes !== undefined || payload.detail !== undefined || payload.details !== undefined) {
+    void trackJourneyAction(user.id, "edit_feature", feature.id);
+  }
+
+  return feature;
 }
 
 export async function deleteFeatureAction(payload: { id: string }) {
   const user = await requireUser();
-  await withMutationBudget({ userId: user.id }, async () => {
-    await deleteFeature(user.id, payload.id);
-    await trackEvent({ name: "feature_deleted", properties: { featureId: payload.id } });
-  });
+  await deleteFeature(user.id, payload.id);
+  await trackEvent({ name: "feature_deleted", properties: { featureId: payload.id } });
 }
 
 export async function restoreDeletedFeatureAction(payload: { id: string }) {
   const user = await requireUser();
-  return withMutationBudget({ userId: user.id }, async () => {
-    const feature = await restoreFeature(user.id, payload.id);
-    await trackEvent({
-      name: "feature_restored",
-      properties: { featureId: payload.id, ideaId: feature.ideaId },
-    });
-    return feature;
+  const feature = await restoreFeature(user.id, payload.id);
+  await trackEvent({
+    name: "feature_restored",
+    properties: { featureId: payload.id, ideaId: feature.ideaId },
   });
+  return feature;
 }
 
 export async function reorderFeaturesAction(ideaId: string, ids: string[]) {
   const user = await requireUser();
-  await withMutationBudget({ userId: user.id }, async () => {
-    await reorderFeatures(user.id, ideaId, ids);
-    await trackEvent({ name: "feature_reordered", properties: { ideaId, count: ids.length } });
-  });
+  await reorderFeatures(user.id, ideaId, ids);
+  await trackEvent({ name: "feature_reordered", properties: { ideaId, count: ids.length } });
+
+  // Track journey progress - reordering features
+  void trackJourneyAction(user.id, "reorder_features", ideaId);
 }
 
 type CycleFeatureStarActionResult =
@@ -794,7 +720,7 @@ type CycleFeatureStarActionResult =
 export async function cycleFeatureStarAction(id: string): Promise<CycleFeatureStarActionResult> {
   const user = await requireUser();
   try {
-    const feature = await withMutationBudget({ userId: user.id }, () => cycleFeatureStarState(user.id, id));
+    const feature = await cycleFeatureStarState(user.id, id);
     const eventName = feature.superStarred
       ? "feature_super_starred"
       : feature.starred
@@ -805,6 +731,11 @@ export async function cycleFeatureStarAction(id: string): Promise<CycleFeatureSt
       name: eventName,
       properties: { featureId: id, ideaId: feature.ideaId },
     });
+
+    // Track journey progress - starring a feature
+    if (feature.starred || feature.superStarred) {
+      void trackJourneyAction(user.id, "star_feature", id);
+    }
 
     return { success: true, feature };
   } catch (error) {
@@ -821,17 +752,21 @@ export async function cycleFeatureStarAction(id: string): Promise<CycleFeatureSt
 
 export async function toggleFeatureCompletionAction(id: string, completed: boolean) {
   const user = await requireUser();
-  return withMutationBudget({ userId: user.id }, async () => {
-    const feature = await setFeatureCompletion(user.id, id, completed);
-    await trackEvent({
-      name: completed ? "feature_completed" : "feature_reopened",
-      properties: {
-        featureId: id,
-        ideaId: feature.ideaId,
-      },
-    });
-    return feature;
+  const feature = await setFeatureCompletion(user.id, id, completed);
+  await trackEvent({
+    name: completed ? "feature_completed" : "feature_reopened",
+    properties: {
+      featureId: id,
+      ideaId: feature.ideaId,
+    },
   });
+
+  // Track journey progress - completing a feature
+  if (completed) {
+    void trackJourneyAction(user.id, "complete_feature", id);
+  }
+
+  return feature;
 }
 
 export async function listIdeaOptionsAction(excludeId?: string) {
@@ -849,63 +784,62 @@ export async function convertIdeaToFeatureAction(input: { sourceIdeaId: string; 
     throw new Error("Choose a different idea to receive the feature.");
   }
 
-  return withMutationBudget({ userId: user.id, weight: 2 }, async () => {
-    const sourceIdea = await getIdea(user.id, input.sourceIdeaId);
-    await getIdea(user.id, input.targetIdeaId);
+  const sourceIdea = await getIdea(user.id, input.sourceIdeaId);
+  await getIdea(user.id, input.targetIdeaId);
 
-    const feature = await createFeature(user.id, {
-      ideaId: input.targetIdeaId,
-      title: sourceIdea.title,
-      notes: sourceIdea.notes,
-    });
-
-    const undo = createUndoToken(input.sourceIdeaId);
-    await softDeleteIdea(user.id, input.sourceIdeaId, undo.token, undo.expiresAt);
-
-    await trackEvent({
-      name: "idea_converted_to_feature",
-      properties: {
-        sourceIdeaId: input.sourceIdeaId,
-        targetIdeaId: input.targetIdeaId,
-        featureId: feature.id,
-      },
-    });
-
-    return { featureId: feature.id, targetIdeaId: input.targetIdeaId };
+  const feature = await createFeature(user.id, {
+    ideaId: input.targetIdeaId,
+    title: sourceIdea.title,
+    notes: sourceIdea.notes,
   });
+
+  const undo = createUndoToken(input.sourceIdeaId);
+  await softDeleteIdea(user.id, input.sourceIdeaId, undo.token, undo.expiresAt);
+
+  await trackEvent({
+    name: "idea_converted_to_feature",
+    properties: {
+      sourceIdeaId: input.sourceIdeaId,
+      targetIdeaId: input.targetIdeaId,
+      featureId: feature.id,
+    },
+  });
+
+  return { featureId: feature.id, targetIdeaId: input.targetIdeaId };
 }
 
 export async function convertFeatureToIdeaAction(input: { featureId: string }) {
   const user = await requireUser();
-  return withMutationBudget({ userId: user.id, weight: 2 }, async () => {
-    const { feature, ideaId } = await getFeatureById(user.id, input.featureId);
+  const { feature, ideaId } = await getFeatureById(user.id, input.featureId);
 
-    const idea = await createIdea(user.id, {
-      title: feature.title,
-      notes: (() => {
-        const detailMarkdown = feature.detailSections
-          .filter((section) => section.body.trim())
-          .map((section) => `**${section.label || "Detail"}**\n\n${section.body}`)
-          .join("\n\n---\n\n");
-        if (!detailMarkdown) {
-          return feature.notes;
-        }
-        const baseNotes = feature.notes?.trim() ?? "";
-        return baseNotes ? `${baseNotes}\n\n---\n\n${detailMarkdown}` : detailMarkdown;
-      })(),
-    });
-
-    await deleteFeature(user.id, input.featureId);
-
-    await trackEvent({
-      name: "feature_converted_to_idea",
-      properties: {
-        featureId: input.featureId,
-        sourceIdeaId: ideaId,
-        newIdeaId: idea.id,
-      },
-    });
-
-    return { newIdeaId: idea.id };
+  const idea = await createIdea(user.id, {
+    title: feature.title,
+    notes: (() => {
+      const detailMarkdown = feature.detailSections
+        .filter((section) => section.body.trim())
+        .map((section) => `**${section.label || "Detail"}**\n\n${section.body}`)
+        .join("\n\n---\n\n");
+      if (!detailMarkdown) {
+        return feature.notes;
+      }
+      const baseNotes = feature.notes?.trim() ?? "";
+      return baseNotes ? `${baseNotes}\n\n---\n\n${detailMarkdown}` : detailMarkdown;
+    })(),
   });
+
+  await deleteFeature(user.id, input.featureId);
+
+  await trackEvent({
+    name: "feature_converted_to_idea",
+    properties: {
+      featureId: input.featureId,
+      sourceIdeaId: ideaId,
+      newIdeaId: idea.id,
+    },
+  });
+
+  // Track journey progress - converting feature to idea
+  void trackJourneyAction(user.id, "convert_feature_to_idea", idea.id);
+
+  return { newIdeaId: idea.id };
 }

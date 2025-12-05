@@ -7,9 +7,6 @@ import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { requireIdeaAccess } from "@/lib/db/access";
 import { ideaCollaborators, ideaJoinRequests, ideaJoinRequestStatusEnum, users } from "@/lib/db/schema";
-import { enforceLimit } from "@/lib/limits/guard";
-import { actorPays } from "@/lib/limits/payer";
-import { logUsageCost } from "@/lib/usage/log-cost";
 
 type IdeaJoinRequestStatus = (typeof ideaJoinRequestStatusEnum.enumValues)[number];
 
@@ -158,21 +155,62 @@ export async function createJoinRequest(applicantId: string, ideaId: string, mes
       activityLog: [activityEntry],
     })
     .returning();
-
-  await logUsageCost({
-    payer: actorPays(applicantId),
-    action: "join-request.create",
-    metadata: {
-      ideaId,
-      requestId: created.id,
-      messageLength: message.length,
-    },
-  });
-
   return normalizeJoinRequest(created);
 }
 
 type AssignableCollaboratorRole = Exclude<typeof ideaCollaborators.$inferInsert["role"], "owner">;
+
+async function upsertCollaborator(
+  db: DbLike,
+  args: { ideaId: string; userId: string; resolverId: string; role: AssignableCollaboratorRole; timestamp: Date },
+): Promise<string | null> {
+  const { ideaId, userId, resolverId, role, timestamp } = args;
+
+  const [existing] = await db
+    .select({ id: ideaCollaborators.id, role: ideaCollaborators.role })
+    .from(ideaCollaborators)
+    .where(and(eq(ideaCollaborators.ideaId, ideaId), eq(ideaCollaborators.userId, userId)))
+    .limit(1);
+
+  if (existing) {
+    if (existing.role === "owner") {
+      return existing.id;
+    }
+
+    const rolePriority: Record<CollaboratorRoleKey, number> = {
+      viewer: 0,
+      commenter: 1,
+      editor: 2,
+      owner: 3,
+    };
+
+    const desiredRole = role as CollaboratorRoleKey;
+    const nextRole = rolePriority[desiredRole] >= rolePriority[existing.role] ? desiredRole : existing.role;
+
+    if (nextRole !== existing.role) {
+      await db
+        .update(ideaCollaborators)
+        .set({ role: nextRole, updatedAt: timestamp })
+        .where(eq(ideaCollaborators.id, existing.id));
+    }
+
+    return existing.id;
+  }
+
+  const [created] = await db
+    .insert(ideaCollaborators)
+    .values({
+      ideaId,
+      userId,
+      role,
+      invitedBy: resolverId,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    })
+    .returning({ id: ideaCollaborators.id });
+
+  return created?.id ?? null;
+}
 
 export type ResolveJoinRequestInput = {
   status: Extract<IdeaJoinRequestStatus, "approved" | "rejected">;
@@ -240,76 +278,13 @@ export async function resolveJoinRequest(
 
     let collaboratorId: string | null = null;
     if (input.status === "approved") {
-      const desiredRole: CollaboratorRoleKey = input.grantRole ?? "editor";
-      const rolePriority: Record<CollaboratorRoleKey, number> = {
-        viewer: 0,
-        commenter: 1,
-        editor: 2,
-        owner: 3,
-      };
-
-      const [existingCollaborator] = await tx
-        .select({
-          id: ideaCollaborators.id,
-          role: ideaCollaborators.role,
-        })
-        .from(ideaCollaborators)
-        .where(and(eq(ideaCollaborators.ideaId, row.ideaId), eq(ideaCollaborators.userId, row.applicantId)))
-        .limit(1);
-
-      if (!existingCollaborator) {
-        const limitResult = await enforceLimit({
-          scope: { type: "idea", id: row.ideaId },
-          metric: "collaborators.per_idea.lifetime",
-          userId: resolverId,
-          credit: { amount: 1 },
-          message: "This idea has reached the collaborator limit for your current plan.",
-          db: tx,
-        });
-
-        const [created] = await tx
-          .insert(ideaCollaborators)
-          .values({
-            ideaId: row.ideaId,
-            userId: row.applicantId,
-            role: desiredRole,
-            invitedBy: resolverId,
-            createdAt: timestamp,
-            updatedAt: timestamp,
-          })
-          .returning({ id: ideaCollaborators.id });
-
-        collaboratorId = created?.id ?? null;
-
-        if (collaboratorId) {
-          await logUsageCost({
-            payer: limitResult.payer,
-            action: "collaborator.add",
-            creditsDebited: limitResult.credit?.amount ?? 0,
-        metadata: {
-          ideaId: row.ideaId,
-          collaboratorId,
-          actorId: resolverId,
-          source: "join-request",
-          chargedPayer: limitResult.credit?.chargedPayer ?? null,
-        },
+      collaboratorId = await upsertCollaborator(tx, {
+        ideaId: row.ideaId,
+        userId: row.applicantId,
+        resolverId,
+        role: input.grantRole ?? "editor",
+        timestamp,
       });
-        }
-      } else {
-        collaboratorId = existingCollaborator.id;
-        if (existingCollaborator.role !== "owner") {
-          const nextRole =
-            rolePriority[desiredRole] >= rolePriority[existingCollaborator.role]
-              ? desiredRole
-              : existingCollaborator.role;
-          if (nextRole !== existingCollaborator.role) {
-            await tx
-              .update(ideaCollaborators)
-              .set({ role: nextRole, updatedAt: timestamp })
-              .where(eq(ideaCollaborators.id, existingCollaborator.id));
-          }
-        }
-      }
     }
 
     return {

@@ -1,81 +1,93 @@
-import type { CSSProperties } from "react";
-
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { eq } from "drizzle-orm";
 
 import { getCurrentUser } from "@/lib/auth/session";
+import { getDb } from "@/lib/db";
+import { users } from "@/lib/db/schema";
+import { journeyProgress } from "@/lib/db/schema/journey";
 
 import { hasPassword } from "./account/actions";
 import { PasswordReminder } from "./components/PasswordReminder";
 import { UserMenu } from "./components/UserMenu";
 import { AppInstallReminder } from "./components/AppInstallReminder";
-import { LimitDialogProvider } from "@/components/limit/limit-dialog-context";
-
-const discoverColors: CSSProperties = {
-  "--discover": "#f9a8d4",
-  "--discover-hover": "#f472b6",
-} as CSSProperties;
+import { TutorialProvider } from "@/components/tutorial/TutorialProvider";
+import { DashboardShell } from "./DashboardShell";
+import { DashboardSpaceProvider } from "./DashboardSpaceProvider";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
-  const needsPassword = user ? !(await hasPassword(user.id)) : false;
+
+  // If not logged in, middleware will handle redirect to login
+  if (!user) {
+    redirect("/login");
+  }
+
+  // Check if user has chosen a path or plan
+  const db = getDb();
+  const [record] = await db
+    .select({ planId: users.planId, chosenPath: users.chosenPath })
+    .from(users)
+    .where(eq(users.id, user.id))
+    .limit(1);
+
+  // Redirect to choose-path if no path or plan selected
+  // Wanderers have chosenPath but no planId, Sorcerers have both
+  if (!record?.planId && !record?.chosenPath) {
+    redirect("/choose-path");
+  }
+
+  const needsPassword = !(await hasPassword(user.id));
+
+  // Fetch tutorial state
+  const journey = await db.query.journeyProgress.findFirst({
+    where: eq(journeyProgress.userId, user.id),
+    columns: {
+      tutorialStep: true,
+      tutorialSkipped: true,
+    },
+  });
+
+  // Header content to pass to DashboardShell
+  // Fixed layout: Coda CLI branding (top-left) with original glow, UserMenu (top-right)
+  const headerContent = (
+    <>
+      {/* Coda CLI branding - fixed top left with original gradient glow */}
+      <Link
+        href="/dashboard/ideas"
+        className="fixed top-6 left-6 z-50 inline-flex cursor-pointer items-center"
+        aria-label="Coda dashboard"
+        data-tutorial="sidebar-ideas-link"
+      >
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 -top-2 h-6 rounded-full bg-gradient-to-r from-primary/40 via-accent/55 to-primary/40 blur-xl opacity-70"
+        />
+        <span className="relative whitespace-nowrap text-sm font-semibold tracking-wide text-foreground transition-colors hover:text-primary">
+          Coda CLI
+        </span>
+      </Link>
+
+      {/* User menu - fixed top right */}
+      <UserMenu />
+
+      <PasswordReminder needsPassword={needsPassword} />
+    </>
+  );
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <header className="border-b border-border/60 bg-transparent">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <div className="flex flex-1 justify-start">
-            <Link
-              href="/dashboard/ideas"
-              className="relative inline-flex cursor-pointer items-center text-left"
-              aria-label="Coda dashboard"
-            >
-              <span
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-x-0 -top-2 h-6 rounded-full bg-gradient-to-r from-primary/40 via-accent/55 to-primary/40 blur-xl opacity-70"
-              />
-              <span className="relative whitespace-nowrap text-sm font-semibold tracking-wide text-foreground transition-colors hover:text-primary">
-                Coda CLI
-              </span>
-            </Link>
-          </div>
-          <div className="flex flex-1 justify-center">
-            <Link
-              href="/dashboard/ideas/discover"
-              className="discover-link-anchor group relative inline-flex cursor-pointer items-center"
-              aria-label="Discover public ideas"
-              style={discoverColors}
-            >
-              <span
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-x-0 -top-2 h-6 rounded-full bg-gradient-to-r from-primary/40 via-accent/55 to-primary/40 blur-xl opacity-70 transition-opacity duration-200 group-hover:opacity-80"
-              />
-              <span className="discover-wave relative inline-flex flex-col items-center gap-1 text-center text-sm font-semibold tracking-[0.38em] leading-tight md:flex-row md:items-center md:gap-4 md:text-left md:tracking-[0.32em]">
-                {["Discover", "Public", "Ideas"].map((word, wordIndex) => (
-                  <span key={word} className="inline-flex">
-                    {word.split("").map((char, charIndex) => (
-                      <span
-                        key={`${char}-${wordIndex}-${charIndex}`}
-                        className="discover-wave-letter"
-                        style={{ animationDelay: `${(wordIndex * word.length + charIndex) * 50}ms` }}
-                      >
-                        {char}
-                      </span>
-                    ))}
-                  </span>
-                ))}
-              </span>
-            </Link>
-          </div>
-          <div className="flex flex-1 justify-end">
-            <UserMenu className="ml-auto" />
-          </div>
-        </div>
-        <PasswordReminder needsPassword={needsPassword} />
-      </header>
-      <LimitDialogProvider>
-        <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">{children}</main>
-      </LimitDialogProvider>
-      <AppInstallReminder />
-    </div>
+    <TutorialProvider
+      initialStep={journey?.tutorialStep ?? 0}
+      isSkipped={journey?.tutorialSkipped ?? false}
+    >
+      <DashboardSpaceProvider
+        chosenPath={record?.chosenPath as "wanderer" | "sorcerer" | null}
+      >
+        <DashboardShell header={headerContent}>
+          {children}
+          <AppInstallReminder />
+        </DashboardShell>
+      </DashboardSpaceProvider>
+    </TutorialProvider>
   );
 }

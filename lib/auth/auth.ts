@@ -14,8 +14,6 @@ import { users } from "@/lib/db/schema";
 import { trackEvent } from "@/lib/utils/analytics";
 import { ensureRequiredDocumentAcceptances } from "@/lib/legal/acceptance";
 import { consumeRateLimit } from "@/lib/utils/rate-limit";
-import { actorPays } from "@/lib/limits/payer";
-import { logUsageCost } from "@/lib/usage/log-cost";
 
 const providers: NextAuthOptions["providers"] = [];
 
@@ -69,19 +67,8 @@ if (emailFrom && emailServer) {
           throw new Error("EmailSignin");
         }
 
-        const userId = await ensureMagicLinkUser(email);
+        await ensureMagicLinkUser(email);
         await sendMagicLinkEmail({ email, url });
-        try {
-          await logUsageCost({
-            payer: actorPays(userId, { source: "magic-link" }),
-            action: "auth.email",
-            metadata: { type: "magic_link" },
-          });
-        } catch (error) {
-          if (process.env.NODE_ENV !== "production") {
-            console.warn("auth: failed to log magic link email usage", { email, error });
-          }
-        }
         await trackEvent({ name: "auth_magic_link_requested", properties: { email } });
       },
     }),
@@ -98,6 +85,19 @@ export const authOptions: NextAuthOptions = {
   },
   pages: {
     signIn: "/login",
+  },
+  logger: {
+    error(code, metadata) {
+      // Suppress JWT expiration errors - they're handled gracefully
+      if (code === "JWT_SESSION_ERROR") return;
+      console.error("[next-auth][error]", code, metadata);
+    },
+    warn(code) {
+      console.warn("[next-auth][warn]", code);
+    },
+    debug(code, metadata) {
+      // Uncomment for debugging: console.debug("[next-auth][debug]", code, metadata);
+    },
   },
   callbacks: {
     async jwt({ token, user }) {

@@ -12,17 +12,41 @@ export type SessionUser = {
   theme?: "light" | "dark";
 };
 
-function isJwtSessionError(error: unknown) {
+function isJwtSessionError(error: unknown): boolean {
   if (!error || typeof error !== "object") {
     return false;
   }
-  const withCode = error as { code?: string; message?: string };
-  if (withCode.code === "JWT_SESSION_ERROR") {
+  const err = error as { code?: string; message?: string; name?: string; cause?: unknown };
+
+  // Check error code
+  if (err.code === "JWT_SESSION_ERROR") {
     return true;
   }
-  if (typeof withCode.message === "string") {
-    return withCode.message.toLowerCase().includes("decryption");
+
+  // Check error name (NextAuth/jose errors)
+  if (err.name === "JWTSessionError" || err.name === "JWTExpired") {
+    return true;
   }
+
+  // Check message for JWT-related errors
+  if (typeof err.message === "string") {
+    const msg = err.message.toLowerCase();
+    if (msg.includes("decryption") || msg.includes("exp") || msg.includes("claim") || msg.includes("jwt")) {
+      return true;
+    }
+  }
+
+  // Recursively check cause (NextAuth wraps errors)
+  if (err.cause) {
+    return isJwtSessionError(err.cause);
+  }
+
+  // Check if error string representation contains JWT info
+  const errorStr = String(error).toLowerCase();
+  if (errorStr.includes("jwt") || errorStr.includes("exp") || errorStr.includes("claim")) {
+    return true;
+  }
+
   return false;
 }
 

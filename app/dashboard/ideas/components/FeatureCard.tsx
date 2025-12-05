@@ -878,11 +878,14 @@ export function FeatureCard({
                     {isExpanded ? (
                       <motion.div
                         key="expanded"
-                        layout
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: "auto", opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2, ease: "easeInOut" }}
+                        transition={{
+                          height: { duration: 0.25, ease: [0.4, 0, 0.2, 1] },
+                          opacity: { duration: 0.15, ease: "easeOut" }
+                        }}
+                        style={{ overflow: "hidden" }}
                         className="space-y-3 rounded-lg border border-border/60 bg-card/70 px-4 py-3"
                         onKeyDown={(event) => {
                           if (event.key === "Escape") {

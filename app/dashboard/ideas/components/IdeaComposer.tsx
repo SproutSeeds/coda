@@ -105,6 +105,7 @@ export function IdeaComposerLauncher() {
         onClick={() => setIsExpanded(true)}
         className="group flex w-full cursor-pointer items-center justify-between rounded-xl border-2 border-dashed border-border/60 bg-card/40 px-4 py-3 text-left transition hover:border-primary hover:bg-card"
         data-testid="idea-launcher-open"
+        data-tutorial="new-idea-button"
       >
         <span className="flex flex-col">
           <span className="text-sm font-semibold text-foreground">Capture a new idea</span>
@@ -236,6 +237,7 @@ export function IdeaComposer({
         <CardContent className="grid gap-1.5 pt-0 pb-2">
           <Input
             data-testid="idea-title-input"
+            data-tutorial="idea-title-input"
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             onKeyDown={(event) => {
@@ -255,6 +257,7 @@ export function IdeaComposer({
             <Textarea
               id="idea-composer-notes"
               data-testid="idea-notes-input"
+              data-tutorial="idea-notes-input"
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
               onKeyDown={(event) => {

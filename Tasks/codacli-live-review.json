@@ -1,0 +1,216 @@
+{
+  "doc": "tasks",
+  "id": "codacli-live-review",
+  "planRef": "Plans/codacli-live-review.json",
+  "planVersion": "0.1.0",
+  "philosophyRef": "Philosophies/codacli-live-review-philosophy.md",
+  "lastUpdated": "2025-11-09",
+  "status": "draft",
+  "groups": [
+    {
+      "title": "Database & Config Foundations",
+      "items": [
+        {
+          "done": false,
+          "text": "Define Drizzle schemas for `review_sessions` and `review_events` (including enums, defaults, and FK helpers)."
+        },
+        {
+          "context":"whatever I found out along the way of solving the previous task",
+          "done": false,
+          "text": "Generate migrations adding both tables plus indexes on `project_id`, `owner_user_id`, `status`, and `created_at`."
+        },
+        {
+          "done": false,
+          "text": "Implement `lib/db/review-sessions.ts` helpers to create, update status, and append `review_events` with debounced byte counters."
+        },
+        {
+          "done": false,
+          "text": "Plumb env/config defaults (TTL, caps, heartbeat intervals, broker URL) through `lib/config` with Zod validation."
+        }
+      ]
+    },
+    {
+      "title": "CODACLI Web App APIs & Proxy",
+      "items": [
+        {
+          "done": false,
+          "text": "Ship POST `/api/review-sessions` route handler: owner/editor auth, ingest token hashing, expire-at calculation, and response payload {sessionId, brokerUrl, ingestToken, viewUrl, expiresAt}."
+        },
+        {
+          "done": false,
+          "text": "Ship POST `/api/review-sessions/[sessionId]/end` to mark sessions ended, notify broker, and append `review_events`."
+        },
+        {
+          "done": false,
+          "text": "Implement `ALL /r/:sessionId/*` proxy route with RBAC, TTL, status, and byte-cap enforcement plus 410/403/429 handling."
+        },
+        {
+          "done": false,
+          "text": "Stream HTTP traffic to broker `/relay/:sessionId` (header scrub, Accept-Encoding preservation, response chunk persistence)."
+        },
+        {
+          "done": false,
+          "text": "Handle WebSocket upgrades via broker relay, including HMR/dev sockets and app-level WS, with per-session byte metering."
+        },
+        {
+          "done": false,
+          "text": "Integrate optional `<base href>` injection for HTML responses when tunneled apps lack basePath support."
+        },
+        {
+          "done": false,
+          "text": "Configure edge caching rules (hashed assets 24h, ETag/Last-Modified, no dynamic HTML caching) either via Next middleware or CDN config."
+        }
+      ]
+    },
+    {
+      "title": "Dashboard & CLI Surfaces",
+      "items": [
+        {
+          "done": false,
+          "text": "Add dashboard Live Review card with Start button (port/TTL/cap form), session status, URL copy, RTT ping, byte meter, and Kill action."
+        },
+        {
+          "done": false,
+          "text": "Implement client polling/server actions to fetch latest session state + review events for the dashboard."
+        },
+        {
+          "done": false,
+          "text": "Extend CLI with `coda review up|down|status` commands wrapping the new APIs and printing broker URL + limits."
+        },
+        {
+          "done": false,
+          "text": "Emit analytics events for start/end/cap-hit/kill flows (both UI and CLI) so product can monitor adoption."
+        }
+      ]
+    },
+    {
+      "title": "Broker Service",
+      "items": [
+        {
+          "done": false,
+          "text": "Create broker service skeleton (Node) with helper connection endpoint `wss://broker.codacli.internal/connect` validating ingest tokens and enabling permessage-deflate."
+        },
+        {
+          "done": false,
+          "text": "Implement relay HTTP endpoint `POST /relay/:sessionId` that frames requests, streams responses, and enforces wake/sleep logic."
+        },
+        {
+          "done": false,
+          "text": "Implement relay WebSocket endpoint `GET /relay/:sessionId` with upgrade support and raw byte piping between helper and CODACLI app."
+        },
+        {
+          "done": false,
+          "text": "Add heartbeat timers (ping every 30s, timeout 60s) plus idle-sleep enforcement (close helper WS after 3 min inactivity, emit review_event)."
+        },
+        {
+          "done": false,
+          "text": "Track per-session and daily byte counts; stop accepting new relays when thresholds exceed and notify CODACLI via webhook/event."
+        },
+        {
+          "done": false,
+          "text": "Instrument structured logging/metrics for relay latency, WS failures, wake attempts, and cap hits."
+        }
+      ]
+    },
+    {
+      "title": "Electron Helper",
+      "items": [
+        {
+          "done": false,
+          "text": "Implement `startLiveReview({ projectId, port, ttl, cap })` flow that calls the CODACLI API, stores session metadata, and opens outbound WS to the broker."
+        },
+        {
+          "done": false,
+          "text": "Stream HTTP requests/responses: translate `{t:'req'|'body'|'end'}` frames into local `http/https` calls against 127.0.0.1:<port> and emit response frames."
+        },
+        {
+          "done": false,
+          "text": "Handle WebSocket upgrades via `net.createConnection`, piping bytes with `{t:'ws'}` frames and closing on `{t:'ws-end'}`."
+        },
+        {
+          "done": false,
+          "text": "Add heartbeat + reconnect loop (ping broker every 30s, backoff reconnect up to expiresAt) with idle sleep awareness."
+        },
+        {
+          "done": false,
+          "text": "Respect `CODACLI_REVIEW=1` dev mode flag to quiet overlays/logs and surface local notifications showing session URL + byte usage."
+        }
+      ]
+    },
+    {
+      "title": "Security, RBAC & Cost Controls",
+      "items": [
+        {
+          "done": false,
+          "text": "Enforce owner/editor RBAC in APIs, proxy middleware, and broker relay authorization."
+        },
+        {
+          "done": false,
+          "text": "Implement header scrub + cookie isolation so viewer auth headers never reach the local app unless explicitly allowed."
+        },
+        {
+          "done": false,
+          "text": "Add optional per-session path blocklist plus audit logging for attempted access."
+        },
+        {
+          "done": false,
+          "text": "Persist `review_events` for start/connect/disconnect/wake/sleep/cap-hit/end and expose them in admin dashboards."
+        },
+        {
+          "done": false,
+          "text": "Wire per-session byte caps (default 250 MB) and global daily cap (2 GB) into enforcement path with graceful 429 responses."
+        }
+      ]
+    },
+    {
+      "title": "Testing & Verification",
+      "items": [
+        {
+          "done": false,
+          "text": "Add unit tests for Drizzle helpers (session creation, byte increment debouncing, event logging)."
+        },
+        {
+          "done": false,
+          "text": "Integration tests covering API create/end flows, proxy happy path, and RBAC failures."
+        },
+        {
+          "done": false,
+          "text": "Broker + helper integration test (or harness) that exercises HTTP streaming, WS upgrades, idle sleep, and wake behavior."
+        },
+        {
+          "done": false,
+          "text": "E2E test: create session, connect helper, load `/r/:sessionId/` from Playwright, confirm assets + WebSockets function."
+        },
+        {
+          "done": false,
+          "text": "Scenario tests for byte-cap exhaustion (force 2 MB cap), raising cap, and verifying 429 during cap-hit window."
+        },
+        {
+          "done": false,
+          "text": "Security test: unauthorized user hitting `/r/:sessionId/` should log event and receive 403 without waking helper."
+        }
+      ]
+    },
+    {
+      "title": "Docs, Ops & Rollout",
+      "items": [
+        {
+          "done": false,
+          "text": "Document Live Review usage in README/docs (env vars, CLI commands, dashboard controls, security considerations)."
+        },
+        {
+          "done": false,
+          "text": "Add runbooks for broker operations (deploy, monitor, wake failures, cap overrides)."
+        },
+        {
+          "done": false,
+          "text": "Create admin dashboards/alerts for active sessions, sleeping sessions, cap hits, and global quota usage."
+        },
+        {
+          "done": false,
+          "text": "Coordinate phased rollout (internal dogfood → beta → GA) with feature flag toggles and telemetry reviews."
+        }
+      ]
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import * as schema from "./schema";
 
 const CONNECTION_ENV_KEYS = [
   "DATABASE_URL",
@@ -11,8 +12,8 @@ const CONNECTION_ENV_KEYS = [
   "NEON_POSTGRES_URL",
 ] as const;
 
-let cachedDb: ReturnType<typeof drizzle> | null = null;
-let cachedDevDb: ReturnType<typeof drizzle> | null = null;
+let cachedDb: ReturnType<typeof drizzle<typeof schema>> | null = null;
+let cachedDevDb: ReturnType<typeof drizzle<typeof schema>> | null = null;
 
 function resolveConnectionString() {
   for (const key of CONNECTION_ENV_KEYS) {
@@ -34,9 +35,9 @@ export function getDb() {
   const connection = postgres(connectionString, {
     prepare: false,
     // Silence Postgres NOTICE messages (e.g., Neon welcome banner) in app logs
-    onnotice: () => {},
+    onnotice: () => { },
   });
-  cachedDb = drizzle(connection);
+  cachedDb = drizzle(connection, { schema });
   return cachedDb;
 }
 
@@ -48,7 +49,7 @@ export function getDevDb() {
   if (!devUrl) return getDb();
   const connection = postgres(devUrl, {
     prepare: false,
-    onnotice: () => {},
+    onnotice: () => { },
   });
   cachedDevDb = drizzle(connection);
   return cachedDevDb;

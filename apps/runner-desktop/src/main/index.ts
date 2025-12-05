@@ -267,11 +267,6 @@ class RunnerManager {
     if (!this.handle) return;
     await this.handle.stop();
     this.handle = null;
-    // Clear the stored token to force a new pairing code on next start
-    await this.clearToken();
-    // Clear the pairing code from UI state and notify renderer
-    this.pairingCode = null;
-    this.sendToRenderer("runner:pairing-code", null as any); // Notify UI that pairing code is cleared
     this.setStatus("stopped");
   }
 

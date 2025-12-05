@@ -6,25 +6,10 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 
 import { getDb } from "@/lib/db";
-import {
-  calculateUsdAmountForCredits,
-  completeCreditPurchase,
-  createCreditPurchase,
-  getCreditBalance,
-  updateAutoTopUpSettings,
-} from "@/lib/db/credits";
 import { themePreferences, users } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { trackEvent } from "@/lib/utils/analytics";
 import { updatePasswordSchema } from "@/lib/validations/auth";
-import {
-  autoTopUpSettingsSchema,
-  creditTopUpFinalizeSchema,
-  creditTopUpRequestSchema,
-  type AutoTopUpSettingsInput,
-  type CreditTopUpFinalizeInput,
-  type CreditTopUpRequestInput,
-} from "@/lib/validations/credits";
 import { themePreferenceInputSchema } from "@/lib/validations/theme-preference";
 
 export type UpdatePasswordState =
@@ -132,126 +117,4 @@ export async function updateThemePreferenceAction(input: UpdateThemePreferenceIn
   revalidatePath("/dashboard/account");
 
   return { success: true, theme: parsed.theme, effectiveSource: parsed.source };
-}
-
-export async function loadCreditSummaryAction() {
-  const user = await requireUser();
-  const balance = await getCreditBalance({ type: "user", id: user.id });
-  return balance;
-}
-
-export async function initiateCreditTopUpAction(input: CreditTopUpRequestInput) {
-  const user = await requireUser();
-  const parsed = creditTopUpRequestSchema.safeParse(input);
-  if (!parsed.success) {
-    const message = parsed.error.issues[0]?.message ?? "Unable to start credit purchase.";
-    throw new Error(message);
-  }
-
-  const payload = parsed.data;
-  const credits = Number(payload.credits);
-  const amountUsd = payload.amountUsd ?? calculateUsdAmountForCredits(credits);
-
-  const purchase = await createCreditPurchase({
-    payer: { type: "user", id: user.id },
-    credits,
-    amountUsd,
-    provider: payload.provider,
-    initiatedBy: user.id,
-    metadata: {
-      ...(payload.metadata ?? {}),
-      trigger: "manual_top_up",
-    },
-  });
-
-  await trackEvent({
-    name: "credits_purchase.initiated",
-    properties: {
-      userId: user.id,
-      credits,
-      amountUsd,
-      provider: payload.provider,
-      purchaseId: purchase.id,
-    },
-  });
-
-  return {
-    id: purchase.id,
-    status: purchase.status,
-    credits: Number(purchase.credits),
-    amountUsd: Number(purchase.amountUsd),
-    provider: purchase.provider,
-  };
-}
-
-export async function finalizeCreditTopUpAction(input: CreditTopUpFinalizeInput) {
-  const user = await requireUser();
-  const parsed = creditTopUpFinalizeSchema.safeParse(input);
-  if (!parsed.success) {
-    const message = parsed.error.issues[0]?.message ?? "Unable to finalize credit purchase.";
-    throw new Error(message);
-  }
-
-  const payload = parsed.data;
-  const result = await completeCreditPurchase({
-    purchaseId: payload.purchaseId,
-    providerReference: payload.providerReference ?? null,
-    referenceCredits: payload.referenceCredits,
-    metadata: payload.metadata ?? {},
-    triggeredBy: user.id,
-    expectedPayer: { type: "user", id: user.id },
-  });
-
-  if (!result) {
-    throw new Error("Credit purchase not found.");
-  }
-
-  await trackEvent({
-    name: "credits_purchase.completed",
-    properties: {
-      userId: user.id,
-      purchaseId: result.purchase.id,
-      credits: Number(result.purchase.credits),
-      amountUsd: Number(result.purchase.amountUsd),
-      provider: result.purchase.provider,
-    },
-  });
-
-  revalidatePath("/dashboard/account");
-
-  return {
-    purchase: result.purchase,
-    balance: result.balance,
-  };
-}
-
-export async function updateAutoTopUpSettingsAction(input: AutoTopUpSettingsInput) {
-  const user = await requireUser();
-  const parsed = autoTopUpSettingsSchema.safeParse(input);
-  if (!parsed.success) {
-    const message = parsed.error.issues[0]?.message ?? "Invalid auto top-up settings.";
-    throw new Error(message);
-  }
-
-  const next = await updateAutoTopUpSettings({
-    payer: { type: "user", id: user.id },
-    enabled: parsed.data.enabled,
-    credits: parsed.data.credits,
-    threshold: parsed.data.threshold,
-    paymentMethodId: parsed.data.paymentMethodId ?? null,
-  });
-
-  await trackEvent({
-    name: "credits_autotopup.updated",
-    properties: {
-      userId: user.id,
-      enabled: next.autoTopUpEnabled,
-      credits: next.autoTopUpCredits,
-      threshold: next.autoTopUpThreshold,
-      paymentMethodId: next.autoTopUpPaymentMethodId,
-    },
-  });
-
-  revalidatePath("/dashboard/account");
-  return next;
 }

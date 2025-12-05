@@ -176,48 +176,6 @@
       "when": 1762300000000,
       "tag": "0030_extend_join_requests",
       "breakpoints": true
-    },
-    {
-      "idx": 25,
-      "version": "31",
-      "when": 1762400000000,
-      "tag": "0031_add_plans_and_limits",
-      "breakpoints": true
-    },
-    {
-      "idx": 26,
-      "version": "32",
-      "when": 1762400001000,
-      "tag": "0032_add_usage_costs",
-      "breakpoints": true
-    },
-    {
-      "idx": 27,
-      "version": "33",
-      "when": 1762400002000,
-      "tag": "0033_add_dev_usage_sessions",
-      "breakpoints": true
-    },
-    {
-      "idx": 28,
-      "version": "34",
-      "when": 1762400003000,
-      "tag": "0034_add_limit_override_status",
-      "breakpoints": true
-    },
-    {
-      "idx": 29,
-      "version": "35",
-      "when": 1762400004000,
-      "tag": "0035_add_credit_ledger",
-      "breakpoints": true
-    },
-    {
-      "idx": 30,
-      "version": "36",
-      "when": 1762400005000,
-      "tag": "0036_add_provider_cost_tables",
-      "breakpoints": true
     }
   ]
 }

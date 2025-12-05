@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@import "tw-animate-css";
+/* @import "tw-animate-css"; */
 
 @custom-variant dark (&:is(.dark *));
 
@@ -191,6 +191,17 @@ body {
 
 }
 
+/* Rainbow animation for choose-path CTA button */
+@keyframes rainbow-shift {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+/* Terminal cursor blink animation */
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
 
 @layer utilities {
   .interactive-btn {
@@ -375,4 +386,333 @@ body {
   70% { transform: translateY(2px); }
   100% { transform: translateY(0); }
 }
+}
+
+/* Choose Path page animations */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Neon button border animations - violet theme for Sorcerer */
+@keyframes neon-border-top {
+  0% { left: -100%; }
+  50%, 100% { left: 100%; }
+}
+
+@keyframes neon-border-right {
+  0% { top: -100%; }
+  50%, 100% { top: 100%; }
+}
+
+@keyframes neon-border-bottom {
+  0% { right: -100%; }
+  50%, 100% { right: 100%; }
+}
+
+@keyframes neon-border-left {
+  0% { bottom: -100%; }
+  50%, 100% { bottom: 100%; }
+}
+
+.neon-button {
+  position: relative;
+  display: inline-block;
+  color: #a78bfa;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: 0.5s;
+  letter-spacing: 4px;
+  overflow: hidden;
+}
+
+.neon-button:hover {
+  background: #a78bfa;
+  color: #0f0a1e;
+  box-shadow:
+    0 0 2px #a78bfa,
+    0 0 12px #a78bfa,
+    0 0 25px #a78bfa,
+    0 0 50px #a78bfa;
+}
+
+.neon-button .neon-line-top {
+  position: absolute;
+  display: block;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #a78bfa);
+  animation: neon-border-top 20s linear infinite !important;
+  pointer-events: none;
+}
+
+.neon-button .neon-line-right {
+  position: absolute;
+  display: block;
+  top: -100%;
+  right: 0;
+  width: 2px;
+  height: 100%;
+  background: linear-gradient(180deg, transparent, #a78bfa);
+  animation: neon-border-right 20s linear infinite !important;
+  animation-delay: 5s !important;
+  pointer-events: none;
+}
+
+.neon-button .neon-line-bottom {
+  position: absolute;
+  display: block;
+  bottom: 0;
+  right: -100%;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(270deg, transparent, #a78bfa);
+  animation: neon-border-bottom 20s linear infinite !important;
+  animation-delay: 10s !important;
+  pointer-events: none;
+}
+
+.neon-button .neon-line-left {
+  position: absolute;
+  display: block;
+  bottom: -100%;
+  left: 0;
+  width: 2px;
+  height: 100%;
+  background: linear-gradient(0deg, transparent, #a78bfa);
+  animation: neon-border-left 20s linear infinite !important;
+  animation-delay: 15s !important;
+  pointer-events: none;
+}
+
+/* Green Neon Button Variant for Wanderer */
+.neon-button.neon-button-green {
+  color: #4ade80 !important;
+}
+
+.neon-button.neon-button-green:hover {
+  background: #4ade80 !important;
+  color: #0f1e0a !important;
+  box-shadow:
+    0 0 2px #4ade80,
+    0 0 12px #4ade80,
+    0 0 25px #4ade80,
+    0 0 50px #4ade80 !important;
+}
+
+.neon-button.neon-button-green .neon-line-top {
+  background: linear-gradient(90deg, transparent, #4ade80) !important;
+}
+
+.neon-button.neon-button-green .neon-line-right {
+  background: linear-gradient(180deg, transparent, #4ade80) !important;
+}
+
+.neon-button.neon-button-green .neon-line-bottom {
+  background: linear-gradient(270deg, transparent, #4ade80) !important;
+}
+
+.neon-button.neon-button-green .neon-line-left {
+  background: linear-gradient(0deg, transparent, #4ade80) !important;
+}
+
+/* Quest Hub Flow Control Slider Thumbs */
+.slider-thumb-cyan::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #22d3ee;
+  cursor: pointer;
+  box-shadow: 0 0 6px rgba(34, 211, 238, 0.6);
+}
+
+.slider-thumb-cyan::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #22d3ee;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 0 6px rgba(34, 211, 238, 0.6);
+}
+
+.slider-thumb-green::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #4ade80;
+  cursor: pointer;
+  box-shadow: 0 0 6px rgba(74, 222, 128, 0.6);
+}
+
+.slider-thumb-green::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #4ade80;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 0 6px rgba(74, 222, 128, 0.6);
+}
+
+.slider-thumb-amber::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fbbf24;
+  cursor: pointer;
+  box-shadow: 0 0 6px rgba(251, 191, 36, 0.6);
+}
+
+.slider-thumb-amber::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fbbf24;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 0 6px rgba(251, 191, 36, 0.6);
+}
+
+.slider-thumb-purple::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #a855f7;
+  cursor: pointer;
+  box-shadow: 0 0 6px rgba(168, 85, 247, 0.6);
+}
+
+.slider-thumb-purple::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #a855f7;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 0 6px rgba(168, 85, 247, 0.6);
+}
+
+/* Collision slider - neon gradient thumb */
+.collision-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f97316, #ec4899);
+  cursor: pointer;
+  box-shadow:
+    0 0 12px rgba(249, 115, 22, 0.8),
+    0 0 20px rgba(236, 72, 153, 0.5),
+    inset 0 1px 2px rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.collision-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow:
+    0 0 16px rgba(249, 115, 22, 1),
+    0 0 28px rgba(236, 72, 153, 0.7),
+    inset 0 1px 2px rgba(255, 255, 255, 0.5);
+}
+
+.collision-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f97316, #ec4899);
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow:
+    0 0 12px rgba(249, 115, 22, 0.8),
+    0 0 20px rgba(236, 72, 153, 0.5),
+    inset 0 1px 2px rgba(255, 255, 255, 0.4);
+}
+
+.collision-slider::-moz-range-thumb:hover {
+  transform: scale(1.15);
+  box-shadow:
+    0 0 16px rgba(249, 115, 22, 1),
+    0 0 28px rgba(236, 72, 153, 0.7),
+    inset 0 1px 2px rgba(255, 255, 255, 0.5);
+}
+
+/* Settings Panel Slider - white thumb with glow */
+.settings-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: white;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+  transition: box-shadow 0.2s;
+}
+
+.settings-slider::-webkit-slider-thumb:hover {
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.7);
+}
+
+.settings-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: white;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+}
+
+.settings-slider::-moz-range-track {
+  background: transparent;
+}
+
+/* Settings Panel scrollbar - visible thin scrollbar */
+.settings-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.settings-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.settings-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.settings-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.settings-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/* Hidden scrollbar but still scrollable */
+.scrollbar-none {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari, Opera */
 }

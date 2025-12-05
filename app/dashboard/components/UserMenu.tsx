@@ -3,18 +3,60 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Menu, Sparkles } from "lucide-react";
+import { Menu, Sparkles, Info, Map, Monitor, Keyboard, MessageSquare, MapPin, Receipt, Settings } from "lucide-react";
 
 import { SignOutButton } from "./SignOutButton";
 
-type UserMenuProps = {
-  className?: string;
-};
+// Menu item component with glass morphism hover
+function MenuItem({
+  icon,
+  label,
+  href,
+  onClick,
+  danger,
+  dataTutorial,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  href?: string;
+  onClick?: () => void;
+  danger?: boolean;
+  dataTutorial?: string;
+}) {
+  const baseClassName = cn(
+    "flex items-center gap-3 w-full px-3 py-2.5 rounded-xl",
+    "text-sm font-medium transition-all duration-200",
+    danger
+      ? "text-red-400 hover:bg-red-500/10"
+      : "text-white/70 hover:text-white hover:bg-white/5"
+  );
 
-export function UserMenu({ className }: UserMenuProps) {
+  if (href) {
+    return (
+      <Link
+        href={href}
+        onClick={onClick}
+        className={baseClassName}
+        data-tutorial={dataTutorial}
+      >
+        <span className="opacity-60">{icon}</span>
+        {label}
+      </Link>
+    );
+  }
+
+  return (
+    <button onClick={onClick} className={baseClassName}>
+      <span className="opacity-60">{icon}</span>
+      {label}
+    </button>
+  );
+}
+
+export function UserMenu() {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -54,13 +96,20 @@ export function UserMenu({ className }: UserMenuProps) {
   const toggle = () => setOpen((value) => !value);
 
   return (
-    <div className={cn("relative", className)}>
-      <Button
+    <>
+      {/* Glass morphism trigger button - fixed top right */}
+      <button
         ref={triggerRef}
         type="button"
-        variant="outline"
-        size="icon"
-        className="interactive-btn border-transparent text-muted-foreground hover:border-border hover:bg-muted/20 hover:text-foreground focus-visible:ring-0"
+        className={cn(
+          "fixed top-6 right-6 z-50",
+          "w-10 h-10 rounded-full",
+          "bg-white/5 backdrop-blur-md border border-white/10",
+          "text-white/60 hover:text-white hover:bg-white/10",
+          "transition-all duration-300",
+          "flex items-center justify-center",
+          open && "bg-white/10 text-white"
+        )}
         id="workspace-menu-trigger"
         aria-label="Open workspace menu"
         aria-haspopup="menu"
@@ -68,103 +117,114 @@ export function UserMenu({ className }: UserMenuProps) {
         onClick={toggle}
       >
         {open ? <Sparkles className="size-5" /> : <Menu className="size-5" />}
-      </Button>
-      {open ? (
-        <div
-          ref={menuRef}
-          role="menu"
-          aria-labelledby="workspace-menu-trigger"
-          className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-xl border border-border/60 bg-card/95 shadow-xl backdrop-blur"
-        >
-          <div className="flex items-center gap-3 border-b border-border/60 bg-card/60 px-4 py-3">
-            <span className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <Sparkles className="size-5" />
-            </span>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-foreground">Coda workspace</p>
-              <p className="truncate text-xs text-muted-foreground">Where ideas go live</p>
+      </button>
+
+      {/* Dropdown Panel with glass morphism */}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            ref={menuRef}
+            role="menu"
+            aria-labelledby="workspace-menu-trigger"
+            initial={{ opacity: 0, y: -10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.95 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className={cn(
+              "fixed top-18 right-6 z-50",
+              "w-64 rounded-2xl overflow-hidden",
+              "shadow-2xl shadow-black/50"
+            )}
+            style={{
+              background: "rgba(0, 0, 0, 0.6)",
+              backdropFilter: "blur(20px)",
+              WebkitBackdropFilter: "blur(20px)",
+              border: "1px solid rgba(255, 255, 255, 0.1)",
+            }}
+          >
+            {/* Header */}
+            <div className="px-4 py-4 border-b border-white/10">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500/20 to-cyan-500/20 flex items-center justify-center">
+                  <Sparkles className="size-5 text-white/80" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-white">Coda workspace</p>
+                  <p className="text-xs text-white/50">Where ideas go live</p>
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="flex flex-col gap-1 p-2" role="none">
-            <Button
-              asChild
-              variant="ghost"
-              className="interactive-btn w-full justify-start border-transparent px-3 py-2 text-sm font-medium text-foreground hover:border-border hover:bg-muted/30 focus-visible:ring-0"
-              role="menuitem"
-            >
-              <Link href="/about" onClick={() => setOpen(false)}>
-                About Coda
-              </Link>
-            </Button>
-            <Button
-              asChild
-              variant="ghost"
-              className="interactive-btn w-full justify-start border-transparent px-3 py-2 text-sm font-medium text-foreground hover:border-border hover:bg-muted/30 focus-visible:ring-0"
-              role="menuitem"
-            >
-              <Link href="/dashboard/usage" onClick={() => setOpen(false)}>
-                Usage & costs dashboard
-              </Link>
-            </Button>
-            <Button
-              asChild
-              variant="ghost"
-              className="interactive-btn w-full justify-start border-transparent px-3 py-2 text-sm font-medium text-foreground hover:border-border hover:bg-muted/30 focus-visible:ring-0"
-              role="menuitem"
-            >
-              <Link href="/dashboard/devmode/downloads" onClick={() => setOpen(false)}>
-                Desktop Companion
-              </Link>
-            </Button>
-            <Button
-              asChild
-              variant="ghost"
-              className="interactive-btn w-full justify-start border-transparent px-3 py-2 text-sm font-medium text-foreground hover:border-border hover:bg-muted/30 focus-visible:ring-0"
-              role="menuitem"
-            >
-              <Link href="/dashboard/keyboard-shortcuts" onClick={() => setOpen(false)}>
-                Keyboard shortcuts
-              </Link>
-            </Button>
-            <Button
-              asChild
-              variant="ghost"
-              className="interactive-btn w-full justify-start border-transparent px-3 py-2 text-sm font-medium text-foreground hover:border-border hover:bg-muted/30 focus-visible:ring-0"
-              role="menuitem"
-            >
-              <Link href="/dashboard/suggestions" onClick={() => setOpen(false)}>
-                Suggestion box
-              </Link>
-            </Button>
-            <Button
-              asChild
-              variant="ghost"
-              className="interactive-btn w-full justify-start border-transparent px-3 py-2 text-sm font-medium text-foreground hover:border-border hover:bg-muted/30 focus-visible:ring-0"
-              role="menuitem"
-            >
-              <Link href="/check-in" onClick={() => setOpen(false)}>
-                Meetup check-in
-              </Link>
-            </Button>
-            <Button
-              asChild
-              variant="outline"
-              className="interactive-btn w-full justify-between border-transparent px-3 py-2 text-left text-sm font-medium text-foreground hover:border-border hover:bg-muted/30 focus-visible:ring-0"
-              role="menuitem"
-            >
-              <Link href="/dashboard/account" onClick={() => setOpen(false)}>
-                Account settings
-              </Link>
-            </Button>
-            <SignOutButton
-              variant="ghost"
-              className="interactive-btn w-full justify-start border-transparent px-3 py-2 text-sm font-medium text-foreground hover:border-border hover:bg-muted/30 focus-visible:ring-0"
-              role="menuitem"
-              onClick={() => setOpen(false)}
-            />
-          </div>
-        </div>
-      ) : null}
-    </div>
+
+            {/* Menu Items */}
+            <div className="p-2 space-y-1" role="none">
+              <MenuItem
+                icon={<Info className="size-4" />}
+                label="About Coda"
+                href="/about"
+                onClick={() => setOpen(false)}
+              />
+              <MenuItem
+                icon={<Map className="size-4" />}
+                label="Quest Hub"
+                href="/dashboard/quest-hub"
+                onClick={() => setOpen(false)}
+                dataTutorial="quest-hub-link"
+              />
+              <MenuItem
+                icon={<Monitor className="size-4" />}
+                label="Desktop Companion"
+                href="/dashboard/devmode/downloads"
+                onClick={() => setOpen(false)}
+              />
+              <MenuItem
+                icon={<Keyboard className="size-4" />}
+                label="Keyboard shortcuts"
+                href="/dashboard/keyboard-shortcuts"
+                onClick={() => setOpen(false)}
+              />
+              <MenuItem
+                icon={<MessageSquare className="size-4" />}
+                label="Suggestion box"
+                href="/dashboard/suggestions"
+                onClick={() => setOpen(false)}
+              />
+              <MenuItem
+                icon={<MapPin className="size-4" />}
+                label="Meetup check-in"
+                href="/check-in"
+                onClick={() => setOpen(false)}
+              />
+
+              {/* Divider */}
+              <div className="my-2 h-px bg-white/10" />
+
+              <MenuItem
+                icon={<Receipt className="size-4" />}
+                label="Arcane Ledger"
+                href="/dashboard/billing"
+                onClick={() => setOpen(false)}
+              />
+              <MenuItem
+                icon={<Settings className="size-4" />}
+                label="Account settings"
+                href="/dashboard/account"
+                onClick={() => setOpen(false)}
+              />
+
+              {/* Divider */}
+              <div className="my-2 h-px bg-white/10" />
+
+              {/* Sign out uses SignOutButton but styled to match */}
+              <SignOutButton
+                variant="ghost"
+                className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 text-red-400 hover:bg-red-500/10 hover:text-red-400 border-0"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }

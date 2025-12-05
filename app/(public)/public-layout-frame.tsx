@@ -59,7 +59,7 @@ export function PublicLayoutFrame({ children, isSignedIn }: PublicLayoutFramePro
             </span>
           </Link>
           {isSignedIn ? (
-            <UserMenu className="ml-auto" />
+            <UserMenu />
           ) : (
             <Button
               asChild

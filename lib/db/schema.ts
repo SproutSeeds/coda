@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, timestamp, uuid, primaryKey, integer, doublePrecision, index, boolean, date, uniqueIndex, pgEnum, jsonb, bigint } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, primaryKey, integer, doublePrecision, index, boolean, date, uniqueIndex, pgEnum, jsonb } from "drizzle-orm/pg-core";
 import type { AdapterAccount } from "next-auth/adapters";
 
 export const ideaVisibilityEnum = pgEnum("idea_visibility", ["private", "public"]);
@@ -68,6 +68,8 @@ export const ideaFeatures = pgTable("idea_features", {
 }));
 
 
+export const chosenPathEnum = pgEnum("chosen_path", ["wanderer", "sorcerer"]);
+
 export const users = pgTable("auth_user", {
   id: text("id").primaryKey(),
   name: text("name"),
@@ -75,6 +77,14 @@ export const users = pgTable("auth_user", {
   emailVerified: timestamp("email_verified", { withTimezone: true }),
   image: text("image"),
   passwordHash: text("password_hash"),
+  planId: text("plan_id"), // e.g., sorcerer_monthly, sorcerer_annual
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  subscriptionPeriodEnd: timestamp("subscription_period_end", { withTimezone: true }), // when access ends if cancel at period end
+  // Journey system
+  chosenPath: chosenPathEnum("chosen_path"), // 'wanderer' | 'sorcerer'
+  pathChosenAt: timestamp("path_chosen_at", { withTimezone: true }),
+  trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }), // Wanderer trial expiration
 });
 
 export const accounts = pgTable(
@@ -426,30 +436,6 @@ export const devLogs = pgTable(
   }),
 );
 
-export const devUsageSessions = pgTable(
-  "dev_usage_sessions",
-  {
-    jobId: uuid("job_id")
-      .primaryKey()
-      .references(() => devJobs.id, { onDelete: "cascade" }),
-    ideaId: text("idea_id").notNull(),
-    userId: text("user_id").notNull(),
-    payerType: text("payer_type").notNull(),
-    payerId: text("payer_id").notNull(),
-    runnerId: text("runner_id"),
-    startedAt: timestamp("started_at", { withTimezone: true }),
-    finishedAt: timestamp("finished_at", { withTimezone: true }),
-    durationMs: bigint("duration_ms", { mode: "number" }).notNull().default(0),
-    logBytes: bigint("log_bytes", { mode: "number" }).notNull().default(0),
-    costLoggedAt: timestamp("cost_logged_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => ({
-    userIdx: index("idx_dev_usage_sessions_user").on(table.userId, table.createdAt),
-    ideaIdx: index("idx_dev_usage_sessions_idea").on(table.ideaId, table.createdAt),
-  }),
-);
 // Dev Mode pairing codes
 export const devPairings = pgTable(
   "dev_pairings",
@@ -473,3 +459,13 @@ export const devPairings = pgTable(
     userRunnerIdx: index("idx_dev_pairings_user_runner").on(table.userId, table.runnerId).where(sql`state = 'approved'`),
   }),
 );
+
+// --- MONETIZATION & SPELLS ---
+export * from "./schema/monetization";
+export * from "./schema/grimoire";
+
+// --- THE JOURNEY ---
+export * from "./schema/journey";
+
+// --- VISUAL PRESETS ---
+export * from "./schema/visual-presets";

@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Bangers } from "next/font/google";
 import { cookies } from "next/headers";
 
 import { ThemeProvider } from "@/components/theme-provider";
 import { Footer } from "@/components/footer";
 import { Toaster } from "@/components/ui/sonner";
+import { GlobalVisualShell } from "@/components/effects/GlobalVisualShell";
 
 import "./globals.css";
 import "@xterm/xterm/css/xterm.css";
@@ -17,6 +18,12 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+const bangers = Bangers({
+  variable: "--font-bangers",
+  subsets: ["latin"],
+  weight: "400",
 });
 
 export const metadata: Metadata = {
@@ -78,12 +85,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang="en" suppressHydrationWarning className={initialTheme}>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} ${bangers.variable} antialiased bg-background text-foreground`}>
         <ThemeProvider attribute="class" defaultTheme={initialTheme ?? "dark"} storageKey="coda-theme" enableSystem>
-          <div className="flex min-h-screen flex-col">
-            <div className="flex-1">{children}</div>
-            <Footer />
-          </div>
+          <GlobalVisualShell>
+            <div className="flex min-h-screen flex-col">
+              <div className="flex-1">{children}</div>
+              <Footer />
+            </div>
+          </GlobalVisualShell>
           <Toaster position="top-right" richColors />
         </ThemeProvider>
       </body>

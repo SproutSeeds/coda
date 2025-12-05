@@ -5,8 +5,6 @@ import { alias } from "drizzle-orm/pg-core";
 import { revalidatePath } from "next/cache";
 
 import { getDb } from "@/lib/db";
-import { logUsageCost } from "@/lib/usage/log-cost";
-import { enforceLimit } from "@/lib/limits/guard";
 import { ideaCollaborators, ideas, users } from "@/lib/db/schema";
 import { sanitizeIdeaNotes, validateIdeaInput, validateIdeaReorder, validateIdeaUpdate } from "@/lib/validations/ideas";
 import { SuperStarLimitError } from "@/lib/errors/super-star-limit";
@@ -241,14 +239,6 @@ export async function createIdea(
   const payload = validateIdeaInput(input);
   const db = getDb();
 
-  const limit = await enforceLimit({
-    scope: { type: "user", id: userId },
-    metric: "ideas.per_user.lifetime",
-    userId,
-    credit: { amount: 1 },
-    message: "You’ve reached the maximum number of ideas allowed on your current plan.",
-  });
-
   const [top] = await db
     .select({ position: ideas.position })
     .from(ideas)
@@ -278,16 +268,6 @@ export async function createIdea(
     .insert(ideaCollaborators)
     .values({ ideaId: created.id, userId, role: "owner", invitedBy: userId })
     .onConflictDoNothing({ target: [ideaCollaborators.ideaId, ideaCollaborators.userId] });
-
-  await logUsageCost({
-    payer: limit.payer,
-    action: "idea.create",
-    creditsDebited: limit.credit?.amount ?? 0,
-    metadata: {
-      ideaId: created.id,
-      chargedPayer: limit.credit?.chargedPayer ?? null,
-    },
-  });
 
   revalidatePath("/dashboard/ideas");
   return normalizeIdea(created, { accessRole: "owner", isOwner: true });

@@ -13,8 +13,6 @@ import { passwordSignUpSchema } from "@/lib/validations/auth";
 import { sendPasswordVerificationEmail } from "@/lib/auth/email";
 import { recordMeetupCheckIn } from "@/lib/db/meetup";
 import { getCurrentUser } from "@/lib/auth/session";
-import { actorPays } from "@/lib/limits/payer";
-import { logUsageCost } from "@/lib/usage/log-cost";
 
 export type PasswordSignUpState =
   | { status: "idle" }
@@ -81,27 +79,6 @@ export async function registerWithPasswordAction(
     };
   }
 
-  try {
-    if (existing?.id) {
-      await logUsageCost({
-        payer: actorPays(existing.id, { source: "password-verification" }),
-        action: "auth.email",
-        metadata: { type: "password_verification", existingUser: true },
-      });
-    } else {
-      await logUsageCost({
-        payerType: "user",
-        payerId: email,
-        action: "auth.email",
-        metadata: { type: "password_verification", existingUser: false },
-      });
-    }
-  } catch (error) {
-    if (process.env.NODE_ENV !== "production") {
-      console.warn("auth: failed to log password verification email usage", { email, error });
-    }
-  }
-
   await trackEvent({
     name: "auth_password_created",
     properties: {
@@ -118,7 +95,7 @@ export async function registerWithPasswordAction(
  * Only available on Saturdays 11 AM - 1 PM Central Time (Pensacola, FL).
  * Returns success status and whether user was already checked in for this event.
  */
-export async function checkInToMeetupAction() {
+export async function checkInToMeetupAction(email?: string) {
   const user = await getCurrentUser();
 
   // Verify check-in is open

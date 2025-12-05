@@ -8,7 +8,7 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
-const HIDDEN_PATHS = new Set(["/login", "/about", "/check-in"]);
+const HIDDEN_PATHS = new Set(["/login", "/about", "/check-in", "/choose-path"]);
 const FLOATING_PATHS = new Set(["/login", "/about", "/check-in"]);
 const REVEAL_THRESHOLD_PX = 16;
 const FOOTER_OFFSET_PX = 24;

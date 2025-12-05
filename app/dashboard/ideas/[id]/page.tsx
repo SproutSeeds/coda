@@ -4,6 +4,8 @@ import { loadIdeaWithFeatures } from "../actions";
 import { IdeaDetail } from "../components/IdeaDetail";
 import { IdeaCollaborationProvider } from "../components/IdeaCollaborationProvider";
 import { hasLiveblocksConfig } from "@/lib/liveblocks/settings";
+import { requireUser } from "@/lib/auth/session";
+import { trackJourneyAction } from "@/lib/journey/tracker";
 
 function isMissingFeatureColumns(error: unknown): boolean {
   if (!error || typeof error !== "object") {
@@ -27,10 +29,14 @@ function isMissingFeatureColumns(error: unknown): boolean {
 
 export default async function IdeaDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const user = await requireUser();
 
   let data: Awaited<ReturnType<typeof loadIdeaWithFeatures>> | null = null;
   try {
     data = await loadIdeaWithFeatures(id);
+
+    // Track journey progress - viewing idea detail
+    void trackJourneyAction(user.id, "view_idea_detail", id);
   } catch (error) {
     if (isMissingFeatureColumns(error)) {
       return (
@@ -73,7 +79,6 @@ export default async function IdeaDetailPage({ params }: { params: Promise<{ id:
       viewerJoinRequest={data.viewerJoinRequest}
       collaborationEnabled={collaborationEnabled}
       ownerJoinRequestCounts={data.ownerJoinRequestCounts}
-      ownerInviteCount={data.ownerInviteCount}
     />
   );
 

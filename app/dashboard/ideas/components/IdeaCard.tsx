@@ -208,10 +208,12 @@ export function IdeaCard({
       transition={{ duration: 0.18, ease: "easeOut" }}
       style={style}
       className={cn(isDragging && "opacity-80")}
+      data-tutorial="ideas-list-item"
     >
       <Card
         data-testid="idea-card"
         data-idea-id={idea.id}
+        data-tutorial="idea-card-link"
         role="button"
         tabIndex={0}
         onClick={handleNavigate}
@@ -323,11 +325,14 @@ export function IdeaCard({
                 trimmedNotes ? (
                   <motion.p
                     key="idea-expanded"
-                    layout
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: "auto", opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2, ease: "easeInOut" }}
+                    transition={{
+                      height: { duration: 0.25, ease: [0.4, 0, 0.2, 1] },
+                      opacity: { duration: 0.15, ease: "easeOut" }
+                    }}
+                    style={{ overflow: "hidden" }}
                     className="text-sm text-muted-foreground"
                   >
                     {trimmedNotes}
@@ -335,11 +340,14 @@ export function IdeaCard({
                 ) : (
                   <motion.p
                     key="idea-empty"
-                    layout
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: "auto", opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2, ease: "easeInOut" }}
+                    transition={{
+                      height: { duration: 0.25, ease: [0.4, 0, 0.2, 1] },
+                      opacity: { duration: 0.15, ease: "easeOut" }
+                    }}
+                    style={{ overflow: "hidden" }}
                     className="text-sm text-muted-foreground"
                   >
                     No notes yet—open to add details.

@@ -42,6 +42,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
     dateStyle: "medium",
     timeStyle: "short",
   });
+
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
       <h1 className="text-2xl font-semibold">Account</h1>

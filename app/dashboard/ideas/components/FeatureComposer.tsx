@@ -11,8 +11,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import type { UsageMetricSummary } from "@/lib/limits/summary";
-import { useLimitDialog } from "@/components/limit/limit-dialog-context";
 
 import { createFeatureAction } from "../actions";
 import type { FeatureStarState } from "@/lib/db/features";
@@ -29,10 +27,9 @@ type FeatureDraft = {
   starred?: boolean;
 };
 
-export function FeatureComposer({ ideaId, limit }: { ideaId: string; limit?: UsageMetricSummary }) {
+export function FeatureComposer({ ideaId }: { ideaId: string }) {
   const router = useRouter();
   const storageKey = useMemo(() => `coda:feature-draft:${ideaId}`, [ideaId]);
-  const { openLimitDialog } = useLimitDialog();
 
   const [isExpanded, setIsExpanded] = useState(false);
   const [title, setTitle] = useState("");
@@ -50,38 +47,6 @@ export function FeatureComposer({ ideaId, limit }: { ideaId: string; limit?: Usa
   const [hydrated, setHydrated] = useState(false);
 
   const trimmedTitle = title.trim();
-  const limitStatus = limit?.status ?? "ok";
-  const isLimitBlocked = limitStatus === "blocked";
-  const isLimitWarn = limitStatus === "warn";
-  const limitRemaining = limit?.remaining ?? null;
-  const limitCap = limit?.limit ?? null;
-  const limitMessage = useMemo(() => {
-    if (isLimitBlocked) {
-      const capLabel = limitCap != null ? ` (${limitCap.toLocaleString()} lifetime)` : "";
-      return `You’ve reached the feature limit${capLabel} for your plan. Request an override or upgrade to add more.`;
-    }
-    if (isLimitWarn && limitRemaining != null) {
-      return `${limitRemaining.toLocaleString()} feature${limitRemaining === 1 ? "" : "s"} remaining before this idea hits the limit.`;
-    }
-    return null;
-  }, [isLimitBlocked, isLimitWarn, limitCap, limitRemaining]);
-
-  const hasWarnedRef = useRef(false);
-
-  useEffect(() => {
-    if (isLimitWarn && !hasWarnedRef.current) {
-      hasWarnedRef.current = true;
-      toast.warning(
-        limitRemaining != null
-          ? `${limitRemaining.toLocaleString()} feature${limitRemaining === 1 ? "" : "s"} left on this idea before you’ll need to upgrade.`
-          : "You’re approaching the feature limit for this idea.",
-      );
-    }
-    if (!isLimitWarn) {
-      hasWarnedRef.current = false;
-    }
-  }, [isLimitWarn, limitRemaining]);
-
   const blurActiveElement = useCallback(() => {
     if (typeof document === "undefined") {
       return;
@@ -147,21 +112,6 @@ export function FeatureComposer({ ideaId, limit }: { ideaId: string; limit?: Usa
   useEffect(() => () => resetCelebration(), [resetCelebration]);
 
   const handleSave = useCallback(() => {
-    if (isLimitBlocked) {
-      toast.error("You’ve reached the feature limit for this idea.");
-      openLimitDialog({
-        title: "Feature limit reached",
-        description:
-          "You’ve added the maximum number of features for this idea on your current plan. Upgrade or request an override to keep adding in the cloud.",
-        secondaryCtaLabel: "Request sponsor",
-        secondaryCtaHref: "/dashboard/account?tab=support",
-        notes: [
-          "Export the idea and continue offline for free while you regroup.",
-          "Ask the idea owner to sponsor more credits or move future features to a fresh idea.",
-        ],
-      });
-      return;
-    }
     const nextTitle = title.trim();
     const nextNotes = notes.trim();
     if (!nextTitle) {
@@ -205,7 +155,7 @@ export function FeatureComposer({ ideaId, limit }: { ideaId: string; limit?: Usa
         toast.error(error instanceof Error ? error.message : "Unable to add feature");
       }
     });
-  }, [ideaId, isLimitBlocked, notes, openLimitDialog, router, starState, startTransition, storageKey, title]);
+  }, [ideaId, notes, router, starState, startTransition, storageKey, title]);
 
   const handleCancel = useCallback(() => {
     setIsExpanded(false);
@@ -271,32 +221,14 @@ export function FeatureComposer({ ideaId, limit }: { ideaId: string; limit?: Usa
     return (
       <button
         type="button"
-        onClick={() => {
-          if (isLimitBlocked) {
-            openLimitDialog({
-              title: "Feature limit reached",
-              description:
-                "You’ve added the maximum features for this idea on your current plan. Upgrade or request an override to draft more features in the cloud.",
-            });
-            toast.error("Feature limit reached for this idea.");
-            return;
-          }
-          setIsExpanded(true);
-        }}
-        className={cn(
-          "group flex w-full items-center justify-between rounded-xl border-2 border-dashed border-border/60 bg-card/40 px-4 py-3 text-left transition",
-          isLimitBlocked ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:border-muted hover:bg-card/60",
-        )}
+        onClick={() => setIsExpanded(true)}
+        className="group flex w-full cursor-pointer items-center justify-between rounded-xl border-2 border-dashed border-border/60 bg-card/40 px-4 py-3 text-left transition hover:border-muted hover:bg-card/60"
         data-testid="feature-launcher-open"
       >
         <span className="flex flex-col">
           <span className="text-sm font-semibold text-foreground">Capture a new feature</span>
           <span className="text-xs text-muted-foreground">
-            {isLimitBlocked
-              ? "Feature limit reached—upgrade or request an override to add more."
-              : hasDraft
-                ? "Draft saved locally"
-                : "Click to expand the feature composer"}
+            {hasDraft ? "Draft saved locally" : "Click to expand the feature composer"}
           </span>
         </span>
         <span className="rounded-full border border-border bg-card p-2 transition group-hover:bg-muted/70 group-hover:text-foreground">
@@ -359,29 +291,13 @@ export function FeatureComposer({ ideaId, limit }: { ideaId: string; limit?: Usa
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {limitMessage ? (
-          <div
-            className={cn(
-              "rounded-lg border px-3 py-2 text-xs leading-relaxed",
-              isLimitBlocked
-                ? "border-rose-500/50 bg-rose-500/10 text-rose-100"
-                : "border-amber-400/50 bg-amber-400/10 text-amber-100",
-            )}
-            role="alert"
-          >
-            <p className="text-sm font-semibold">
-              {isLimitBlocked ? "Feature limit reached" : "Heads up"}
-            </p>
-            <p className="pt-1 text-[0.7rem] text-inherit">{limitMessage}</p>
-          </div>
-        ) : null}
         <Input
           value={title}
           onChange={(event) => setTitle(event.target.value)}
           onKeyDown={handleKeyCommands}
           placeholder="Feature name"
           maxLength={255}
-          disabled={isPending || isLimitBlocked}
+          disabled={isPending}
           data-testid="feature-title-input"
         />
         <div className="space-y-2">
@@ -397,12 +313,12 @@ export function FeatureComposer({ ideaId, limit }: { ideaId: string; limit?: Usa
               }
             }}
             onKeyDown={handleKeyCommands}
-          placeholder="Capture the short plan for this feature (max 10,000 characters)"
-          maxLength={MAX_NOTES}
-          rows={4}
-          disabled={isPending || isLimitBlocked}
-          data-testid="feature-notes-input"
-        />
+            placeholder="Capture the short plan for this feature (max 10,000 characters)"
+            maxLength={MAX_NOTES}
+            rows={4}
+            disabled={isPending}
+            data-testid="feature-notes-input"
+          />
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>{notes.length}/{MAX_NOTES} characters</span>
             <span className={trimmedTitle ? "opacity-0" : ""}>Name required</span>
@@ -412,7 +328,7 @@ export function FeatureComposer({ ideaId, limit }: { ideaId: string; limit?: Usa
           <Button
             type="button"
             onClick={handleSave}
-            disabled={isPending || isLimitBlocked}
+            disabled={isPending}
             className="interactive-btn cursor-pointer"
             data-testid="feature-save-button"
           >
