@@ -5,13 +5,24 @@ import { eq } from "drizzle-orm";
 
 export const runtime = "nodejs";
 
+// CORS headers for desktop app pairing
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
+export async function OPTIONS() {
+  return new Response(null, { status: 204, headers: corsHeaders });
+}
+
 export async function GET(req: Request) {
   const db = getDb();
   const { searchParams } = new URL(req.url);
   const deviceCode = searchParams.get("device_code");
 
   if (!deviceCode) {
-    return NextResponse.json({ error: "Missing device_code" }, { status: 400 });
+    return NextResponse.json({ error: "Missing device_code" }, { status: 400, headers: corsHeaders });
   }
 
   // Look up the pairing record
@@ -22,7 +33,7 @@ export async function GET(req: Request) {
     .limit(1);
 
   if (!pairing) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ error: "Not found" }, { status: 404, headers: corsHeaders });
   }
 
   const now = new Date();
@@ -35,15 +46,15 @@ export async function GET(req: Request) {
       .set({ status: "expired" })
       .where(eq(devicePairings.id, pairing.id));
 
-    return NextResponse.json({ status: "expired" });
+    return NextResponse.json({ status: "expired" }, { headers: corsHeaders });
   }
 
   if (pairing.status === "expired") {
-    return NextResponse.json({ status: "expired" });
+    return NextResponse.json({ status: "expired" }, { headers: corsHeaders });
   }
 
   if (pairing.status === "pending") {
-    return NextResponse.json({ status: "pending" });
+    return NextResponse.json({ status: "pending" }, { headers: corsHeaders });
   }
 
   if (pairing.status === "authorized") {
@@ -70,9 +81,9 @@ export async function GET(req: Request) {
       userId: pairing.userId,
       email,
       name,
-    });
+    }, { headers: corsHeaders });
   }
 
   // Unknown status
-  return NextResponse.json({ status: pairing.status });
+  return NextResponse.json({ status: pairing.status }, { headers: corsHeaders });
 }

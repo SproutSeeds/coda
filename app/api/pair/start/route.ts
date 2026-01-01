@@ -6,6 +6,17 @@ import { z } from "zod";
 
 export const runtime = "nodejs";
 
+// CORS headers for desktop app pairing
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
+export async function OPTIONS() {
+  return new Response(null, { status: 204, headers: corsHeaders });
+}
+
 const startSchema = z.object({
   deviceCode: z.string().uuid("Device code must be a valid UUID"),
   deviceName: z.string().max(100).optional(),
@@ -21,7 +32,7 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Invalid request", details: parsed.error.flatten() },
-      { status: 400 }
+      { status: 400, headers: corsHeaders }
     );
   }
 
@@ -56,12 +67,12 @@ export async function POST(req: Request) {
       deviceCode: row.deviceCode,
       expiresAt: row.expiresAt,
       authUrl,
-    });
+    }, { headers: corsHeaders });
   } catch (err) {
     console.error("[pair/start] Failed to create pairing:", err);
     return NextResponse.json(
       { error: "Failed to create pairing session" },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 }
