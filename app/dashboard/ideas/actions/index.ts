@@ -95,38 +95,55 @@ async function resolvePlanIdForUser(userId: string) {
 export async function createIdeaAction(
   formData: FormData | { title: string; notes: string; visibility?: "private" | "public" },
 ) {
-  const user = await requireUser();
-  return withMutationBudget({ userId: user.id }, async () => {
-    const planId = await resolvePlanIdForUser(user.id);
-    await enforceRateLimit({
-      action: "idea.create",
-      identifier: user.id,
-      planId,
-      message: "You’re creating ideas faster than your plan allows right now. Please wait a moment and try again.",
+  try {
+    console.log("[createIdeaAction] Starting...");
+    const user = await requireUser();
+    console.log("[createIdeaAction] User:", user.id);
+
+    return withMutationBudget({ userId: user.id }, async () => {
+      console.log("[createIdeaAction] Inside mutation budget");
+      const planId = await resolvePlanIdForUser(user.id);
+      console.log("[createIdeaAction] Plan ID:", planId);
+
+      await enforceRateLimit({
+        action: "idea.create",
+        identifier: user.id,
+        planId,
+        message: "You're creating ideas faster than your plan allows right now. Please wait a moment and try again.",
+      });
+      console.log("[createIdeaAction] Rate limit passed");
+
+      const payload = formData instanceof FormData
+        ? {
+            title: String(formData.get("title") ?? ""),
+            notes: String(formData.get("notes") ?? ""),
+            visibility: (() => {
+              const value = formData.get("visibility");
+              if (value === "private") return "private" as const;
+              if (value === "public") return "public" as const;
+              if (typeof value === "string") {
+                const normalized = value.toLowerCase();
+                if (normalized === "private") return "private" as const;
+                if (normalized === "public") return "public" as const;
+              }
+              return undefined;
+            })(),
+          }
+        : formData;
+
+      console.log("[createIdeaAction] Payload:", JSON.stringify(payload));
+      const idea = await createIdea(user.id, payload);
+      console.log("[createIdeaAction] Idea created:", idea.id);
+      await trackEvent({ name: "idea_created", properties: { ideaId: idea.id } });
+      return idea;
     });
-
-    const payload = formData instanceof FormData
-      ? {
-          title: String(formData.get("title") ?? ""),
-          notes: String(formData.get("notes") ?? ""),
-          visibility: (() => {
-            const value = formData.get("visibility");
-            if (value === "private") return "private" as const;
-            if (value === "public") return "public" as const;
-            if (typeof value === "string") {
-              const normalized = value.toLowerCase();
-              if (normalized === "private") return "private" as const;
-              if (normalized === "public") return "public" as const;
-            }
-            return undefined;
-          })(),
-        }
-      : formData;
-
-    const idea = await createIdea(user.id, payload);
-    await trackEvent({ name: "idea_created", properties: { ideaId: idea.id } });
-    return idea;
-  });
+  } catch (error) {
+    console.error("[createIdeaAction] ERROR:", error);
+    console.error("[createIdeaAction] Error name:", (error as Error)?.name);
+    console.error("[createIdeaAction] Error message:", (error as Error)?.message);
+    console.error("[createIdeaAction] Error stack:", (error as Error)?.stack);
+    throw error;
+  }
 }
 
 export async function updateIdeaAction(input: {
