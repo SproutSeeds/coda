@@ -473,3 +473,27 @@ export const devPairings = pgTable(
     userRunnerIdx: index("idx_dev_pairings_user_runner").on(table.userId, table.runnerId).where(sql`state = 'approved'`),
   }),
 );
+
+// Device Pairing for Coda Home Server authentication
+export const devicePairingStatusEnum = pgEnum("device_pairing_status", ["pending", "authorized", "expired"]);
+
+export const devicePairings = pgTable(
+  "device_pairings",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    deviceCode: text("device_code").notNull().unique(),
+    deviceName: text("device_name"),
+    userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
+    status: devicePairingStatusEnum("status").notNull().default("pending"),
+    token: text("token"),
+    jti: text("jti"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    authorizedAt: timestamp("authorized_at", { withTimezone: true }),
+  },
+  (table) => ({
+    deviceCodeIdx: index("idx_device_pairings_device_code").on(table.deviceCode),
+    userIdx: index("idx_device_pairings_user").on(table.userId),
+    statusIdx: index("idx_device_pairings_status").on(table.status),
+  }),
+);

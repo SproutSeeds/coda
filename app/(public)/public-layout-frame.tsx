@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { UserMenu } from "@/app/dashboard/components/UserMenu";
 
-const IMMERSIVE_ROUTES = new Set(["/login", "/about", "/check-in"]);
+const IMMERSIVE_ROUTES = new Set(["/login", "/about", "/check-in", "/pair"]);
 
 type PublicLayoutFrameProps = {
   children: React.ReactNode;
