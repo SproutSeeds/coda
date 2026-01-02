@@ -241,13 +241,14 @@ export async function createIdea(
   const payload = validateIdeaInput(input);
   const db = getDb();
 
-  const limit = await enforceLimit({
-    scope: { type: "user", id: userId },
-    metric: "ideas.per_user.lifetime",
-    userId,
-    credit: { amount: 1 },
-    message: "You’ve reached the maximum number of ideas allowed on your current plan.",
-  });
+  // Credit system disabled - skip limit enforcement
+  // const limit = await enforceLimit({
+  //   scope: { type: "user", id: userId },
+  //   metric: "ideas.per_user.lifetime",
+  //   userId,
+  //   credit: { amount: 1 },
+  //   message: "You've reached the maximum number of ideas allowed on your current plan.",
+  // });
 
   const [top] = await db
     .select({ position: ideas.position })
@@ -279,15 +280,16 @@ export async function createIdea(
     .values({ ideaId: created.id, userId, role: "owner", invitedBy: userId })
     .onConflictDoNothing({ target: [ideaCollaborators.ideaId, ideaCollaborators.userId] });
 
-  await logUsageCost({
-    payer: limit.payer,
-    action: "idea.create",
-    creditsDebited: limit.credit?.amount ?? 0,
-    metadata: {
-      ideaId: created.id,
-      chargedPayer: limit.credit?.chargedPayer ?? null,
-    },
-  });
+  // Credit system disabled - skip usage cost logging
+  // await logUsageCost({
+  //   payer: limit.payer,
+  //   action: "idea.create",
+  //   creditsDebited: limit.credit?.amount ?? 0,
+  //   metadata: {
+  //     ideaId: created.id,
+  //     chargedPayer: limit.credit?.chargedPayer ?? null,
+  //   },
+  // });
 
   revalidatePath("/dashboard/ideas");
   return normalizeIdea(created, { accessRole: "owner", isOwner: true });

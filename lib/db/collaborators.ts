@@ -239,13 +239,14 @@ export async function inviteCollaborator(userId: string, ideaId: string, input: 
     .limit(1);
 
   if (existingUser) {
-    const limit = await enforceLimit({
-      scope: { type: "idea", id: ideaId },
-      metric: "collaborators.per_idea.lifetime",
-      userId,
-      credit: { amount: 1 },
-      message: "This idea has reached the collaborator limit for your current plan.",
-    });
+    // Credit system disabled - skip limit enforcement
+    // const limit = await enforceLimit({
+    //   scope: { type: "idea", id: ideaId },
+    //   metric: "collaborators.per_idea.lifetime",
+    //   userId,
+    //   credit: { amount: 1 },
+    //   message: "This idea has reached the collaborator limit for your current plan.",
+    // });
 
     const [created] = await db
       .insert(ideaCollaborators)
@@ -263,18 +264,19 @@ export async function inviteCollaborator(userId: string, ideaId: string, input: 
 
     const summary = await fetchCollaboratorSummary(db, ideaId, created.id, userId);
 
-  await logUsageCost({
-    payer: limit.payer,
-    action: "collaborator.add",
-    creditsDebited: limit.credit?.amount ?? 0,
-    metadata: {
-      ideaId,
-      collaboratorId: created.id,
-      actorId: userId,
-      source: "invite-existing-user",
-      chargedPayer: limit.credit?.chargedPayer ?? null,
-    },
-  });
+    // Credit system disabled - skip usage cost logging
+    // await logUsageCost({
+    //   payer: limit.payer,
+    //   action: "collaborator.add",
+    //   creditsDebited: limit.credit?.amount ?? 0,
+    //   metadata: {
+    //     ideaId,
+    //     collaboratorId: created.id,
+    //     actorId: userId,
+    //     source: "invite-existing-user",
+    //     chargedPayer: limit.credit?.chargedPayer ?? null,
+    //   },
+    // });
 
     return { type: "collaborator", collaborator: summary } satisfies InviteCollaboratorResult;
   }
@@ -460,13 +462,14 @@ export async function acceptIdeaCollaboratorInvite(userId: string, token: string
         .where(eq(ideaCollaborators.id, existingCollaborator.id));
     }
   } else {
-    limitResult = await enforceLimit({
-      scope: { type: "idea", id: invite.ideaId },
-      metric: "collaborators.per_idea.lifetime",
-      userId,
-      credit: { amount: 1 },
-      message: "This idea has reached the collaborator limit for your current plan.",
-    });
+    // Credit system disabled - skip limit enforcement
+    // limitResult = await enforceLimit({
+    //   scope: { type: "idea", id: invite.ideaId },
+    //   metric: "collaborators.per_idea.lifetime",
+    //   userId,
+    //   credit: { amount: 1 },
+    //   message: "This idea has reached the collaborator limit for your current plan.",
+    // });
 
     await db
       .insert(ideaCollaborators)
@@ -494,19 +497,20 @@ export async function acceptIdeaCollaboratorInvite(userId: string, token: string
     .set({ acceptedAt: new Date() })
     .where(eq(ideaCollaboratorInvites.id, invite.id));
 
-  if (limitResult && collaboratorId) {
-    await logUsageCost({
-      payer: limitResult.payer,
-      action: "collaborator.add",
-      creditsDebited: limitResult.credit?.amount ?? 0,
-      metadata: {
-        ideaId: invite.ideaId,
-        collaboratorId,
-        actorId: userId,
-        source: "invite-accept",
-      },
-    });
-  }
+  // Credit system disabled - skip usage cost logging
+  // if (limitResult && collaboratorId) {
+  //   await logUsageCost({
+  //     payer: limitResult.payer,
+  //     action: "collaborator.add",
+  //     creditsDebited: limitResult.credit?.amount ?? 0,
+  //     metadata: {
+  //       ideaId: invite.ideaId,
+  //       collaboratorId,
+  //       actorId: userId,
+  //       source: "invite-accept",
+  //     },
+  //   });
+  // }
 
   return invite.ideaId;
 }

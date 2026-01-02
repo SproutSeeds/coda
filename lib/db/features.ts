@@ -120,13 +120,14 @@ export async function createFeature(userId: string, input: FeatureInput) {
 
   const db = getDb();
 
-  const limit = await enforceLimit({
-    scope: { type: "idea", id: payload.ideaId },
-    metric: "features.per_idea.lifetime",
-    userId,
-    credit: { amount: 0.5 },
-    message: "This idea has reached the maximum number of features for your current plan.",
-  });
+  // Credit system disabled - skip limit enforcement
+  // const limit = await enforceLimit({
+  //   scope: { type: "idea", id: payload.ideaId },
+  //   metric: "features.per_idea.lifetime",
+  //   userId,
+  //   credit: { amount: 0.5 },
+  //   message: "This idea has reached the maximum number of features for your current plan.",
+  // });
 
   if (payload.superStarred) {
     const [{ count }] = await db
@@ -178,17 +179,18 @@ export async function createFeature(userId: string, input: FeatureInput) {
 
   const feature = normalizeFeature(created);
 
-  await logUsageCost({
-    payer: limit.payer,
-    action: "feature.create",
-    creditsDebited: limit.credit?.amount ?? 0,
-    metadata: {
-      ideaId: payload.ideaId,
-      featureId: created.id,
-      actorId: userId,
-      chargedPayer: limit.credit?.chargedPayer ?? null,
-    },
-  });
+  // Credit system disabled - skip usage cost logging
+  // await logUsageCost({
+  //   payer: limit.payer,
+  //   action: "feature.create",
+  //   creditsDebited: limit.credit?.amount ?? 0,
+  //   metadata: {
+  //     ideaId: payload.ideaId,
+  //     featureId: created.id,
+  //     actorId: userId,
+  //     chargedPayer: limit.credit?.chargedPayer ?? null,
+  //   },
+  // });
 
   revalidatePath(`/dashboard/ideas/${payload.ideaId}`);
   revalidatePath("/dashboard/ideas");

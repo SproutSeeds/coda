@@ -258,14 +258,15 @@ export async function resolveJoinRequest(
         .limit(1);
 
       if (!existingCollaborator) {
-        const limitResult = await enforceLimit({
-          scope: { type: "idea", id: row.ideaId },
-          metric: "collaborators.per_idea.lifetime",
-          userId: resolverId,
-          credit: { amount: 1 },
-          message: "This idea has reached the collaborator limit for your current plan.",
-          db: tx,
-        });
+        // Credit system disabled - skip limit enforcement
+        // const limitResult = await enforceLimit({
+        //   scope: { type: "idea", id: row.ideaId },
+        //   metric: "collaborators.per_idea.lifetime",
+        //   userId: resolverId,
+        //   credit: { amount: 1 },
+        //   message: "This idea has reached the collaborator limit for your current plan.",
+        //   db: tx,
+        // });
 
         const [created] = await tx
           .insert(ideaCollaborators)
@@ -281,20 +282,21 @@ export async function resolveJoinRequest(
 
         collaboratorId = created?.id ?? null;
 
-        if (collaboratorId) {
-          await logUsageCost({
-            payer: limitResult.payer,
-            action: "collaborator.add",
-            creditsDebited: limitResult.credit?.amount ?? 0,
-        metadata: {
-          ideaId: row.ideaId,
-          collaboratorId,
-          actorId: resolverId,
-          source: "join-request",
-          chargedPayer: limitResult.credit?.chargedPayer ?? null,
-        },
-      });
-        }
+        // Credit system disabled - skip usage cost logging
+        // if (collaboratorId) {
+        //   await logUsageCost({
+        //     payer: limitResult.payer,
+        //     action: "collaborator.add",
+        //     creditsDebited: limitResult.credit?.amount ?? 0,
+        //     metadata: {
+        //       ideaId: row.ideaId,
+        //       collaboratorId,
+        //       actorId: resolverId,
+        //       source: "join-request",
+        //       chargedPayer: limitResult.credit?.chargedPayer ?? null,
+        //     },
+        //   });
+        // }
       } else {
         collaboratorId = existingCollaborator.id;
         if (existingCollaborator.role !== "owner") {
