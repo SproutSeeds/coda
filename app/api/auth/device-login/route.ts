@@ -4,7 +4,7 @@ import { users, mfaCodes } from "@/lib/db/schema";
 import { sendMfaCodeEmail } from "@/lib/auth/email";
 import { eq, and, gt } from "drizzle-orm";
 import { z } from "zod";
-import bcrypt from "bcryptjs";
+import { compare } from "bcryptjs";
 
 export const runtime = "nodejs";
 
@@ -71,7 +71,7 @@ export async function POST(req: Request) {
     }
 
     // Verify password
-    const passwordValid = await bcrypt.compare(password, user.passwordHash);
+    const passwordValid = await compare(password, user.passwordHash);
     if (!passwordValid) {
       return NextResponse.json(
         { error: "Invalid email or password" },
