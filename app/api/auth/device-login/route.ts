@@ -125,8 +125,9 @@ export async function POST(req: Request) {
     }, { headers: corsHeaders });
   } catch (err) {
     console.error("[device-login] Unexpected error:", err);
+    const errorMessage = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
-      { error: "An unexpected error occurred" },
+      { error: "An unexpected error occurred", debug: errorMessage },
       { status: 500, headers: corsHeaders }
     );
   }
