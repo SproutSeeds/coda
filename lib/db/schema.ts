@@ -75,6 +75,7 @@ export const users = pgTable("auth_user", {
   emailVerified: timestamp("email_verified", { withTimezone: true }),
   image: text("image"),
   passwordHash: text("password_hash"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const accounts = pgTable(
@@ -495,5 +496,30 @@ export const devicePairings = pgTable(
     deviceCodeIdx: index("idx_device_pairings_device_code").on(table.deviceCode),
     userIdx: index("idx_device_pairings_user").on(table.userId),
     statusIdx: index("idx_device_pairings_status").on(table.status),
+  }),
+);
+
+// MFA verification codes for device pairing
+export const mfaCodes = pgTable(
+  "mfa_codes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    code: text("code").notNull(),
+    purpose: text("purpose").notNull().default("device_pairing"), // device_pairing, login, etc.
+    attempts: integer("attempts").notNull().default(0),
+    maxAttempts: integer("max_attempts").notNull().default(5),
+    used: boolean("used").notNull().default(false),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    userPurposeIdx: index("idx_mfa_codes_user_purpose").on(table.userId, table.purpose),
+    emailIdx: index("idx_mfa_codes_email").on(table.email),
+    expiresIdx: index("idx_mfa_codes_expires").on(table.expiresAt),
   }),
 );

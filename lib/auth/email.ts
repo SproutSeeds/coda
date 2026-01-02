@@ -175,6 +175,59 @@ export async function sendPasswordVerificationEmail({
   }
 }
 
+export async function sendMfaCodeEmail({
+  email,
+  code,
+}: {
+  email: string;
+  code: string;
+}) {
+  const from = process.env.EMAIL_FROM;
+  if (!from) {
+    throw new Error("EMAIL_FROM is not set.");
+  }
+
+  const transporter = resolveTransporter();
+  let result;
+  try {
+    result = await transporter.sendMail({
+      to: email,
+      from,
+      subject: "Your Coda verification code",
+      text: `Your verification code is: ${code}\n\nThis code expires in 10 minutes. If you did not request this code, you can safely ignore this email.`,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
+          <h1 style="color: #111827; font-size: 24px; margin-bottom: 24px;">Verify your identity</h1>
+          <p style="color: #4b5563; font-size: 16px; line-height: 1.5; margin-bottom: 24px;">
+            Enter this code to complete your sign-in to Coda:
+          </p>
+          <div style="background: #f3f4f6; border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 24px;">
+            <span style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #111827;">${code}</span>
+          </div>
+          <p style="color: #6b7280; font-size: 14px; line-height: 1.5;">
+            This code expires in 10 minutes. If you didn't request this code, you can safely ignore this email.
+          </p>
+        </div>
+      `,
+    });
+  } catch (error) {
+    console.error("MFA code email send failed", error);
+    throw new Error("EmailMfaCode");
+  }
+
+  const rejected = Array.isArray(result.rejected) ? result.rejected : [];
+  const pending = Array.isArray(result.pending) ? result.pending : [];
+
+  if (rejected.length > 0 || pending.length > 0) {
+    console.error("MFA code email rejected", { email, rejected, pending });
+    throw new Error("EmailMfaCode");
+  }
+
+  const maybeMessage = (result as unknown as { message?: Buffer }).message;
+  const raw = maybeMessage ? maybeMessage.toString("utf8") : "";
+  testInbox.push({ email: email.toLowerCase(), url: code, raw });
+}
+
 export function getTestInbox() {
   return testInbox;
 }
