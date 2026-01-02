@@ -6,15 +6,12 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 
 import { getDb } from "@/lib/db";
 import { ideaCollaboratorInvites, ideaCollaborators, users } from "@/lib/db/schema";
-import { enforceLimit } from "@/lib/limits/guard";
-import { actorPays } from "@/lib/limits/payer";
 import { requireIdeaAccess } from "@/lib/db/access";
 import {
   normalizeCollaboratorEmail,
   validateCollaboratorInviteInput,
   validateCollaboratorRoleChange,
 } from "@/lib/validations/collaborators";
-import { logUsageCost } from "@/lib/usage/log-cost";
 import type { CollaboratorInviteInput } from "@/lib/validations/collaborators";
 
 const INVITE_TTL_MS = 1000 * 60 * 60 * 24 * 14;
@@ -219,16 +216,17 @@ export async function inviteCollaborator(userId: string, ideaId: string, input: 
       .returning();
 
     const result = { type: "invite", invite: mapInvite(updated) } satisfies InviteCollaboratorResult;
-    await logUsageCost({
-      payer: actorPays(access.idea.userId),
-      action: "collaborator.invite",
-      metadata: {
-        ideaId,
-        inviteId: updated.id,
-        actorId: userId,
-        source: "email-invite-refresh",
-      },
-    });
+    // Credit system disabled - skip usage cost logging
+    // await logUsageCost({
+    //   payer: actorPays(access.idea.userId),
+    //   action: "collaborator.invite",
+    //   metadata: {
+    //     ideaId,
+    //     inviteId: updated.id,
+    //     actorId: userId,
+    //     source: "email-invite-refresh",
+    //   },
+    // });
     return result;
   }
 
@@ -294,16 +292,17 @@ export async function inviteCollaborator(userId: string, ideaId: string, input: 
     .returning();
 
   const result = { type: "invite", invite: mapInvite(invite) } satisfies InviteCollaboratorResult;
-  await logUsageCost({
-    payer: actorPays(access.idea.userId),
-    action: "collaborator.invite",
-    metadata: {
-      ideaId,
-      inviteId: invite.id,
-      actorId: userId,
-      source: "email-invite",
-    },
-  });
+  // Credit system disabled - skip usage cost logging
+  // await logUsageCost({
+  //   payer: actorPays(access.idea.userId),
+  //   action: "collaborator.invite",
+  //   metadata: {
+  //     ideaId,
+  //     inviteId: invite.id,
+  //     actorId: userId,
+  //     source: "email-invite",
+  //   },
+  // });
   return result;
 }
 
@@ -446,9 +445,6 @@ export async function acceptIdeaCollaboratorInvite(userId: string, token: string
     owner: 3,
   };
 
-  let limitResult: Awaited<ReturnType<typeof enforceLimit>> | null = null;
-  let collaboratorId: string | null = existingCollaborator?.id ?? null;
-
   if (existingCollaborator) {
     const nextRole =
       rolePriority[invite.role] >= rolePriority[existingCollaborator.role]
@@ -482,14 +478,6 @@ export async function acceptIdeaCollaboratorInvite(userId: string, token: string
         updatedAt: timestamp,
       })
       .onConflictDoNothing({ target: [ideaCollaborators.ideaId, ideaCollaborators.userId] });
-
-    const [created] = await db
-      .select({ id: ideaCollaborators.id })
-      .from(ideaCollaborators)
-      .where(and(eq(ideaCollaborators.ideaId, invite.ideaId), eq(ideaCollaborators.userId, userId)))
-      .limit(1);
-
-    collaboratorId = created?.id ?? collaboratorId;
   }
 
   await db

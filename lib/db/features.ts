@@ -6,7 +6,6 @@ import { and, asc, desc, eq, isNull, isNotNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { getDb } from "@/lib/db";
-import { enforceLimit } from "@/lib/limits/guard";
 import { ideaFeatures } from "@/lib/db/schema";
 import { FEATURE_SUPER_STAR_LIMIT } from "@/lib/constants/features";
 import {
@@ -19,7 +18,6 @@ import {
 import { FeatureSuperStarLimitError } from "@/lib/errors/feature-super-star-limit";
 import { ensureSuperStarPlacement } from "@/lib/utils/super-star-ordering";
 import { requireIdeaAccess, type IdeaAccessRecord } from "@/lib/db/access";
-import { logUsageCost } from "@/lib/usage/log-cost";
 
 export type FeatureStarState = "none" | "star" | "super";
 

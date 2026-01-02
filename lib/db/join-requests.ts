@@ -7,9 +7,6 @@ import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { requireIdeaAccess } from "@/lib/db/access";
 import { ideaCollaborators, ideaJoinRequests, ideaJoinRequestStatusEnum, users } from "@/lib/db/schema";
-import { enforceLimit } from "@/lib/limits/guard";
-import { actorPays } from "@/lib/limits/payer";
-import { logUsageCost } from "@/lib/usage/log-cost";
 
 type IdeaJoinRequestStatus = (typeof ideaJoinRequestStatusEnum.enumValues)[number];
 
@@ -159,15 +156,16 @@ export async function createJoinRequest(applicantId: string, ideaId: string, mes
     })
     .returning();
 
-  await logUsageCost({
-    payer: actorPays(applicantId),
-    action: "join-request.create",
-    metadata: {
-      ideaId,
-      requestId: created.id,
-      messageLength: message.length,
-    },
-  });
+  // Credit system disabled - skip usage cost logging
+  // await logUsageCost({
+  //   payer: actorPays(applicantId),
+  //   action: "join-request.create",
+  //   metadata: {
+  //     ideaId,
+  //     requestId: created.id,
+  //     messageLength: message.length,
+  //   },
+  // });
 
   return normalizeJoinRequest(created);
 }
