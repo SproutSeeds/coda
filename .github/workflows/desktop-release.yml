@@ -40,7 +40,7 @@ jobs:
         run: pnpm --filter @coda/runner-desktop package -- --publish never
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: runner-desktop-${{ matrix.os }}
           path: dist/apps/runner-desktop/**
