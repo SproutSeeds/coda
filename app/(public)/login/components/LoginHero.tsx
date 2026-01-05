@@ -103,6 +103,7 @@ export function LoginHero() {
   const lastCycleProgressRef = useRef<number>(0);
   const cycleSeedRef = useRef(0);
   const canonicalGlyphRef = useRef<{ normalized: GlyphPoint[] } | null>(null);
+  const cycleCompleteRef = useRef(false);
 
   const gradientStops = useMemo(
     () => [
@@ -224,18 +225,26 @@ export function LoginHero() {
 
       const now = performance.now();
       const elapsed = now - startTimeRef.current;
-      const cycleProgress = elapsed % TOTAL_DURATION;
 
-      if (cycleProgress < lastCycleProgressRef.current) {
-        const nextCycleSeed = cycleSeedRef.current + 1;
-        cycleSeedRef.current = nextCycleSeed;
-        particles.forEach((particle, index) => {
-          particle.start = randomStart(width, height, index, nextCycleSeed);
-          particle.phaseSeed = seededRandom(nextCycleSeed * 1000 + index * 13.37) * Math.PI * 2;
-          particle.lastScanTime = -Infinity;
-        });
+      // After one full cycle, stop the animation with particles dispersed
+      if (elapsed >= TOTAL_DURATION) {
+        cycleCompleteRef.current = true;
       }
-      lastCycleProgressRef.current = cycleProgress;
+
+      // If cycle is complete, just draw the background and stop
+      if (cycleCompleteRef.current) {
+        ctx.globalCompositeOperation = "source-over";
+        ctx.fillStyle = BACKGROUND_COLOR;
+        ctx.fillRect(0, 0, width, height);
+        if (gradient) {
+          ctx.fillStyle = gradient;
+          ctx.fillRect(0, 0, width, height);
+        }
+        // Don't request another frame - animation is done
+        return;
+      }
+
+      const cycleProgress = elapsed;
 
       ctx.globalCompositeOperation = "source-over";
       ctx.fillStyle = BACKGROUND_COLOR;
